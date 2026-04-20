@@ -572,6 +572,111 @@ function applyHalftoneRosette(
 }
 
 // ---------------------------------------------------------------------------
+// WARM COLOR GRADING — paleta Jack Sparrow (sem preto, só marrom→laranja→amarelo→branco)
+// Mapeia luminância para gradiente quente: shadows=marrom escuro, mids=laranja, highs=branco
+// ---------------------------------------------------------------------------
+function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
+
+interface RGB { r: number; g: number; b: number; }
+const WARM_STOPS: { t: number; c: RGB }[] = [
+  { t: 0.00, c: { r: 60,  g: 28,  b: 12  } },   // sombra profunda — marrom escuro (NÃO preto)
+  { t: 0.18, c: { r: 110, g: 50,  b: 18  } },   // marrom queimado
+  { t: 0.38, c: { r: 178, g: 78,  b: 22  } },   // laranja terra
+  { t: 0.58, c: { r: 232, g: 130, b: 38  } },   // laranja vibrante
+  { t: 0.78, c: { r: 250, g: 195, b: 95  } },   // dourado/amarelo
+  { t: 1.00, c: { r: 255, g: 245, b: 215 } },   // luz alta — branco quente
+];
+
+function sampleWarmGradient(t: number): RGB {
+  if (t <= 0) return WARM_STOPS[0].c;
+  if (t >= 1) return WARM_STOPS[WARM_STOPS.length - 1].c;
+  for (let i = 0; i < WARM_STOPS.length - 1; i++) {
+    const a = WARM_STOPS[i], b = WARM_STOPS[i + 1];
+    if (t >= a.t && t <= b.t) {
+      const u = (t - a.t) / (b.t - a.t);
+      return { r: lerp(a.c.r, b.c.r, u), g: lerp(a.c.g, b.c.g, u), b: lerp(a.c.b, b.c.b, u) };
+    }
+  }
+  return WARM_STOPS[WARM_STOPS.length - 1].c;
+}
+
+function applyWarmGrading(img: ImageData, intensity = 1): ImageData {
+  const out = new ImageData(img.width, img.height);
+  const d = img.data, o = out.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const luma = rgbToLuma(d[i], d[i + 1], d[i + 2]) / 255;
+    const warm = sampleWarmGradient(luma);
+    o[i]     = Math.round(lerp(d[i],     warm.r, intensity));
+    o[i + 1] = Math.round(lerp(d[i + 1], warm.g, intensity));
+    o[i + 2] = Math.round(lerp(d[i + 2], warm.b, intensity));
+    o[i + 3] = d[i + 3];
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// HALFTONE WARM DUOTONE — só Magenta + Yellow (zero Cyan, zero Black)
+// Resultado parece impresso só com tintas quentes
+// ---------------------------------------------------------------------------
+function applyHalftoneWarmDuotone(
+  img: ImageData,
+  dpi = 300,
+  lpi = 35,
+  mask?: Float32Array
+): ImageData {
+  const { width: w, height: h, data } = img;
+  const total = w * h;
+  const cellPx = dpi / lpi;
+
+  // Decompõe em "tinta magenta" e "tinta amarela" a partir do RGB já gradiado
+  const Mch = new Float32Array(total);
+  const Ych = new Float32Array(total);
+  for (let p = 0, i = 0; p < total; p++, i += 4) {
+    const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
+    // Yellow ink absorve azul → cobertura ~ (1 - b)
+    Ych[p] = Math.max(0, Math.min(1, 1 - b));
+    // Magenta ink absorve verde → cobertura ~ (1 - g), mas descontada do amarelo já presente
+    Mch[p] = Math.max(0, Math.min(1, (1 - g) - 0.15 * Ych[p]));
+  }
+
+  // Ângulos clássicos quentes — Y 0°, M 75° (sem C nem K)
+  const dotsY = halftoneChannel(Ych, w, h, cellPx, 0, mask);
+  const dotsM = halftoneChannel(Mch, w, h, cellPx, 75, mask);
+
+  // Tintas em RGB (papel branco)
+  const INK_M = { r: 226, g: 56,  b: 92  };  // magenta levemente quente
+  const INK_Y = { r: 248, g: 200, b: 60  };  // amarelo dourado
+  const PAPER = { r: 255, g: 248, b: 232 };  // branco quente
+
+  const out = new ImageData(w, h);
+  const o = out.data;
+  for (let p = 0, i = 0; p < total; p++, i += 4) {
+    const m = mask ? mask[p] : 1;
+    if (m <= 0.005) continue;
+    const paperAlpha = getPaperAlpha(m);
+
+    let r = PAPER.r / 255, g = PAPER.g / 255, b = PAPER.b / 255;
+    let hasDot = false;
+    // Multiply por cada tinta presente
+    if (dotsY[p]) { r *= INK_Y.r / 255; g *= INK_Y.g / 255; b *= INK_Y.b / 255; hasDot = true; }
+    if (dotsM[p]) { r *= INK_M.r / 255; g *= INK_M.g / 255; b *= INK_M.b / 255; hasDot = true; }
+
+    if (hasDot) {
+      o[i]     = Math.round(r * 255);
+      o[i + 1] = Math.round(g * 255);
+      o[i + 2] = Math.round(b * 255);
+      o[i + 3] = Math.max(paperAlpha, Math.round(255 * m));
+    } else if (paperAlpha > 0) {
+      o[i]     = PAPER.r;
+      o[i + 1] = PAPER.g;
+      o[i + 2] = PAPER.b;
+      o[i + 3] = paperAlpha;
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // High-Key warm tone
 // ---------------------------------------------------------------------------
 function applyHighKeyWarmCurve(img: ImageData, warmth = 0.08, lift = 0.12): ImageData {
