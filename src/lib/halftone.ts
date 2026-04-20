@@ -222,6 +222,70 @@ function rgbToLuma(r: number, g: number, b: number) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
+function analyzeMaskedLevels(img: ImageData, mask?: Float32Array) {
+  const hist = new Uint32Array(256);
+  const { data } = img;
+  let count = 0;
+
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+    if (data[i + 3] === 0) continue;
+    if (mask && mask[p] <= 0.08) continue;
+    hist[Math.round(rgbToLuma(data[i], data[i + 1], data[i + 2]))]++;
+    count++;
+  }
+
+  if (count === 0) {
+    return { blackPoint: 20, whitePoint: 245 };
+  }
+
+  const percentile = (q: number) => {
+    const target = count * q;
+    let acc = 0;
+    for (let i = 0; i < 256; i++) {
+      acc += hist[i];
+      if (acc >= target) return i;
+    }
+    return 255;
+  };
+
+  let weightedSum = 0;
+  for (let i = 0; i < 256; i++) weightedSum += i * hist[i];
+
+  let backgroundWeight = 0;
+  let backgroundSum = 0;
+  let bestVariance = -1;
+  let otsuThreshold = 64;
+
+  for (let i = 0; i < 256; i++) {
+    backgroundWeight += hist[i];
+    if (backgroundWeight === 0) continue;
+
+    const foregroundWeight = count - backgroundWeight;
+    if (foregroundWeight === 0) break;
+
+    backgroundSum += i * hist[i];
+    const meanBg = backgroundSum / backgroundWeight;
+    const meanFg = (weightedSum - backgroundSum) / foregroundWeight;
+    const variance = backgroundWeight * foregroundWeight * (meanBg - meanFg) ** 2;
+
+    if (variance > bestVariance) {
+      bestVariance = variance;
+      otsuThreshold = i;
+    }
+  }
+
+  const low = percentile(0.02);
+  const high = percentile(0.985);
+  const blackPoint = Math.max(0, Math.min(220, Math.round(low + Math.max(0, otsuThreshold - low) * 0.22)));
+  const whitePoint = Math.max(blackPoint + 24, Math.min(255, Math.round(high)));
+
+  return { blackPoint, whitePoint };
+}
+
+function getPaperAlpha(maskValue: number) {
+  return maskValue >= 0.98 ? 255 : 0;
+}
+
 // ---------------------------------------------------------------------------
 // FLOOD FILL a partir dos 4 cantos — preserva brancos internos do personagem
 // ---------------------------------------------------------------------------
@@ -373,18 +437,23 @@ function applyHalftoneCircular(
       const luma = rgbToLuma(data[si], data[si + 1], data[si + 2]) / 255;
       const cellMask = mask ? mask[syi * w + sxi] : 1;
       const pixelMask = mask ? mask[y * w + x] : 1;
+      const paperAlpha = getPaperAlpha(pixelMask);
       const toneMask = Math.min(cellMask, pixelMask);
       if (toneMask <= 0.01) continue;
       const coverage = (1 - luma) * toneMask;
-      if (coverage <= 0.01) continue;
-      const r = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
-      const insideDot = dist <= r;
-      const insideCorner = dist <= maxR && coverage > 0.92;
+      const dotRadius = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
+      const insideDot = coverage > 0.01 && dist <= dotRadius;
+      const insideCorner = coverage > 0.92 && dist <= maxR;
       if (insideDot || insideCorner) {
         out.data[i] = data[si];
         out.data[i + 1] = data[si + 1];
         out.data[i + 2] = data[si + 2];
-        out.data[i + 3] = Math.round(255 * toneMask);
+        out.data[i + 3] = Math.max(paperAlpha, Math.round(255 * toneMask));
+      } else if (paperAlpha > 0) {
+        out.data[i] = 255;
+        out.data[i + 1] = 255;
+        out.data[i + 2] = 255;
+        out.data[i + 3] = paperAlpha;
       }
     }
   }
@@ -479,6 +548,12 @@ function applyHalftoneRosette(
   for (let p = 0, i = 0; p < total; p++, i += 4) {
     const m = mask ? mask[p] : 1;
     if (m <= 0.01) continue;
+    const paperAlpha = getPaperAlpha(m);
+
+    o[i] = 255;
+    o[i + 1] = 255;
+    o[i + 2] = 255;
+    o[i + 3] = paperAlpha;
 
     let r = 1, g = 1, b = 1;
     let hasDot = false;
@@ -491,7 +566,7 @@ function applyHalftoneRosette(
     o[i] = Math.round(r * 255);
     o[i + 1] = Math.round(g * 255);
     o[i + 2] = Math.round(b * 255);
-    o[i + 3] = Math.round(255 * m);
+    o[i + 3] = Math.max(paperAlpha, Math.round(255 * m));
   }
   return out;
 }
