@@ -109,7 +109,7 @@ export function HalftoneStudio() {
             </h1>
             <p className="text-muted-foreground mt-2 max-w-xl">
               Pipeline 300 DPI · Retícula AM 35 LPI @ 22° · Pontos circulares ·
-              Saída PNG RGBA com transparência preservada.
+              Pôster sobre papel branco com vignette radial.
             </p>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 rounded-md border border-border bg-card/50 backdrop-blur">
@@ -166,7 +166,6 @@ export function HalftoneStudio() {
                       : "—"
                   }
                   highlight={!!fullResult}
-                  checkered
                 />
               </div>
             )}
@@ -282,6 +281,34 @@ export function HalftoneStudio() {
               format={(v) => `${(v * 100).toFixed(0)}%`}
               onChange={(v) => setOpts((o) => ({ ...o, vibrance: v }))}
             />
+            <SliderRow
+              label="Warmth (dourado)"
+              value={opts.warmth ?? 0.08}
+              min={0} max={0.25} step={0.01}
+              format={(v) => `${(v * 100).toFixed(0)}%`}
+              onChange={(v) => setOpts((o) => ({ ...o, warmth: v }))}
+            />
+            <SliderRow
+              label="High-Key Lift"
+              value={opts.highKeyLift ?? 0.18}
+              min={0} max={0.4} step={0.01}
+              format={(v) => v.toFixed(2)}
+              onChange={(v) => setOpts((o) => ({ ...o, highKeyLift: v }))}
+            />
+            <SliderRow
+              label="Vignette início"
+              value={opts.vignetteInner ?? 0.55}
+              min={0.1} max={0.9} step={0.02}
+              format={(v) => v.toFixed(2)}
+              onChange={(v) => setOpts((o) => ({ ...o, vignetteInner: v }))}
+            />
+            <SliderRow
+              label="Vignette fim (branco)"
+              value={opts.vignetteOuter ?? 0.95}
+              min={0.5} max={1.2} step={0.02}
+              format={(v) => v.toFixed(2)}
+              onChange={(v) => setOpts((o) => ({ ...o, vignetteOuter: v }))}
+            />
 
             <Separator />
 
@@ -297,7 +324,7 @@ export function HalftoneStudio() {
         </div>
 
         <footer className="mt-12 text-xs text-muted-foreground/70 font-mono text-center">
-          AM Halftone · Circular dot · 35 LPI · 22° · 300 DPI · PNG 32-bit RGBA
+          AM Halftone · Circular dot · 35 LPI · 22° · 300 DPI · Pôster sobre papel branco
         </footer>
       </div>
     </div>
@@ -336,10 +363,10 @@ function SliderRow({
 }
 
 function PreviewCard({
-  title, url, meta, highlight, checkered,
+  title, url, meta, highlight,
 }: {
   title: string; url: string | null; meta: string;
-  highlight?: boolean; checkered?: boolean;
+  highlight?: boolean;
 }) {
   return (
     <Card
@@ -356,17 +383,7 @@ function PreviewCard({
         </span>
       </div>
       <div
-        className="aspect-[2/3] w-full rounded-md overflow-hidden border border-border flex items-center justify-center"
-        style={
-          checkered
-            ? {
-                backgroundImage:
-                  "linear-gradient(45deg,#1f2937 25%,transparent 25%),linear-gradient(-45deg,#1f2937 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1f2937 75%),linear-gradient(-45deg,transparent 75%,#1f2937 75%)",
-                backgroundSize: "16px 16px",
-                backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
-              }
-            : { background: "oklch(0.10 0.01 240)" }
-        }
+        className="aspect-[2/3] w-full rounded-md overflow-hidden border border-border flex items-center justify-center bg-white"
       >
         {url ? (
           <img

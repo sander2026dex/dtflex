@@ -144,15 +144,16 @@ function applyLevelsAndGamma(
 }
 
 // ---------------------------------------------------------------------------
-// 4. AM Halftone — pontos circulares rotacionados
+// 4. AM Halftone — pontos circulares rotacionados sobre fundo BRANCO
 // ---------------------------------------------------------------------------
 function rgbToLuma(r: number, g: number, b: number) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
 /**
- * Halftone AM circular. Frequência em LPI, ângulo em graus, DPI da imagem.
- * Preserva canal RGB médio do ponto (cor mantida) e aplica máscara halftone na luminância.
+ * Halftone AM circular sobre fundo branco sólido.
+ * Áreas claras se misturam com o branco (sem "sujeira"), sombras ganham densidade.
+ * Saída sempre opaca (alpha = 255).
  */
 function applyHalftone(
   img: ImageData,
@@ -162,61 +163,134 @@ function applyHalftone(
 ): ImageData {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
-  // fundo transparente por padrão
-  const cellPx = dpi / lpi; // tamanho da célula em px
+  // Inicializa fundo BRANCO opaco
+  for (let i = 0; i < out.data.length; i += 4) {
+    out.data[i] = 255;
+    out.data[i + 1] = 255;
+    out.data[i + 2] = 255;
+    out.data[i + 3] = 255;
+  }
+
+  const cellPx = dpi / lpi;
   const angle = (angleDeg * Math.PI) / 180;
   const cos = Math.cos(angle), sin = Math.sin(angle);
-  // base anti-rotação: a malha é alinhada num sistema rotacionado
   const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
-
-  // Fator do raio máximo do ponto: sqrt(2)/2 cobre toda célula
   const maxR = cellPx * 0.5 * Math.SQRT2;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
-      const a = data[i + 3];
-      if (a < 8) continue; // fora do objeto → 100% transparente
 
-      // Coordenadas no espaço da malha rotacionada
+      // Espaço da malha rotacionada
       const xr = x * cosI - y * sinI;
       const yr = x * sinI + y * cosI;
-      // Centro da célula mais próxima
       const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
       const cyr = (Math.floor(yr / cellPx) + 0.5) * cellPx;
-      // Distância do ponto ao centro da célula (no espaço rotacionado)
       const dxr = xr - cxr;
       const dyr = yr - cyr;
       const dist = Math.sqrt(dxr * dxr + dyr * dyr);
 
-      // Amostra a luminância média da célula → tom (0=preto, 1=branco)
-      // Para performance, amostra o pixel central (rotação inversa)
+      // Amostra cor da célula (pixel central via rotação inversa)
       const cx = Math.round(cxr * cos - cyr * sin);
       const cy = Math.round(cxr * sin + cyr * cos);
       const sxi = Math.max(0, Math.min(w - 1, cx));
       const syi = Math.max(0, Math.min(h - 1, cy));
       const si = (syi * w + sxi) * 4;
-      const sA = data[si + 3];
-      if (sA < 8) continue;
       const luma = rgbToLuma(data[si], data[si + 1], data[si + 2]) / 255;
-      // Cobertura desejada (1 = preto cheio)
+
+      // Threshold: luma ≥ 0.96 não desenha nada (fica branco puro, sem sujeira)
+      if (luma >= 0.96) continue;
+
+      // Cobertura desejada (1 = ponto cheio)
       const coverage = 1 - luma;
-      // Raio do ponto para essa cobertura (área = π r² = coverage * cellPx²)
       const r = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
 
-      if (dist <= r) {
-        // pinta com a cor da célula
+      const insideDot = dist <= r;
+      const insideCorner = dist <= maxR && coverage > 0.92;
+      if (insideDot || insideCorner) {
         out.data[i] = data[si];
         out.data[i + 1] = data[si + 1];
         out.data[i + 2] = data[si + 2];
-        out.data[i + 3] = a;
-      } else if (dist <= maxR && coverage > 0.92) {
-        // áreas muito escuras: preenche cantos remanescentes
-        out.data[i] = data[si];
-        out.data[i + 1] = data[si + 1];
-        out.data[i + 2] = data[si + 2];
-        out.data[i + 3] = a;
+        // alpha já é 255 (fundo)
       }
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 4b. Achata canal alpha contra fundo BRANCO (#FFFFFF)
+// ---------------------------------------------------------------------------
+function flattenOnWhite(img: ImageData): ImageData {
+  const out = new ImageData(img.width, img.height);
+  const d = img.data, o = out.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const a = d[i + 3] / 255;
+    o[i] = Math.round(d[i] * a + 255 * (1 - a));
+    o[i + 1] = Math.round(d[i + 1] * a + 255 * (1 - a));
+    o[i + 2] = Math.round(d[i + 2] * a + 255 * (1 - a));
+    o[i + 3] = 255;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 4c. High-Key warm tone curve — eleva meios-tons e adiciona calor (amarelo/laranja)
+// ---------------------------------------------------------------------------
+function applyHighKeyWarmCurve(img: ImageData, warmth = 0.08, lift = 0.12): ImageData {
+  const out = new ImageData(img.width, img.height);
+  const d = img.data, o = out.data;
+  // Curva de lift dos meios-tons (S invertida suave): saída = pow(in, 1/(1+lift*4))
+  const gamma = 1 / (1 + lift * 1.5);
+  const lut = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i++) {
+    const v = Math.pow(i / 255, gamma);
+    lut[i] = Math.round(v * 255);
+  }
+  for (let i = 0; i < d.length; i += 4) {
+    let r = lut[d[i]];
+    let g = lut[d[i + 1]];
+    let b = lut[d[i + 2]];
+    // Warm shift: aumenta R e G, reduz levemente B (puxa para amarelo/dourado)
+    r = Math.min(255, Math.round(r + warmth * 255 * 0.6));
+    g = Math.min(255, Math.round(g + warmth * 255 * 0.4));
+    b = Math.max(0, Math.round(b - warmth * 255 * 0.5));
+    o[i] = r; o[i + 1] = g; o[i + 2] = b;
+    o[i + 3] = d[i + 3];
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 4d. Vignette radial — fade das bordas para BRANCO (papel)
+// ---------------------------------------------------------------------------
+function applyRadialVignetteToWhite(
+  img: ImageData,
+  innerRadius = 0.55,
+  outerRadius = 0.95
+): ImageData {
+  const { width: w, height: h, data } = img;
+  const out = new ImageData(w, h);
+  const cx = w / 2, cy = h / 2;
+  // Normaliza pela diagonal/2 para alcançar cantos
+  const maxDist = Math.sqrt(cx * cx + cy * cy);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const dx = x - cx, dy = y - cy;
+      const d = Math.sqrt(dx * dx + dy * dy) / maxDist; // 0 centro → 1 canto
+      let t: number;
+      if (d <= innerRadius) t = 1;
+      else if (d >= outerRadius) t = 0;
+      else {
+        // smoothstep
+        const u = (d - innerRadius) / (outerRadius - innerRadius);
+        t = 1 - u * u * (3 - 2 * u);
+      }
+      out.data[i] = Math.round(data[i] * t + 255 * (1 - t));
+      out.data[i + 1] = Math.round(data[i + 1] * t + 255 * (1 - t));
+      out.data[i + 2] = Math.round(data[i + 2] * t + 255 * (1 - t));
+      out.data[i + 3] = 255;
     }
   }
   return out;
@@ -257,6 +331,10 @@ export interface HalftoneOptions {
   midtoneGamma?: number;
   unsharpAmount?: number;
   vibrance?: number;
+  warmth?: number;          // 0..0.3 — calor amarelo/dourado
+  highKeyLift?: number;     // 0..0.4 — elevação dos meios-tons
+  vignetteInner?: number;   // 0..1 — raio onde começa o fade
+  vignetteOuter?: number;   // 0..1 — raio onde termina (100% branco)
 }
 
 export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
@@ -271,6 +349,10 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   midtoneGamma: 0.7,
   unsharpAmount: 0.6,
   vibrance: 0.15,
+  warmth: 0.08,
+  highKeyLift: 0.18,
+  vignetteInner: 0.55,
+  vignetteOuter: 0.95,
 };
 
 /** Yield ao event loop entre estágios pesados. */
@@ -280,7 +362,6 @@ export async function processImage(
   source: HTMLImageElement,
   opts: HalftoneOptions = {},
   onProgress?: ProgressFn,
-  // Opcional: usar resolução reduzida para preview rápido
   previewMaxDim?: number
 ): Promise<Blob> {
   const o = { ...DEFAULT_OPTIONS, ...opts };
@@ -296,27 +377,38 @@ export async function processImage(
   await tick();
   const resized = resizeTo(source, tw, th);
 
-  onProgress?.("Aplicando Unsharp Mask", 20);
+  onProgress?.("Achatando sobre fundo branco", 12);
   await tick();
   const ctx = resized.getContext("2d")!;
   let data = ctx.getImageData(0, 0, tw, th);
+  data = flattenOnWhite(data);
+
+  onProgress?.("Aplicando Unsharp Mask", 22);
+  await tick();
   data = unsharpMask(data, o.unsharpAmount, 1);
 
-  onProgress?.("Ajustando níveis e meios-tons", 35);
+  onProgress?.("Curva High-Key + warmth", 32);
+  await tick();
+  data = applyHighKeyWarmCurve(data, o.warmth, o.highKeyLift);
+
+  onProgress?.("Ajustando níveis e meios-tons", 42);
   await tick();
   data = applyLevelsAndGamma(data, o.blackPoint, o.whitePoint, o.gammaLevels, o.midtoneGamma);
 
-  onProgress?.("Gerando halftone AM 35 LPI @ 22°", 55);
+  onProgress?.("Gerando halftone AM @ ângulo", 60);
   await tick();
-  // Escala o DPI proporcionalmente em modo preview para manter aparência
   const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
   data = applyHalftone(data, effectiveDpi, o.lpi, o.angleDeg);
 
-  onProgress?.("Aplicando vibrance", 80);
+  onProgress?.("Aplicando vibrance", 78);
   await tick();
   data = applyVibrance(data, o.vibrance);
 
-  onProgress?.("Exportando PNG 32-bit", 92);
+  onProgress?.("Vignette radial → papel branco", 86);
+  await tick();
+  data = applyRadialVignetteToWhite(data, o.vignetteInner, o.vignetteOuter);
+
+  onProgress?.("Exportando PNG", 92);
   await tick();
   ctx.putImageData(data, 0, 0);
   const blob: Blob = await new Promise((res) =>
