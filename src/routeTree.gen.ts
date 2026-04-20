@@ -9,12 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VerifyAdminRouteImport } from './routes/verify-admin'
+import { Route as ValidateAccessCodeRouteImport } from './routes/validate-access-code'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
 
+const VerifyAdminRoute = VerifyAdminRouteImport.update({
+  id: '/verify-admin',
+  path: '/verify-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ValidateAccessCodeRoute = ValidateAccessCodeRouteImport.update({
+  id: '/validate-access-code',
+  path: '/validate-access-code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -46,6 +58,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
+  '/validate-access-code': typeof ValidateAccessCodeRoute
+  '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +67,8 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
+  '/validate-access-code': typeof ValidateAccessCodeRoute
+  '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
 }
 export interface FileRoutesById {
@@ -61,14 +77,38 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
+  '/validate-access-code': typeof ValidateAccessCodeRoute
+  '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/app' | '/login' | '/api/stripe-webhook'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/app'
+    | '/login'
+    | '/validate-access-code'
+    | '/verify-admin'
+    | '/api/stripe-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/app' | '/login' | '/api/stripe-webhook'
-  id: '__root__' | '/' | '/admin' | '/app' | '/login' | '/api/stripe-webhook'
+  to:
+    | '/'
+    | '/admin'
+    | '/app'
+    | '/login'
+    | '/validate-access-code'
+    | '/verify-admin'
+    | '/api/stripe-webhook'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/app'
+    | '/login'
+    | '/validate-access-code'
+    | '/verify-admin'
+    | '/api/stripe-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,11 +116,27 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AppRoute: typeof AppRoute
   LoginRoute: typeof LoginRoute
+  ValidateAccessCodeRoute: typeof ValidateAccessCodeRoute
+  VerifyAdminRoute: typeof VerifyAdminRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/verify-admin': {
+      id: '/verify-admin'
+      path: '/verify-admin'
+      fullPath: '/verify-admin'
+      preLoaderRoute: typeof VerifyAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/validate-access-code': {
+      id: '/validate-access-code'
+      path: '/validate-access-code'
+      fullPath: '/validate-access-code'
+      preLoaderRoute: typeof ValidateAccessCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -124,6 +180,8 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AppRoute: AppRoute,
   LoginRoute: LoginRoute,
+  ValidateAccessCodeRoute: ValidateAccessCodeRoute,
+  VerifyAdminRoute: VerifyAdminRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport
