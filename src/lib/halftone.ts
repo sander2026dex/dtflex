@@ -282,8 +282,10 @@ function analyzeMaskedLevels(img: ImageData, mask?: Float32Array) {
   return { blackPoint, whitePoint };
 }
 
-function getPaperAlpha(maskValue: number) {
-  return maskValue >= 0.98 ? 255 : 0;
+// PRÉ-IMPRESSÃO REAL: entre os pontos = TRANSPARENTE (papel = vazado)
+// Não existe "papel branco" — só existe tinta ou nada.
+function getPaperAlpha(_maskValue: number) {
+  return 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -402,7 +404,11 @@ function applyMaskToRGBA(img: ImageData, mask: Float32Array): ImageData {
 }
 
 // ---------------------------------------------------------------------------
-// Halftone AM circular (single-channel grayscale-driven, RGB color preservada)
+// HALFTONE AM CIRCULAR — RETÍCULA REAL DE PRÉ-IMPRESSÃO
+// • Pontos sólidos da cor original onde há tinta
+// • TRANSPARENTE entre os pontos (papel = vazado)
+// • PRETO/sombras = SEM TINTA = TRANSPARENTE (vazado)
+// • Cobertura proporcional à luminância (claro = ponto grande, escuro = vazado)
 // ---------------------------------------------------------------------------
 function applyHalftoneCircular(
   img: ImageData,
@@ -417,11 +423,15 @@ function applyHalftoneCircular(
   const angle = (angleDeg * Math.PI) / 180;
   const cos = Math.cos(angle), sin = Math.sin(angle);
   const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
-  const maxR = cellPx * 0.5 * Math.SQRT2;
+  const cellArea = cellPx * cellPx;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
+      const pixelMask = mask ? mask[y * w + x] : 1;
+      if (pixelMask <= 0.01) continue; // fora do sujeito → transparente
+
+      // posição rotacionada → célula da retícula
       const xr = x * cosI - y * sinI;
       const yr = x * sinI + y * cosI;
       const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
@@ -429,32 +439,32 @@ function applyHalftoneCircular(
       const dxr = xr - cxr;
       const dyr = yr - cyr;
       const dist = Math.sqrt(dxr * dxr + dyr * dyr);
+
+      // amostra cor no centro da célula (rotação inversa)
       const cx = Math.round(cxr * cos - cyr * sin);
       const cy = Math.round(cxr * sin + cyr * cos);
       const sxi = Math.max(0, Math.min(w - 1, cx));
       const syi = Math.max(0, Math.min(h - 1, cy));
       const si = (syi * w + sxi) * 4;
-      const luma = rgbToLuma(data[si], data[si + 1], data[si + 2]) / 255;
+      const r = data[si], g = data[si + 1], b = data[si + 2];
+      const luma = rgbToLuma(r, g, b) / 255;
       const cellMask = mask ? mask[syi * w + sxi] : 1;
-      const pixelMask = mask ? mask[y * w + x] : 1;
-      const paperAlpha = getPaperAlpha(pixelMask);
-      const toneMask = Math.min(cellMask, pixelMask);
-      if (toneMask <= 0.01) continue;
-      const coverage = (1 - luma) * toneMask;
-      const dotRadius = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
-      const insideDot = coverage > 0.01 && dist <= dotRadius;
-      const insideCorner = coverage > 0.92 && dist <= maxR;
-      if (insideDot || insideCorner) {
-        out.data[i] = data[si];
-        out.data[i + 1] = data[si + 1];
-        out.data[i + 2] = data[si + 2];
-        out.data[i + 3] = Math.max(paperAlpha, Math.round(255 * toneMask));
-      } else if (paperAlpha > 0) {
-        out.data[i] = 255;
-        out.data[i + 1] = 255;
-        out.data[i + 2] = 255;
-        out.data[i + 3] = paperAlpha;
-      }
+
+      // RETÍCULA PRO: cobertura proporcional ao brilho do pixel
+      // PRETO (luma=0) → ponto zero → 100% VAZADO/TRANSPARENTE
+      // BRANCO/CLARO (luma=1) → ponto grande
+      const coverage = luma * cellMask * pixelMask;
+      if (coverage <= 0.02) continue; // preto/sombra = vazado
+
+      // Raio do ponto proporcional à cobertura desejada
+      const dotRadius = Math.sqrt((coverage * cellArea) / Math.PI);
+      if (dist > dotRadius) continue; // entre pontos = transparente
+
+      // Dentro do ponto: tinta sólida da cor original do pixel
+      out.data[i]     = r;
+      out.data[i + 1] = g;
+      out.data[i + 2] = b;
+      out.data[i + 3] = 255;
     }
   }
   return out;
@@ -516,6 +526,14 @@ function halftoneChannel(
   return dots;
 }
 
+// ---------------------------------------------------------------------------
+// HALFTONE ROSETTE CMYK — RETÍCULA REAL DE PRÉ-IMPRESSÃO
+// • 4 chapas: C 15° · M 75° · Y 0° · K 45° → padrão floral (rosette)
+// • Cada ponto = TINTA SÓLIDA da chapa (Cyan, Magenta, Yellow, Black)
+// • Preto = ponto K SÓLIDO (mas é a chapa K, não fundo)
+// • Entre os pontos = TRANSPARENTE (papel vazado)
+// • Sobreposição de tintas = multiply real
+// ---------------------------------------------------------------------------
 function applyHalftoneRosette(
   img: ImageData,
   dpi = 300,
@@ -526,7 +544,7 @@ function applyHalftoneRosette(
   const total = w * h;
   const cellPx = dpi / lpi;
 
-  // Separação CMYK
+  // Separação CMYK real
   const C = new Float32Array(total);
   const M = new Float32Array(total);
   const Y = new Float32Array(total);
@@ -536,37 +554,41 @@ function applyHalftoneRosette(
     C[p] = c; M[p] = m; Y[p] = y; K[p] = k;
   }
 
-  // Halftone por canal nos ângulos clássicos
+  // Halftone por chapa nos ângulos clássicos offset
   const dotsC = halftoneChannel(C, w, h, cellPx, 15, mask);
   const dotsM = halftoneChannel(M, w, h, cellPx, 75, mask);
-  const dotsY = halftoneChannel(Y, w, h, cellPx, 0, mask);
+  const dotsY = halftoneChannel(Y, w, h, cellPx, 0,  mask);
   const dotsK = halftoneChannel(K, w, h, cellPx, 45, mask);
 
-  // Composição multiplicativa (papel branco) — cada ponto subtrai sua cor complementar
+  // Cores das tintas (process inks)
+  const INK_C = { r: 0,   g: 174, b: 239 };
+  const INK_M = { r: 236, g: 0,   b: 140 };
+  const INK_Y = { r: 255, g: 237, b: 0   };
+  const INK_K = { r: 20,  g: 20,  b: 20  };
+
   const out = new ImageData(w, h);
   const o = out.data;
   for (let p = 0, i = 0; p < total; p++, i += 4) {
-    const m = mask ? mask[p] : 1;
-    if (m <= 0.01) continue;
-    const paperAlpha = getPaperAlpha(m);
+    const mk = mask ? mask[p] : 1;
+    if (mk <= 0.01) continue;
 
-    o[i] = 255;
-    o[i + 1] = 255;
-    o[i + 2] = 255;
-    o[i + 3] = paperAlpha;
+    const hC = !!dotsC[p];
+    const hM = !!dotsM[p];
+    const hY = !!dotsY[p];
+    const hK = !!dotsK[p];
+    if (!hC && !hM && !hY && !hK) continue; // sem tinta = vazado
 
+    // Multiply das tintas presentes (sobre branco virtual = 1,1,1)
     let r = 1, g = 1, b = 1;
-    let hasDot = false;
-    if (dotsC[p]) { r *= 0; g *= 1; b *= 1; hasDot = true; }       // Cyan = (0,255,255)
-    if (dotsM[p]) { r *= 1; g *= 0; b *= 1; hasDot = true; }       // Magenta = (255,0,255)
-    if (dotsY[p]) { r *= 1; g *= 1; b *= 0; hasDot = true; }       // Yellow = (255,255,0)
-    if (dotsK[p]) { r = 0; g = 0; b = 0; hasDot = true; }          // Black domina
-    if (!hasDot) continue;
+    if (hC) { r *= INK_C.r / 255; g *= INK_C.g / 255; b *= INK_C.b / 255; }
+    if (hM) { r *= INK_M.r / 255; g *= INK_M.g / 255; b *= INK_M.b / 255; }
+    if (hY) { r *= INK_Y.r / 255; g *= INK_Y.g / 255; b *= INK_Y.b / 255; }
+    if (hK) { r *= INK_K.r / 255; g *= INK_K.g / 255; b *= INK_K.b / 255; }
 
-    o[i] = Math.round(r * 255);
+    o[i]     = Math.round(r * 255);
     o[i + 1] = Math.round(g * 255);
     o[i + 2] = Math.round(b * 255);
-    o[i + 3] = Math.max(paperAlpha, Math.round(255 * m));
+    o[i + 3] = 255; // ponto sólido
   }
   return out;
 }
@@ -643,35 +665,30 @@ function applyHalftoneWarmDuotone(
   const dotsY = halftoneChannel(Ych, w, h, cellPx, 0, mask);
   const dotsM = halftoneChannel(Mch, w, h, cellPx, 75, mask);
 
-  // Tintas em RGB (papel branco)
+  // Tintas em RGB (offset quente — sem papel, fundo vazado)
   const INK_M = { r: 226, g: 56,  b: 92  };  // magenta levemente quente
   const INK_Y = { r: 248, g: 200, b: 60  };  // amarelo dourado
-  const PAPER = { r: 255, g: 248, b: 232 };  // branco quente
+
 
   const out = new ImageData(w, h);
   const o = out.data;
   for (let p = 0, i = 0; p < total; p++, i += 4) {
-    const m = mask ? mask[p] : 1;
-    if (m <= 0.005) continue;
-    const paperAlpha = getPaperAlpha(m);
+    const mk = mask ? mask[p] : 1;
+    if (mk <= 0.005) continue;
 
-    let r = PAPER.r / 255, g = PAPER.g / 255, b = PAPER.b / 255;
-    let hasDot = false;
-    // Multiply por cada tinta presente
-    if (dotsY[p]) { r *= INK_Y.r / 255; g *= INK_Y.g / 255; b *= INK_Y.b / 255; hasDot = true; }
-    if (dotsM[p]) { r *= INK_M.r / 255; g *= INK_M.g / 255; b *= INK_M.b / 255; hasDot = true; }
+    const hY = !!dotsY[p];
+    const hM = !!dotsM[p];
+    if (!hY && !hM) continue; // sem tinta = vazado (transparente)
 
-    if (hasDot) {
-      o[i]     = Math.round(r * 255);
-      o[i + 1] = Math.round(g * 255);
-      o[i + 2] = Math.round(b * 255);
-      o[i + 3] = Math.max(paperAlpha, Math.round(255 * m));
-    } else if (paperAlpha > 0) {
-      o[i]     = PAPER.r;
-      o[i + 1] = PAPER.g;
-      o[i + 2] = PAPER.b;
-      o[i + 3] = paperAlpha;
-    }
+    // Multiply das tintas presentes (sem branco de papel — fica vazado entre os pontos)
+    let r = 1, g = 1, b = 1;
+    if (hY) { r *= INK_Y.r / 255; g *= INK_Y.g / 255; b *= INK_Y.b / 255; }
+    if (hM) { r *= INK_M.r / 255; g *= INK_M.g / 255; b *= INK_M.b / 255; }
+
+    o[i]     = Math.round(r * 255);
+    o[i + 1] = Math.round(g * 255);
+    o[i + 2] = Math.round(b * 255);
+    o[i + 3] = 255; // ponto de tinta sólido
   }
   return out;
 }
