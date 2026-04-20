@@ -4,7 +4,7 @@
 // ============================================================================
 
 export type ProgressFn = (stage: string, pct: number) => void;
-export type HalftoneType = "circular" | "rosette";
+export type HalftoneType = "circular" | "rosette" | "warmDuotone";
 
 // PNG signature + helpers para injetar pHYs (300 DPI)
 function crc32(buf: Uint8Array): number {
