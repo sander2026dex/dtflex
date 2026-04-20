@@ -282,8 +282,10 @@ function analyzeMaskedLevels(img: ImageData, mask?: Float32Array) {
   return { blackPoint, whitePoint };
 }
 
-function getPaperAlpha(maskValue: number) {
-  return maskValue >= 0.98 ? 255 : 0;
+// PRÉ-IMPRESSÃO REAL: entre os pontos = TRANSPARENTE (papel = vazado)
+// Não existe "papel branco" — só existe tinta ou nada.
+function getPaperAlpha(_maskValue: number) {
+  return 0;
 }
 
 // ---------------------------------------------------------------------------
