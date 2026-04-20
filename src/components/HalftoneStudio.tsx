@@ -242,17 +242,58 @@ export function HalftoneStudio() {
 
             <Separator />
 
+            <div>
+              <Label className="text-sm mb-2 block">Tipo de retícula</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={(opts.halftoneType ?? "circular") === "circular" ? "default" : "outline"}
+                  onClick={() => setOpts((o) => ({ ...o, halftoneType: "circular" }))}
+                >
+                  Circular
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={opts.halftoneType === "rosette" ? "default" : "outline"}
+                  onClick={() => setOpts((o) => ({ ...o, halftoneType: "rosette" }))}
+                >
+                  Rosette CMYK
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                {opts.halftoneType === "rosette"
+                  ? "Separação CMYK · 15°/75°/0°/45° · padrão floral offset"
+                  : "Pontos circulares monocromáticos rotacionados"}
+              </p>
+            </div>
+
             <SliderRow
               label="LPI (frequência)"
               value={opts.lpi ?? 35}
               min={20} max={80} step={1}
               onChange={(v) => setOpts((o) => ({ ...o, lpi: v }))}
             />
+            {opts.halftoneType !== "rosette" && (
+              <SliderRow
+                label="Ângulo da malha (°)"
+                value={opts.angleDeg ?? 22}
+                min={0} max={90} step={1}
+                onChange={(v) => setOpts((o) => ({ ...o, angleDeg: v }))}
+              />
+            )}
             <SliderRow
-              label="Ângulo da malha (°)"
-              value={opts.angleDeg ?? 22}
-              min={0} max={90} step={1}
-              onChange={(v) => setOpts((o) => ({ ...o, angleDeg: v }))}
+              label="Tolerância de fundo"
+              value={opts.bgTolerance ?? 32}
+              min={5} max={80} step={1}
+              onChange={(v) => setOpts((o) => ({ ...o, bgTolerance: v }))}
+            />
+            <SliderRow
+              label="Feather da máscara (px)"
+              value={opts.featherPx ?? 3}
+              min={0} max={10} step={1}
+              onChange={(v) => setOpts((o) => ({ ...o, featherPx: v }))}
             />
             <SliderRow
               label="Black Point"

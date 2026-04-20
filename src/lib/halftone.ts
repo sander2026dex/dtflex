@@ -1,9 +1,10 @@
 // ============================================================================
 // HALFTONE PIPELINE — Offset de Alta Fidelidade
-// 300 DPI · 3307×4961 px · AM Halftone 35 LPI @ 22° · Pontos Circulares
+// 300 DPI · 3307×4961 px · AM Halftone 35 LPI · Pontos Circulares ou Rosette CMYK
 // ============================================================================
 
 export type ProgressFn = (stage: string, pct: number) => void;
+export type HalftoneType = "circular" | "rosette";
 
 // PNG signature + helpers para injetar pHYs (300 DPI)
 function crc32(buf: Uint8Array): number {
@@ -19,25 +20,18 @@ function crc32(buf: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-/** Insere chunk pHYs (300 dpi = 11811 ppm) num blob PNG. */
 async function injectDpiPng(blob: Blob, dpi = 300): Promise<Blob> {
   const buf = new Uint8Array(await blob.arrayBuffer());
-  const ppm = Math.round(dpi * 39.3701); // pixels per meter
+  const ppm = Math.round(dpi * 39.3701);
   const phys = new Uint8Array(21);
-  // length = 9
   phys[0] = 0; phys[1] = 0; phys[2] = 0; phys[3] = 9;
-  // type "pHYs"
   phys[4] = 0x70; phys[5] = 0x48; phys[6] = 0x59; phys[7] = 0x73;
-  // x ppu, y ppu (big-endian uint32)
   const dv = new DataView(phys.buffer);
   dv.setUint32(8, ppm); dv.setUint32(12, ppm);
-  phys[16] = 1; // unit = meters
-  // CRC over type+data
+  phys[16] = 1;
   const crcInput = phys.slice(4, 17);
   dv.setUint32(17, crc32(crcInput));
-
-  // Insere depois do IHDR (IHDR sempre começa em offset 8, comprimento 13 + 12 = 25 → próximo offset 33)
-  const ihdrEnd = 8 + 4 + 4 + 13 + 4; // sig + len + type + data + crc
+  const ihdrEnd = 8 + 4 + 4 + 13 + 4;
   const out = new Uint8Array(buf.length + phys.length);
   out.set(buf.subarray(0, ihdrEnd), 0);
   out.set(phys, ihdrEnd);
@@ -46,8 +40,7 @@ async function injectDpiPng(blob: Blob, dpi = 300): Promise<Blob> {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Resize de alta qualidade (Lanczos via downscale em estágios + browser bicubic)
-//    Para upscale grande, browser drawImage com imageSmoothingQuality "high"
+// Resize de alta qualidade
 // ---------------------------------------------------------------------------
 function makeCanvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement("canvas");
@@ -58,8 +51,6 @@ function makeCanvas(w: number, h: number): HTMLCanvasElement {
 function resizeTo(src: HTMLCanvasElement | HTMLImageElement, tw: number, th: number): HTMLCanvasElement {
   const sw = "naturalWidth" in src ? src.naturalWidth : src.width;
   const sh = "naturalHeight" in src ? src.naturalHeight : src.height;
-
-  // Downscale em passos de 0.5 (mimetiza Lanczos para o caminho descendente)
   let curW = sw, curH = sh;
   let cur: HTMLCanvasElement | HTMLImageElement = src;
   while (curW * 0.5 > tw && curH * 0.5 > th) {
@@ -80,11 +71,10 @@ function resizeTo(src: HTMLCanvasElement | HTMLImageElement, tw: number, th: num
 }
 
 // ---------------------------------------------------------------------------
-// 2. Unsharp Mask (acentua arestas antes da retícula)
+// Unsharp Mask
 // ---------------------------------------------------------------------------
 function unsharpMask(img: ImageData, amount = 0.6, radius = 1): ImageData {
   const { width: w, height: h, data } = img;
-  // Box blur 3x3 simples (radius 1)
   const blurred = new Uint8ClampedArray(data);
   const get = (x: number, y: number, c: number) => {
     const xi = Math.max(0, Math.min(w - 1, x));
@@ -114,7 +104,7 @@ function unsharpMask(img: ImageData, amount = 0.6, radius = 1): ImageData {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Levels + Gamma midtones-darker
+// Levels + Gamma
 // ---------------------------------------------------------------------------
 function applyLevelsAndGamma(
   img: ImageData,
@@ -129,7 +119,6 @@ function applyLevelsAndGamma(
     let v = (i - blackPoint) / range;
     v = Math.max(0, Math.min(1, v));
     v = Math.pow(v, 1 / gammaLevels);
-    // Midtones darker: gamma < 1 escurece os meios-tons
     v = Math.pow(v, 1 / midtoneGamma);
     lut[i] = Math.round(v * 255);
   }
@@ -143,20 +132,129 @@ function applyLevelsAndGamma(
   return out;
 }
 
-// ---------------------------------------------------------------------------
-// 4. AM Halftone — pontos circulares rotacionados sobre fundo TRANSPARENTE
-// ---------------------------------------------------------------------------
 function rgbToLuma(r: number, g: number, b: number) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-/**
- * Halftone AM circular sobre fundo TRANSPARENTE.
- * Áreas claras = sem ponto (alpha 0). Sombras = pontos densos.
- * Quando uma máscara é fornecida, o raio/alpha dos pontos é reduzido na borda
- * para que o fade seja feito pela própria retícula.
- */
-function applyHalftone(
+// ---------------------------------------------------------------------------
+// FLOOD FILL a partir dos 4 cantos — preserva brancos internos do personagem
+// ---------------------------------------------------------------------------
+function floodFillBackgroundMask(
+  img: ImageData,
+  tolerance = 32,
+  featherPx = 3
+): Float32Array {
+  const { width: w, height: h, data } = img;
+  const total = w * h;
+  // mask: 1 = subject (opaco), 0 = background (transparente)
+  const mask = new Float32Array(total);
+  for (let i = 0; i < total; i++) mask[i] = 1;
+
+  // visitado pelo flood = é fundo
+  const isBg = new Uint8Array(total);
+
+  // Amostra cor de cada canto e enfileira como semente
+  const corners: [number, number][] = [
+    [0, 0],
+    [w - 1, 0],
+    [0, h - 1],
+    [w - 1, h - 1],
+  ];
+
+  // Stack-based flood fill (4-conectividade) com tolerância em luma + RGB
+  const stack: number[] = [];
+  const seedLumas: number[] = [];
+  const seedRGB: [number, number, number][] = [];
+  for (const [cx, cy] of corners) {
+    const idx = cy * w + cx;
+    const di = idx * 4;
+    seedLumas.push(rgbToLuma(data[di], data[di + 1], data[di + 2]));
+    seedRGB.push([data[di], data[di + 1], data[di + 2]]);
+    if (!isBg[idx]) {
+      isBg[idx] = 1;
+      stack.push(idx);
+    }
+  }
+
+  const matchesBg = (idx: number): boolean => {
+    const di = idx * 4;
+    const r = data[di], g = data[di + 1], b = data[di + 2];
+    const luma = rgbToLuma(r, g, b);
+    for (let s = 0; s < seedLumas.length; s++) {
+      const [sr, sg, sb] = seedRGB[s];
+      const dr = Math.abs(r - sr);
+      const dg = Math.abs(g - sg);
+      const db = Math.abs(b - sb);
+      const dl = Math.abs(luma - seedLumas[s]);
+      // Aceita se diferença máxima de canal E luma estão dentro da tolerância
+      if (Math.max(dr, dg, db) <= tolerance && dl <= tolerance) return true;
+    }
+    return false;
+  };
+
+  while (stack.length) {
+    const idx = stack.pop()!;
+    const x = idx % w;
+    const y = (idx - x) / w;
+    // 4 vizinhos
+    const neighbors = [
+      x > 0 ? idx - 1 : -1,
+      x < w - 1 ? idx + 1 : -1,
+      y > 0 ? idx - w : -1,
+      y < h - 1 ? idx + w : -1,
+    ];
+    for (const n of neighbors) {
+      if (n < 0 || isBg[n]) continue;
+      if (matchesBg(n)) {
+        isBg[n] = 1;
+        stack.push(n);
+      }
+    }
+  }
+
+  // mask = 0 onde isBg, 1 caso contrário
+  for (let i = 0; i < total; i++) if (isBg[i]) mask[i] = 0;
+
+  // Feather: box blur na máscara para suavizar borda
+  if (featherPx > 0) {
+    const tmp = new Float32Array(total);
+    const r = featherPx;
+    const k = r * 2 + 1;
+    const area = k * k;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let s = 0;
+        for (let dy = -r; dy <= r; dy++) {
+          const yy = Math.max(0, Math.min(h - 1, y + dy));
+          for (let dx = -r; dx <= r; dx++) {
+            const xx = Math.max(0, Math.min(w - 1, x + dx));
+            s += mask[yy * w + xx];
+          }
+        }
+        tmp[y * w + x] = s / area;
+      }
+    }
+    return tmp;
+  }
+  return mask;
+}
+
+function applyMaskToRGBA(img: ImageData, mask: Float32Array): ImageData {
+  const out = new ImageData(img.width, img.height);
+  const d = img.data, o = out.data;
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    o[i] = d[i];
+    o[i + 1] = d[i + 1];
+    o[i + 2] = d[i + 2];
+    o[i + 3] = Math.round((d[i + 3] / 255) * mask[p] * 255);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Halftone AM circular (single-channel grayscale-driven, RGB color preservada)
+// ---------------------------------------------------------------------------
+function applyHalftoneCircular(
   img: ImageData,
   dpi = 300,
   lpi = 35,
@@ -165,9 +263,6 @@ function applyHalftone(
 ): ImageData {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
-  // Inicializa fundo TRANSPARENTE (alpha = 0)
-  // ImageData já vem zerado, então não precisamos preencher.
-
   const cellPx = dpi / lpi;
   const angle = (angleDeg * Math.PI) / 180;
   const cos = Math.cos(angle), sin = Math.sin(angle);
@@ -177,8 +272,6 @@ function applyHalftone(
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
-
-      // Espaço da malha rotacionada
       const xr = x * cosI - y * sinI;
       const yr = x * sinI + y * cosI;
       const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
@@ -186,8 +279,6 @@ function applyHalftone(
       const dxr = xr - cxr;
       const dyr = yr - cyr;
       const dist = Math.sqrt(dxr * dxr + dyr * dyr);
-
-      // Amostra cor da célula (pixel central via rotação inversa)
       const cx = Math.round(cxr * cos - cyr * sin);
       const cy = Math.round(cxr * sin + cyr * cos);
       const sxi = Math.max(0, Math.min(w - 1, cx));
@@ -197,14 +288,10 @@ function applyHalftone(
       const cellMask = mask ? mask[syi * w + sxi] : 1;
       const pixelMask = mask ? mask[y * w + x] : 1;
       const toneMask = Math.min(cellMask, pixelMask);
-
       if (toneMask <= 0.01) continue;
-
-      // Cobertura desejada (1 = ponto cheio)
       const coverage = (1 - luma) * toneMask;
       if (coverage <= 0.01) continue;
       const r = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
-
       const insideDot = dist <= r;
       const insideCorner = dist <= maxR && coverage > 0.92;
       if (insideDot || insideCorner) {
@@ -213,35 +300,122 @@ function applyHalftone(
         out.data[i + 2] = data[si + 2];
         out.data[i + 3] = Math.round(255 * toneMask);
       }
-      // else: permanece transparente (alpha = 0)
     }
   }
   return out;
 }
 
 // ---------------------------------------------------------------------------
-// 4b. Achata canal alpha contra fundo BRANCO (#FFFFFF)
+// Halftone ROSETTE — separação CMYK + 4 ângulos clássicos + multiply
+// C: 15° · M: 75° · Y: 0° · K: 45°
 // ---------------------------------------------------------------------------
-function flattenOnWhite(img: ImageData): ImageData {
-  const out = new ImageData(img.width, img.height);
-  const d = img.data, o = out.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const a = d[i + 3] / 255;
-    o[i] = Math.round(d[i] * a + 255 * (1 - a));
-    o[i + 1] = Math.round(d[i + 1] * a + 255 * (1 - a));
-    o[i + 2] = Math.round(d[i + 2] * a + 255 * (1 - a));
-    o[i + 3] = 255;
+function rgbToCmyk(r: number, g: number, b: number): [number, number, number, number] {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const k = 1 - Math.max(rn, gn, bn);
+  if (k >= 0.999) return [0, 0, 0, 1];
+  const c = (1 - rn - k) / (1 - k);
+  const m = (1 - gn - k) / (1 - k);
+  const y = (1 - bn - k) / (1 - k);
+  return [c, m, y, k];
+}
+
+/** Gera mapa binário (1 onde tem ponto) para um canal em ângulo dado. */
+function halftoneChannel(
+  channel: Float32Array, // valores 0..1 (cobertura desejada)
+  w: number,
+  h: number,
+  cellPx: number,
+  angleDeg: number,
+  mask?: Float32Array
+): Uint8Array {
+  const dots = new Uint8Array(w * h);
+  const angle = (angleDeg * Math.PI) / 180;
+  const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
+  const maxR = cellPx * 0.5 * Math.SQRT2;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const xr = x * cosI - y * sinI;
+      const yr = x * sinI + y * cosI;
+      const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
+      const cyr = (Math.floor(yr / cellPx) + 0.5) * cellPx;
+      const dxr = xr - cxr;
+      const dyr = yr - cyr;
+      const dist = Math.sqrt(dxr * dxr + dyr * dyr);
+      // amostra cobertura no centro da célula (rotação inversa de volta)
+      const cs = Math.cos(angle), ss = Math.sin(angle);
+      const sx = Math.round(cxr * cs - cyr * ss);
+      const sy = Math.round(cxr * ss + cyr * cs);
+      const sxi = Math.max(0, Math.min(w - 1, sx));
+      const syi = Math.max(0, Math.min(h - 1, sy));
+      const cellMask = mask ? mask[syi * w + sxi] : 1;
+      if (cellMask <= 0.01) continue;
+      const coverage = channel[syi * w + sxi] * cellMask;
+      if (coverage <= 0.01) continue;
+      const r = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
+      if (dist <= r || (dist <= maxR && coverage > 0.95)) {
+        dots[y * w + x] = 1;
+      }
+    }
+  }
+  return dots;
+}
+
+function applyHalftoneRosette(
+  img: ImageData,
+  dpi = 300,
+  lpi = 35,
+  mask?: Float32Array
+): ImageData {
+  const { width: w, height: h, data } = img;
+  const total = w * h;
+  const cellPx = dpi / lpi;
+
+  // Separação CMYK
+  const C = new Float32Array(total);
+  const M = new Float32Array(total);
+  const Y = new Float32Array(total);
+  const K = new Float32Array(total);
+  for (let p = 0, i = 0; p < total; p++, i += 4) {
+    const [c, m, y, k] = rgbToCmyk(data[i], data[i + 1], data[i + 2]);
+    C[p] = c; M[p] = m; Y[p] = y; K[p] = k;
+  }
+
+  // Halftone por canal nos ângulos clássicos
+  const dotsC = halftoneChannel(C, w, h, cellPx, 15, mask);
+  const dotsM = halftoneChannel(M, w, h, cellPx, 75, mask);
+  const dotsY = halftoneChannel(Y, w, h, cellPx, 0, mask);
+  const dotsK = halftoneChannel(K, w, h, cellPx, 45, mask);
+
+  // Composição multiplicativa (papel branco) — cada ponto subtrai sua cor complementar
+  const out = new ImageData(w, h);
+  const o = out.data;
+  for (let p = 0, i = 0; p < total; p++, i += 4) {
+    const m = mask ? mask[p] : 1;
+    if (m <= 0.01) continue;
+
+    let r = 1, g = 1, b = 1;
+    let hasDot = false;
+    if (dotsC[p]) { r *= 0; g *= 1; b *= 1; hasDot = true; }       // Cyan = (0,255,255)
+    if (dotsM[p]) { r *= 1; g *= 0; b *= 1; hasDot = true; }       // Magenta = (255,0,255)
+    if (dotsY[p]) { r *= 1; g *= 1; b *= 0; hasDot = true; }       // Yellow = (255,255,0)
+    if (dotsK[p]) { r = 0; g = 0; b = 0; hasDot = true; }          // Black domina
+    if (!hasDot) continue;
+
+    o[i] = Math.round(r * 255);
+    o[i + 1] = Math.round(g * 255);
+    o[i + 2] = Math.round(b * 255);
+    o[i + 3] = Math.round(255 * m);
   }
   return out;
 }
 
 // ---------------------------------------------------------------------------
-// 4c. High-Key warm tone curve — eleva meios-tons e adiciona calor (amarelo/laranja)
+// High-Key warm tone
 // ---------------------------------------------------------------------------
 function applyHighKeyWarmCurve(img: ImageData, warmth = 0.08, lift = 0.12): ImageData {
   const out = new ImageData(img.width, img.height);
   const d = img.data, o = out.data;
-  // Curva de lift dos meios-tons (S invertida suave): saída = pow(in, 1/(1+lift*4))
   const gamma = 1 / (1 + lift * 1.5);
   const lut = new Uint8ClampedArray(256);
   for (let i = 0; i < 256; i++) {
@@ -252,7 +426,6 @@ function applyHighKeyWarmCurve(img: ImageData, warmth = 0.08, lift = 0.12): Imag
     let r = lut[d[i]];
     let g = lut[d[i + 1]];
     let b = lut[d[i + 2]];
-    // Warm shift: aumenta R e G, reduz levemente B (puxa para amarelo/dourado)
     r = Math.min(255, Math.round(r + warmth * 255 * 0.6));
     g = Math.min(255, Math.round(g + warmth * 255 * 0.4));
     b = Math.max(0, Math.round(b - warmth * 255 * 0.5));
@@ -263,12 +436,12 @@ function applyHighKeyWarmCurve(img: ImageData, warmth = 0.08, lift = 0.12): Imag
 }
 
 // ---------------------------------------------------------------------------
-// 4d. Vignette radial de ALPHA — fade das bordas para TRANSPARENTE
+// Vignette radial de ALPHA — fade SOMENTE nas bordas extremas
 // ---------------------------------------------------------------------------
 function applyRadialAlphaVignette(
   img: ImageData,
-  innerRadius = 0.55,
-  outerRadius = 0.95
+  innerRadius = 0.75,
+  outerRadius = 1.05
 ): ImageData {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
@@ -295,81 +468,6 @@ function applyRadialAlphaVignette(
   return out;
 }
 
-// ---------------------------------------------------------------------------
-// 4e. Remoção de fundo dinâmica PRÉ-halftone — detecta fundo claro/escuro pelos cantos
-//     e gera máscara suave do subject (Float32 0..1) para a retícula respeitar a borda.
-// ---------------------------------------------------------------------------
-type BackgroundMode = "light" | "dark";
-
-function detectBackgroundMode(img: ImageData): BackgroundMode {
-  const { width: w, height: h, data } = img;
-  const cornerIndices = [
-    0,
-    (w - 1) * 4,
-    ((h - 1) * w) * 4,
-    ((h - 1) * w + (w - 1)) * 4,
-  ];
-
-  let darkVotes = 0;
-  let lightVotes = 0;
-  let lumaSum = 0;
-
-  for (const idx of cornerIndices) {
-    const luma = rgbToLuma(data[idx], data[idx + 1], data[idx + 2]);
-    lumaSum += luma;
-    if (luma < 30) darkVotes++;
-    if (luma > 220) lightVotes++;
-  }
-
-  if (darkVotes > lightVotes) return "dark";
-  if (lightVotes > darkVotes) return "light";
-  return lumaSum / cornerIndices.length < 128 ? "dark" : "light";
-}
-
-function removeDetectedBackground(
-  img: ImageData,
-  softness = 24
-): { rgba: ImageData; mask: Float32Array; backgroundMode: BackgroundMode } {
-  const { width: w, height: h, data } = img;
-  const out = new ImageData(w, h);
-  const mask = new Float32Array(w * h);
-  const backgroundMode = detectBackgroundMode(img);
-  const darkThreshold = 30;
-  const lightThreshold = 242;
-
-  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-    const luma = rgbToLuma(data[i], data[i + 1], data[i + 2]);
-    let a = 1;
-
-    if (backgroundMode === "dark") {
-      if (luma <= darkThreshold) a = 0;
-      else if (luma < darkThreshold + softness) {
-        const u = (luma - darkThreshold) / softness;
-        a = u * u * (3 - 2 * u);
-      }
-    } else {
-      if (luma >= lightThreshold) a = 0;
-      else if (luma > lightThreshold - softness) {
-        const u = (luma - (lightThreshold - softness)) / softness;
-        a = 1 - u * u * (3 - 2 * u);
-      }
-    }
-
-    // Combina com alpha original
-    a *= data[i + 3] / 255;
-    mask[p] = a;
-    out.data[i] = data[i];
-    out.data[i + 1] = data[i + 1];
-    out.data[i + 2] = data[i + 2];
-    out.data[i + 3] = Math.round(a * 255);
-  }
-  return { rgba: out, mask, backgroundMode };
-}
-
-// ---------------------------------------------------------------------------
-// 4e2. Aplica máscara pré-computada (Float32 0..1) ao alpha de uma ImageData.
-//      Usado APÓS o halftone para garantir que o fundo permaneça transparente.
-// ---------------------------------------------------------------------------
 function applyMaskToAlpha(img: ImageData, mask: Float32Array): ImageData {
   const out = new ImageData(img.width, img.height);
   const d = img.data, o = out.data;
@@ -382,13 +480,9 @@ function applyMaskToAlpha(img: ImageData, mask: Float32Array): ImageData {
   return out;
 }
 
-// ---------------------------------------------------------------------------
-// 4f. Box blur APENAS no canal alpha (suaviza bordas serrilhadas da máscara)
-// ---------------------------------------------------------------------------
 function blurAlphaChannel(img: ImageData, radius = 2): ImageData {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
-  // copia RGB
   for (let i = 0; i < data.length; i += 4) {
     out.data[i] = data[i];
     out.data[i + 1] = data[i + 1];
@@ -413,7 +507,7 @@ function blurAlphaChannel(img: ImageData, radius = 2): ImageData {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Vibrance / Saturation boost (+15%)
+// Vibrance
 // ---------------------------------------------------------------------------
 function applyVibrance(img: ImageData, amount = 0.15): ImageData {
   const out = new ImageData(img.width, img.height);
@@ -422,7 +516,7 @@ function applyVibrance(img: ImageData, amount = 0.15): ImageData {
     const r = d[i], g = d[i + 1], b = d[i + 2];
     const max = Math.max(r, g, b);
     const avg = (r + g + b) / 3;
-    const sat = (max - avg) / 255; // 0..1 aprox
+    const sat = (max - avg) / 255;
     const boost = amount * (1 - sat);
     o[i] = Math.max(0, Math.min(255, r + (r - avg) * boost));
     o[i + 1] = Math.max(0, Math.min(255, g + (g - avg) * boost));
@@ -447,10 +541,13 @@ export interface HalftoneOptions {
   midtoneGamma?: number;
   unsharpAmount?: number;
   vibrance?: number;
-  warmth?: number;          // 0..0.3 — calor amarelo/dourado
-  highKeyLift?: number;     // 0..0.4 — elevação dos meios-tons
-  vignetteInner?: number;   // 0..1 — raio onde começa o fade
-  vignetteOuter?: number;   // 0..1 — raio onde termina (100% branco)
+  warmth?: number;
+  highKeyLift?: number;
+  vignetteInner?: number;
+  vignetteOuter?: number;
+  halftoneType?: HalftoneType;
+  bgTolerance?: number;     // 0..80 — tolerância do flood fill
+  featherPx?: number;       // suavização da máscara em px
 }
 
 export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
@@ -467,11 +564,13 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   vibrance: 0.15,
   warmth: 0.08,
   highKeyLift: 0.18,
-  vignetteInner: 0.55,
-  vignetteOuter: 0.95,
+  vignetteInner: 0.78,
+  vignetteOuter: 1.05,
+  halftoneType: "circular",
+  bgTolerance: 32,
+  featherPx: 3,
 };
 
-/** Yield ao event loop entre estágios pesados. */
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 
 export async function processImage(
@@ -498,45 +597,53 @@ export async function processImage(
   const ctx = resized.getContext("2d")!;
   let data = ctx.getImageData(0, 0, tw, th);
 
-  onProgress?.("Aplicando Unsharp Mask", 18);
+  onProgress?.("Unsharp Mask", 18);
   await tick();
   data = unsharpMask(data, o.unsharpAmount, 1);
 
-  onProgress?.("Detectando fundo e criando máscara (pré-halftone)", 28);
+  onProgress?.("Flood fill nos cantos (preserva brancos internos)", 28);
   await tick();
-  const { rgba: noBg, mask: subjectMask } = removeDetectedBackground(data, 24);
-  data = noBg;
+  const subjectMask = floodFillBackgroundMask(data, o.bgTolerance, o.featherPx);
+  // Aplica máscara já no RGBA pré-halftone para o sampling de cor não puxar do fundo
+  data = applyMaskToRGBA(data, subjectMask);
 
-  onProgress?.("Curva High-Key + warmth", 36);
+  onProgress?.("Curva High-Key + warmth", 38);
   await tick();
   data = applyHighKeyWarmCurve(data, o.warmth, o.highKeyLift);
 
-  onProgress?.("Ajustando níveis e meios-tons", 44);
+  onProgress?.("Níveis e meios-tons", 46);
   await tick();
   data = applyLevelsAndGamma(data, o.blackPoint, o.whitePoint, o.gammaLevels, o.midtoneGamma);
 
-  onProgress?.("Gerando halftone AM @ ângulo", 58);
-  await tick();
   const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
-  data = applyHalftone(data, effectiveDpi, o.lpi, o.angleDeg, subjectMask);
 
-  onProgress?.("Aplicando vibrance", 72);
+  if (o.halftoneType === "rosette") {
+    onProgress?.("Halftone Rosette CMYK (15°/75°/0°/45°)", 60);
+    await tick();
+    data = applyHalftoneRosette(data, effectiveDpi, o.lpi, subjectMask);
+  } else {
+    onProgress?.("Halftone AM circular @ ângulo", 60);
+    await tick();
+    data = applyHalftoneCircular(data, effectiveDpi, o.lpi, o.angleDeg, subjectMask);
+  }
+
+  onProgress?.("Vibrance", 74);
   await tick();
   data = applyVibrance(data, o.vibrance);
 
-  onProgress?.("Aplicando máscara de transparência (pós-halftone)", 80);
+  onProgress?.("Reaplicando máscara de transparência", 82);
   await tick();
   data = applyMaskToAlpha(data, subjectMask);
 
-  onProgress?.("Vignette radial → transparente", 86);
+  onProgress?.("Vignette radial → transparente (apenas borda extrema)", 88);
   await tick();
   data = applyRadialAlphaVignette(data, o.vignetteInner, o.vignetteOuter);
 
-  onProgress?.("Suavizando bordas (alpha blur)", 90);
+  onProgress?.("Suavizando bordas (alpha blur)", 92);
   await tick();
   data = blurAlphaChannel(data, 2);
 
-  onProgress?.("Exportando PNG", 92);
+  onProgress?.("Exportando PNG", 95);
   await tick();
   ctx.putImageData(data, 0, 0);
   const blob: Blob = await new Promise((res) =>
