@@ -431,11 +431,10 @@ export async function processImage(
   await tick();
   const resized = resizeTo(source, tw, th);
 
-  onProgress?.("Achatando sobre fundo branco", 12);
+  onProgress?.("Lendo pixels (RGBA preservado)", 12);
   await tick();
   const ctx = resized.getContext("2d")!;
   let data = ctx.getImageData(0, 0, tw, th);
-  data = flattenOnWhite(data);
 
   onProgress?.("Aplicando Unsharp Mask", 22);
   await tick();
@@ -449,18 +448,26 @@ export async function processImage(
   await tick();
   data = applyLevelsAndGamma(data, o.blackPoint, o.whitePoint, o.gammaLevels, o.midtoneGamma);
 
-  onProgress?.("Gerando halftone AM @ ângulo", 60);
+  onProgress?.("Gerando halftone AM @ ângulo", 58);
   await tick();
   const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
   data = applyHalftone(data, effectiveDpi, o.lpi, o.angleDeg);
 
-  onProgress?.("Aplicando vibrance", 78);
+  onProgress?.("Aplicando vibrance", 72);
   await tick();
   data = applyVibrance(data, o.vibrance);
 
-  onProgress?.("Vignette radial → papel branco", 86);
+  onProgress?.("Máscara de luminosidade → alpha", 80);
   await tick();
-  data = applyRadialVignetteToWhite(data, o.vignetteInner, o.vignetteOuter);
+  data = applyLuminanceAlphaMask(data, 242, 16);
+
+  onProgress?.("Vignette radial → transparente", 86);
+  await tick();
+  data = applyRadialAlphaVignette(data, o.vignetteInner, o.vignetteOuter);
+
+  onProgress?.("Suavizando bordas (alpha blur)", 90);
+  await tick();
+  data = blurAlphaChannel(data, 2);
 
   onProgress?.("Exportando PNG", 92);
   await tick();
