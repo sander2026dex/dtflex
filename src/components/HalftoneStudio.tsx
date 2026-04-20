@@ -383,7 +383,13 @@ function PreviewCard({
         </span>
       </div>
       <div
-        className="aspect-[2/3] w-full rounded-md overflow-hidden border border-border flex items-center justify-center bg-white"
+        className="aspect-[2/3] w-full rounded-md overflow-hidden border border-border flex items-center justify-center"
+        style={{
+          backgroundImage:
+            "linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%), linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)",
+          backgroundSize: "20px 20px",
+          backgroundPosition: "0 0, 0 10px, 10px -10px, 10px 0px",
+        }}
       >
         {url ? (
           <img

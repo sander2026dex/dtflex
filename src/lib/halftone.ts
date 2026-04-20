@@ -144,16 +144,16 @@ function applyLevelsAndGamma(
 }
 
 // ---------------------------------------------------------------------------
-// 4. AM Halftone — pontos circulares rotacionados sobre fundo BRANCO
+// 4. AM Halftone — pontos circulares rotacionados sobre fundo TRANSPARENTE
 // ---------------------------------------------------------------------------
 function rgbToLuma(r: number, g: number, b: number) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
 /**
- * Halftone AM circular sobre fundo branco sólido.
- * Áreas claras se misturam com o branco (sem "sujeira"), sombras ganham densidade.
- * Saída sempre opaca (alpha = 255).
+ * Halftone AM circular sobre fundo TRANSPARENTE.
+ * Áreas claras = sem ponto (alpha 0). Sombras = pontos densos.
+ * Saída RGBA com canal alpha real (sem fundo branco).
  */
 function applyHalftone(
   img: ImageData,
@@ -163,13 +163,8 @@ function applyHalftone(
 ): ImageData {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
-  // Inicializa fundo BRANCO opaco
-  for (let i = 0; i < out.data.length; i += 4) {
-    out.data[i] = 255;
-    out.data[i + 1] = 255;
-    out.data[i + 2] = 255;
-    out.data[i + 3] = 255;
-  }
+  // Inicializa fundo TRANSPARENTE (alpha = 0)
+  // ImageData já vem zerado, então não precisamos preencher.
 
   const cellPx = dpi / lpi;
   const angle = (angleDeg * Math.PI) / 180;
@@ -211,8 +206,9 @@ function applyHalftone(
         out.data[i] = data[si];
         out.data[i + 1] = data[si + 1];
         out.data[i + 2] = data[si + 2];
-        // alpha já é 255 (fundo)
+        out.data[i + 3] = 255; // ponto opaco
       }
+      // else: permanece transparente (alpha = 0)
     }
   }
   return out;
@@ -262,9 +258,9 @@ function applyHighKeyWarmCurve(img: ImageData, warmth = 0.08, lift = 0.12): Imag
 }
 
 // ---------------------------------------------------------------------------
-// 4d. Vignette radial — fade das bordas para BRANCO (papel)
+// 4d. Vignette radial de ALPHA — fade das bordas para TRANSPARENTE
 // ---------------------------------------------------------------------------
-function applyRadialVignetteToWhite(
+function applyRadialAlphaVignette(
   img: ImageData,
   innerRadius = 0.55,
   outerRadius = 0.95
@@ -272,25 +268,83 @@ function applyRadialVignetteToWhite(
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
   const cx = w / 2, cy = h / 2;
-  // Normaliza pela diagonal/2 para alcançar cantos
   const maxDist = Math.sqrt(cx * cx + cy * cy);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const dx = x - cx, dy = y - cy;
-      const d = Math.sqrt(dx * dx + dy * dy) / maxDist; // 0 centro → 1 canto
+      const d = Math.sqrt(dx * dx + dy * dy) / maxDist;
       let t: number;
       if (d <= innerRadius) t = 1;
       else if (d >= outerRadius) t = 0;
       else {
-        // smoothstep
         const u = (d - innerRadius) / (outerRadius - innerRadius);
         t = 1 - u * u * (3 - 2 * u);
       }
-      out.data[i] = Math.round(data[i] * t + 255 * (1 - t));
-      out.data[i + 1] = Math.round(data[i + 1] * t + 255 * (1 - t));
-      out.data[i + 2] = Math.round(data[i + 2] * t + 255 * (1 - t));
-      out.data[i + 3] = 255;
+      out.data[i] = data[i];
+      out.data[i + 1] = data[i + 1];
+      out.data[i + 2] = data[i + 2];
+      out.data[i + 3] = Math.round(data[i + 3] * t);
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 4e. Máscara de luminosidade → alpha (pixels quase brancos viram transparentes)
+//     Threshold em ~95% (luma > 242). Suavização com box blur no canal alpha.
+// ---------------------------------------------------------------------------
+function applyLuminanceAlphaMask(
+  img: ImageData,
+  thresholdLuma = 242, // ~95%
+  softness = 16        // largura da rampa em níveis de luma
+): ImageData {
+  const { width: w, height: h, data } = img;
+  const out = new ImageData(w, h);
+  for (let i = 0; i < data.length; i += 4) {
+    const luma = rgbToLuma(data[i], data[i + 1], data[i + 2]);
+    // Acima do threshold = transparente; abaixo = opaco; rampa suave entre.
+    let a = 1;
+    if (luma >= thresholdLuma + softness) a = 0;
+    else if (luma > thresholdLuma) {
+      const u = (luma - thresholdLuma) / softness;
+      a = 1 - u * u * (3 - 2 * u);
+    }
+    // Combina com alpha existente (multiplicativo)
+    const baseA = data[i + 3] / 255;
+    out.data[i] = data[i];
+    out.data[i + 1] = data[i + 1];
+    out.data[i + 2] = data[i + 2];
+    out.data[i + 3] = Math.round(baseA * a * 255);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 4f. Box blur APENAS no canal alpha (suaviza bordas serrilhadas da máscara)
+// ---------------------------------------------------------------------------
+function blurAlphaChannel(img: ImageData, radius = 2): ImageData {
+  const { width: w, height: h, data } = img;
+  const out = new ImageData(w, h);
+  // copia RGB
+  for (let i = 0; i < data.length; i += 4) {
+    out.data[i] = data[i];
+    out.data[i + 1] = data[i + 1];
+    out.data[i + 2] = data[i + 2];
+  }
+  const k = radius * 2 + 1;
+  const area = k * k;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        const yy = Math.max(0, Math.min(h - 1, y + dy));
+        for (let dx = -radius; dx <= radius; dx++) {
+          const xx = Math.max(0, Math.min(w - 1, x + dx));
+          s += data[(yy * w + xx) * 4 + 3];
+        }
+      }
+      out.data[(y * w + x) * 4 + 3] = s / area;
     }
   }
   return out;
@@ -377,11 +431,10 @@ export async function processImage(
   await tick();
   const resized = resizeTo(source, tw, th);
 
-  onProgress?.("Achatando sobre fundo branco", 12);
+  onProgress?.("Lendo pixels (RGBA preservado)", 12);
   await tick();
   const ctx = resized.getContext("2d")!;
   let data = ctx.getImageData(0, 0, tw, th);
-  data = flattenOnWhite(data);
 
   onProgress?.("Aplicando Unsharp Mask", 22);
   await tick();
@@ -395,18 +448,26 @@ export async function processImage(
   await tick();
   data = applyLevelsAndGamma(data, o.blackPoint, o.whitePoint, o.gammaLevels, o.midtoneGamma);
 
-  onProgress?.("Gerando halftone AM @ ângulo", 60);
+  onProgress?.("Gerando halftone AM @ ângulo", 58);
   await tick();
   const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
   data = applyHalftone(data, effectiveDpi, o.lpi, o.angleDeg);
 
-  onProgress?.("Aplicando vibrance", 78);
+  onProgress?.("Aplicando vibrance", 72);
   await tick();
   data = applyVibrance(data, o.vibrance);
 
-  onProgress?.("Vignette radial → papel branco", 86);
+  onProgress?.("Máscara de luminosidade → alpha", 80);
   await tick();
-  data = applyRadialVignetteToWhite(data, o.vignetteInner, o.vignetteOuter);
+  data = applyLuminanceAlphaMask(data, 242, 16);
+
+  onProgress?.("Vignette radial → transparente", 86);
+  await tick();
+  data = applyRadialAlphaVignette(data, o.vignetteInner, o.vignetteOuter);
+
+  onProgress?.("Suavizando bordas (alpha blur)", 90);
+  await tick();
+  data = blurAlphaChannel(data, 2);
 
   onProgress?.("Exportando PNG", 92);
   await tick();
