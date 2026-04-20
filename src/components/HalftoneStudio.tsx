@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload, Download, Loader2, ImageIcon, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -32,39 +32,71 @@ export function HalftoneStudio() {
   const [opts, setOpts] = useState<HalftoneOptions>(DEFAULT_OPTIONS);
   const [livePreview, setLivePreview] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cachedImg = useRef<HTMLImageElement | null>(null);
+  const previewTimer = useRef<number | null>(null);
+  const previewRunId = useRef(0);
 
-  const handleFile = useCallback(async (file: File) => {
-    setSourceFile(file);
-    setFullResult(null);
-    setPreviewResult(null);
-    const url = URL.createObjectURL(file);
-    setSourcePreview(url);
-
-    if (livePreview) {
-      setBusy(true);
-      try {
-        const img = await loadImage(file);
-        const blob = await processImage(img, opts, (s, p) => {
-          setStage(s); setPct(p);
-        }, 900);
-        setPreviewResult({
+  const runPreview = useCallback(async (file: File, options: HalftoneOptions) => {
+    const runId = ++previewRunId.current;
+    setBusy(true);
+    try {
+      if (!cachedImg.current) {
+        cachedImg.current = await loadImage(file);
+      }
+      const img = cachedImg.current;
+      const blob = await processImage(img, options, (s, p) => {
+        if (runId !== previewRunId.current) return;
+        setStage(s); setPct(p);
+      }, 700);
+      if (runId !== previewRunId.current) return;
+      setPreviewResult((prev) => {
+        if (prev?.url) URL.revokeObjectURL(prev.url);
+        return {
           blob, url: URL.createObjectURL(blob),
           filename: previewName(file.name), sizeKB: Math.round(blob.size / 1024),
-        });
-      } finally {
+        };
+      });
+    } finally {
+      if (runId === previewRunId.current) {
         setBusy(false);
         setStage("");
         setPct(0);
       }
     }
-  }, [opts, livePreview]);
+  }, []);
+
+  const handleFile = useCallback(async (file: File) => {
+    cachedImg.current = null;
+    setSourceFile(file);
+    setFullResult(null);
+    setPreviewResult(null);
+    const url = URL.createObjectURL(file);
+    setSourcePreview(url);
+    if (livePreview) {
+      runPreview(file, opts);
+    }
+  }, [opts, livePreview, runPreview]);
+
+  // Debounced preview re-render quando opts/livePreview mudam
+  useEffect(() => {
+    if (!sourceFile || !livePreview) return;
+    if (previewTimer.current) window.clearTimeout(previewTimer.current);
+    previewTimer.current = window.setTimeout(() => {
+      runPreview(sourceFile, opts);
+    }, 350);
+    return () => {
+      if (previewTimer.current) window.clearTimeout(previewTimer.current);
+    };
+  }, [opts, livePreview, sourceFile, runPreview]);
 
   const runFullExport = useCallback(async () => {
     if (!sourceFile) return;
+    previewRunId.current++; // cancela qualquer preview pendente
     setBusy(true);
     setFullResult(null);
     try {
-      const img = await loadImage(sourceFile);
+      const img = cachedImg.current ?? await loadImage(sourceFile);
+      cachedImg.current = img;
       const blob = await processImage(img, opts, (s, p) => {
         setStage(s); setPct(p);
       });
