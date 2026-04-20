@@ -363,10 +363,10 @@ function SliderRow({
 }
 
 function PreviewCard({
-  title, url, meta, highlight, checkered,
+  title, url, meta, highlight,
 }: {
   title: string; url: string | null; meta: string;
-  highlight?: boolean; checkered?: boolean;
+  highlight?: boolean;
 }) {
   return (
     <Card
@@ -383,17 +383,7 @@ function PreviewCard({
         </span>
       </div>
       <div
-        className="aspect-[2/3] w-full rounded-md overflow-hidden border border-border flex items-center justify-center"
-        style={
-          checkered
-            ? {
-                backgroundImage:
-                  "linear-gradient(45deg,#1f2937 25%,transparent 25%),linear-gradient(-45deg,#1f2937 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1f2937 75%),linear-gradient(-45deg,transparent 75%,#1f2937 75%)",
-                backgroundSize: "16px 16px",
-                backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
-              }
-            : { background: "oklch(0.10 0.01 240)" }
-        }
+        className="aspect-[2/3] w-full rounded-md overflow-hidden border border-border flex items-center justify-center bg-white"
       >
         {url ? (
           <img
