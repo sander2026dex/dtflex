@@ -673,27 +673,22 @@ function applyHalftoneWarmDuotone(
   const out = new ImageData(w, h);
   const o = out.data;
   for (let p = 0, i = 0; p < total; p++, i += 4) {
-    const m = mask ? mask[p] : 1;
-    if (m <= 0.005) continue;
-    const paperAlpha = getPaperAlpha(m);
+    const mk = mask ? mask[p] : 1;
+    if (mk <= 0.005) continue;
 
-    let r = PAPER.r / 255, g = PAPER.g / 255, b = PAPER.b / 255;
-    let hasDot = false;
-    // Multiply por cada tinta presente
-    if (dotsY[p]) { r *= INK_Y.r / 255; g *= INK_Y.g / 255; b *= INK_Y.b / 255; hasDot = true; }
-    if (dotsM[p]) { r *= INK_M.r / 255; g *= INK_M.g / 255; b *= INK_M.b / 255; hasDot = true; }
+    const hY = !!dotsY[p];
+    const hM = !!dotsM[p];
+    if (!hY && !hM) continue; // sem tinta = vazado (transparente)
 
-    if (hasDot) {
-      o[i]     = Math.round(r * 255);
-      o[i + 1] = Math.round(g * 255);
-      o[i + 2] = Math.round(b * 255);
-      o[i + 3] = Math.max(paperAlpha, Math.round(255 * m));
-    } else if (paperAlpha > 0) {
-      o[i]     = PAPER.r;
-      o[i + 1] = PAPER.g;
-      o[i + 2] = PAPER.b;
-      o[i + 3] = paperAlpha;
-    }
+    // Multiply das tintas presentes (sem branco de papel — fica vazado entre os pontos)
+    let r = 1, g = 1, b = 1;
+    if (hY) { r *= INK_Y.r / 255; g *= INK_Y.g / 255; b *= INK_Y.b / 255; }
+    if (hM) { r *= INK_M.r / 255; g *= INK_M.g / 255; b *= INK_M.b / 255; }
+
+    o[i]     = Math.round(r * 255);
+    o[i + 1] = Math.round(g * 255);
+    o[i + 2] = Math.round(b * 255);
+    o[i + 3] = 255; // ponto de tinta sólido
   }
   return out;
 }
