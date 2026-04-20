@@ -188,16 +188,21 @@ export function HalftoneStudio() {
                   meta={sourceFile?.name ?? ""}
                 />
                 <PreviewCard
-                  title={fullResult ? "Final 300 DPI" : "Preview rápido"}
-                  url={fullResult?.url ?? previewResult?.url ?? null}
+                  title={fullResult ? "Final 300 DPI" : "Preview"}
+                  url={busy ? null : (fullResult?.url ?? previewResult?.url ?? null)}
                   meta={
-                    fullResult
+                    busy
+                      ? "Processando…"
+                      : fullResult
                       ? `${fullResult.sizeKB} KB · 3307×4961`
                       : previewResult
                       ? `${previewResult.sizeKB} KB · preview`
                       : "—"
                   }
-                  highlight={!!fullResult}
+                  highlight={!!fullResult && !busy}
+                  busy={busy}
+                  pct={pct}
+                  stage={stage}
                 />
               </div>
             )}
