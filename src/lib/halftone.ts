@@ -144,16 +144,16 @@ function applyLevelsAndGamma(
 }
 
 // ---------------------------------------------------------------------------
-// 4. AM Halftone — pontos circulares rotacionados sobre fundo BRANCO
+// 4. AM Halftone — pontos circulares rotacionados sobre fundo TRANSPARENTE
 // ---------------------------------------------------------------------------
 function rgbToLuma(r: number, g: number, b: number) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
 /**
- * Halftone AM circular sobre fundo branco sólido.
- * Áreas claras se misturam com o branco (sem "sujeira"), sombras ganham densidade.
- * Saída sempre opaca (alpha = 255).
+ * Halftone AM circular sobre fundo TRANSPARENTE.
+ * Áreas claras = sem ponto (alpha 0). Sombras = pontos densos.
+ * Saída RGBA com canal alpha real (sem fundo branco).
  */
 function applyHalftone(
   img: ImageData,
@@ -163,13 +163,8 @@ function applyHalftone(
 ): ImageData {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
-  // Inicializa fundo BRANCO opaco
-  for (let i = 0; i < out.data.length; i += 4) {
-    out.data[i] = 255;
-    out.data[i + 1] = 255;
-    out.data[i + 2] = 255;
-    out.data[i + 3] = 255;
-  }
+  // Inicializa fundo TRANSPARENTE (alpha = 0)
+  // ImageData já vem zerado, então não precisamos preencher.
 
   const cellPx = dpi / lpi;
   const angle = (angleDeg * Math.PI) / 180;
