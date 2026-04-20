@@ -331,6 +331,10 @@ export interface HalftoneOptions {
   midtoneGamma?: number;
   unsharpAmount?: number;
   vibrance?: number;
+  warmth?: number;          // 0..0.3 — calor amarelo/dourado
+  highKeyLift?: number;     // 0..0.4 — elevação dos meios-tons
+  vignetteInner?: number;   // 0..1 — raio onde começa o fade
+  vignetteOuter?: number;   // 0..1 — raio onde termina (100% branco)
 }
 
 export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
@@ -345,6 +349,10 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   midtoneGamma: 0.7,
   unsharpAmount: 0.6,
   vibrance: 0.15,
+  warmth: 0.08,
+  highKeyLift: 0.18,
+  vignetteInner: 0.55,
+  vignetteOuter: 0.95,
 };
 
 /** Yield ao event loop entre estágios pesados. */
@@ -354,7 +362,6 @@ export async function processImage(
   source: HTMLImageElement,
   opts: HalftoneOptions = {},
   onProgress?: ProgressFn,
-  // Opcional: usar resolução reduzida para preview rápido
   previewMaxDim?: number
 ): Promise<Blob> {
   const o = { ...DEFAULT_OPTIONS, ...opts };
@@ -370,27 +377,38 @@ export async function processImage(
   await tick();
   const resized = resizeTo(source, tw, th);
 
-  onProgress?.("Aplicando Unsharp Mask", 20);
+  onProgress?.("Achatando sobre fundo branco", 12);
   await tick();
   const ctx = resized.getContext("2d")!;
   let data = ctx.getImageData(0, 0, tw, th);
+  data = flattenOnWhite(data);
+
+  onProgress?.("Aplicando Unsharp Mask", 22);
+  await tick();
   data = unsharpMask(data, o.unsharpAmount, 1);
 
-  onProgress?.("Ajustando níveis e meios-tons", 35);
+  onProgress?.("Curva High-Key + warmth", 32);
+  await tick();
+  data = applyHighKeyWarmCurve(data, o.warmth, o.highKeyLift);
+
+  onProgress?.("Ajustando níveis e meios-tons", 42);
   await tick();
   data = applyLevelsAndGamma(data, o.blackPoint, o.whitePoint, o.gammaLevels, o.midtoneGamma);
 
-  onProgress?.("Gerando halftone AM 35 LPI @ 22°", 55);
+  onProgress?.("Gerando halftone AM @ ângulo", 60);
   await tick();
-  // Escala o DPI proporcionalmente em modo preview para manter aparência
   const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
   data = applyHalftone(data, effectiveDpi, o.lpi, o.angleDeg);
 
-  onProgress?.("Aplicando vibrance", 80);
+  onProgress?.("Aplicando vibrance", 78);
   await tick();
   data = applyVibrance(data, o.vibrance);
 
-  onProgress?.("Exportando PNG 32-bit", 92);
+  onProgress?.("Vignette radial → papel branco", 86);
+  await tick();
+  data = applyRadialVignetteToWhite(data, o.vignetteInner, o.vignetteOuter);
+
+  onProgress?.("Exportando PNG", 92);
   await tick();
   ctx.putImageData(data, 0, 0);
   const blob: Blob = await new Promise((res) =>
