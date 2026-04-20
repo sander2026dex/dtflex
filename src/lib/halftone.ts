@@ -640,21 +640,21 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   targetW: 3307,
   targetH: 4961,
   dpi: 300,
-  lpi: 35,
+  lpi: 40,
   angleDeg: 22,
-  blackPoint: 80,
-  whitePoint: 255,
+  blackPoint: 60,
+  whitePoint: 250,
   gammaLevels: 1.0,
-  midtoneGamma: 0.7,
-  unsharpAmount: 0.6,
-  vibrance: 0.15,
-  warmth: 0.08,
-  highKeyLift: 0.18,
-  vignetteInner: 0.78,
-  vignetteOuter: 1.05,
-  halftoneType: "circular",
-  bgTolerance: 32,
-  featherPx: 3,
+  midtoneGamma: 0.85,
+  unsharpAmount: 0.7,
+  vibrance: 0.18,
+  warmth: 0.05,
+  highKeyLift: 0.12,
+  vignetteInner: 1.0,    // desligada por padrão — fade vem dos pontinhos
+  vignetteOuter: 1.2,
+  halftoneType: "rosette",
+  bgTolerance: 36,
+  featherPx: 2,
 };
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
@@ -674,7 +674,7 @@ export async function processImage(
     th = Math.round(th * ratio);
   }
 
-  onProgress?.("Redimensionando para 300 DPI", 5);
+  onProgress?.("Resize Lanczos → 300 DPI", 5);
   await tick();
   const resized = resizeTo(source, tw, th);
 
@@ -687,10 +687,9 @@ export async function processImage(
   await tick();
   data = unsharpMask(data, o.unsharpAmount, 1);
 
-  onProgress?.("Flood fill nos cantos (preserva brancos internos)", 28);
+  onProgress?.("Segmentação por flood fill (preserva brancos internos)", 28);
   await tick();
   const subjectMask = floodFillBackgroundMask(data, o.bgTolerance, o.featherPx);
-  // Aplica máscara já no RGBA pré-halftone para o sampling de cor não puxar do fundo
   data = applyMaskToRGBA(data, subjectMask);
 
   onProgress?.("Curva High-Key + warmth", 38);
@@ -713,23 +712,18 @@ export async function processImage(
     data = applyHalftoneCircular(data, effectiveDpi, o.lpi, o.angleDeg, subjectMask);
   }
 
-  onProgress?.("Vibrance", 74);
+  onProgress?.("Vibrance", 78);
   await tick();
   data = applyVibrance(data, o.vibrance);
 
-  onProgress?.("Reaplicando máscara de transparência", 82);
-  await tick();
-  data = applyMaskToAlpha(data, subjectMask);
+  // Vignette opcional — só roda se inner < 1 (fade extra para "papel")
+  if (o.vignetteInner < 1) {
+    onProgress?.("Vignette radial (fade adicional)", 88);
+    await tick();
+    data = applyRadialAlphaVignette(data, o.vignetteInner, o.vignetteOuter);
+  }
 
-  onProgress?.("Vignette radial → transparente (apenas borda extrema)", 88);
-  await tick();
-  data = applyRadialAlphaVignette(data, o.vignetteInner, o.vignetteOuter);
-
-  onProgress?.("Suavizando bordas (alpha blur)", 92);
-  await tick();
-  data = blurAlphaChannel(data, 2);
-
-  onProgress?.("Exportando PNG", 95);
+  onProgress?.("Exportando PNG-32 (RGBA)", 95);
   await tick();
   ctx.putImageData(data, 0, 0);
   const blob: Blob = await new Promise((res) =>
