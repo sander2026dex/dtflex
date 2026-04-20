@@ -258,9 +258,9 @@ function applyHighKeyWarmCurve(img: ImageData, warmth = 0.08, lift = 0.12): Imag
 }
 
 // ---------------------------------------------------------------------------
-// 4d. Vignette radial — fade das bordas para BRANCO (papel)
+// 4d. Vignette radial de ALPHA — fade das bordas para TRANSPARENTE
 // ---------------------------------------------------------------------------
-function applyRadialVignetteToWhite(
+function applyRadialAlphaVignette(
   img: ImageData,
   innerRadius = 0.55,
   outerRadius = 0.95
@@ -268,25 +268,83 @@ function applyRadialVignetteToWhite(
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
   const cx = w / 2, cy = h / 2;
-  // Normaliza pela diagonal/2 para alcançar cantos
   const maxDist = Math.sqrt(cx * cx + cy * cy);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const dx = x - cx, dy = y - cy;
-      const d = Math.sqrt(dx * dx + dy * dy) / maxDist; // 0 centro → 1 canto
+      const d = Math.sqrt(dx * dx + dy * dy) / maxDist;
       let t: number;
       if (d <= innerRadius) t = 1;
       else if (d >= outerRadius) t = 0;
       else {
-        // smoothstep
         const u = (d - innerRadius) / (outerRadius - innerRadius);
         t = 1 - u * u * (3 - 2 * u);
       }
-      out.data[i] = Math.round(data[i] * t + 255 * (1 - t));
-      out.data[i + 1] = Math.round(data[i + 1] * t + 255 * (1 - t));
-      out.data[i + 2] = Math.round(data[i + 2] * t + 255 * (1 - t));
-      out.data[i + 3] = 255;
+      out.data[i] = data[i];
+      out.data[i + 1] = data[i + 1];
+      out.data[i + 2] = data[i + 2];
+      out.data[i + 3] = Math.round(data[i + 3] * t);
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 4e. Máscara de luminosidade → alpha (pixels quase brancos viram transparentes)
+//     Threshold em ~95% (luma > 242). Suavização com box blur no canal alpha.
+// ---------------------------------------------------------------------------
+function applyLuminanceAlphaMask(
+  img: ImageData,
+  thresholdLuma = 242, // ~95%
+  softness = 16        // largura da rampa em níveis de luma
+): ImageData {
+  const { width: w, height: h, data } = img;
+  const out = new ImageData(w, h);
+  for (let i = 0; i < data.length; i += 4) {
+    const luma = rgbToLuma(data[i], data[i + 1], data[i + 2]);
+    // Acima do threshold = transparente; abaixo = opaco; rampa suave entre.
+    let a = 1;
+    if (luma >= thresholdLuma + softness) a = 0;
+    else if (luma > thresholdLuma) {
+      const u = (luma - thresholdLuma) / softness;
+      a = 1 - u * u * (3 - 2 * u);
+    }
+    // Combina com alpha existente (multiplicativo)
+    const baseA = data[i + 3] / 255;
+    out.data[i] = data[i];
+    out.data[i + 1] = data[i + 1];
+    out.data[i + 2] = data[i + 2];
+    out.data[i + 3] = Math.round(baseA * a * 255);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 4f. Box blur APENAS no canal alpha (suaviza bordas serrilhadas da máscara)
+// ---------------------------------------------------------------------------
+function blurAlphaChannel(img: ImageData, radius = 2): ImageData {
+  const { width: w, height: h, data } = img;
+  const out = new ImageData(w, h);
+  // copia RGB
+  for (let i = 0; i < data.length; i += 4) {
+    out.data[i] = data[i];
+    out.data[i + 1] = data[i + 1];
+    out.data[i + 2] = data[i + 2];
+  }
+  const k = radius * 2 + 1;
+  const area = k * k;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        const yy = Math.max(0, Math.min(h - 1, y + dy));
+        for (let dx = -radius; dx <= radius; dx++) {
+          const xx = Math.max(0, Math.min(w - 1, x + dx));
+          s += data[(yy * w + xx) * 4 + 3];
+        }
+      }
+      out.data[(y * w + x) * 4 + 3] = s / area;
     }
   }
   return out;
