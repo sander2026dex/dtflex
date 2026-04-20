@@ -1,26 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { HalftoneStudio } from "@/components/HalftoneStudio";
 
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Halftone Studio · Offset 300 DPI · AM 35 LPI @ 22°" },
+      {
+        name: "description",
+        content:
+          "Automação de halftone offset de alta fidelidade: redimensionamento 300 DPI, retícula AM circular 35 LPI a 22°, transparência preservada, PNG 32-bit.",
+      },
+    ],
+  }),
+  component: HalftoneStudio,
 });
-
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
-
-function Index() {
-  return <PlaceholderIndex />;
-}
