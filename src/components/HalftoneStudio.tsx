@@ -324,7 +324,7 @@ export function HalftoneStudio() {
         </div>
 
         <footer className="mt-12 text-xs text-muted-foreground/70 font-mono text-center">
-          AM Halftone · Circular dot · 35 LPI · 22° · 300 DPI · PNG 32-bit RGBA
+          AM Halftone · Circular dot · 35 LPI · 22° · 300 DPI · Pôster sobre papel branco
         </footer>
       </div>
     </div>
