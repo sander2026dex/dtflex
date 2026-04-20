@@ -166,7 +166,6 @@ export function HalftoneStudio() {
                       : "—"
                   }
                   highlight={!!fullResult}
-                  checkered
                 />
               </div>
             )}
