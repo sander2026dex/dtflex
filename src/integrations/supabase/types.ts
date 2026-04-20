@@ -14,16 +14,287 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      access_sessions: {
+        Row: {
+          created_at: string
+          device_fingerprint: string | null
+          device_label: string | null
+          id: string
+          ip_address: unknown
+          last_seen_at: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          session_token_hash: string
+          status: Database["public"]["Enums"]["session_status"]
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_fingerprint?: string | null
+          device_label?: string | null
+          id?: string
+          ip_address?: unknown
+          last_seen_at?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          session_token_hash: string
+          status?: Database["public"]["Enums"]["session_status"]
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_fingerprint?: string | null
+          device_label?: string | null
+          id?: string
+          ip_address?: unknown
+          last_seen_at?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          session_token_hash?: string
+          status?: Database["public"]["Enums"]["session_status"]
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      asset_downloads: {
+        Row: {
+          created_at: string
+          downloaded_at: string | null
+          halftone_mode: Database["public"]["Enums"]["halftone_mode"]
+          id: string
+          output_filename: string | null
+          processing_ms: number | null
+          source_filename: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          downloaded_at?: string | null
+          halftone_mode: Database["public"]["Enums"]["halftone_mode"]
+          id?: string
+          output_filename?: string | null
+          processing_ms?: number | null
+          source_filename?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          downloaded_at?: string | null
+          halftone_mode?: Database["public"]["Enums"]["halftone_mode"]
+          id?: string
+          output_filename?: string | null
+          processing_ms?: number | null
+          source_filename?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: unknown
+          metadata: Json
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          active: boolean
+          billing_period: Database["public"]["Enums"]["billing_period"]
+          code: string
+          created_at: string
+          currency: string
+          id: string
+          name: string
+          price_cents: number
+          prompt_library_included: boolean
+          support_group_included: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          billing_period: Database["public"]["Enums"]["billing_period"]
+          code: string
+          created_at?: string
+          currency?: string
+          id?: string
+          name: string
+          price_cents: number
+          prompt_library_included?: boolean
+          support_group_included?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          billing_period?: Database["public"]["Enums"]["billing_period"]
+          code?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          name?: string
+          price_cents?: number
+          prompt_library_included?: boolean
+          support_group_included?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          last_login_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_login_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_login_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          id: string
+          plan_id: string | null
+          provider: string | null
+          provider_customer_id: string | null
+          provider_subscription_id: string | null
+          status: Database["public"]["Enums"]["subscription_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_id?: string | null
+          provider?: string | null
+          provider_customer_id?: string | null
+          provider_subscription_id?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_id?: string | null
+          provider?: string | null
+          provider_customer_id?: string | null
+          provider_subscription_id?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "customer"
+      billing_period: "monthly" | "annual"
+      halftone_mode: "circular" | "rosette_cmyk"
+      session_status: "active" | "revoked" | "expired"
+      subscription_status:
+        | "pending"
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "expired"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +421,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "customer"],
+      billing_period: ["monthly", "annual"],
+      halftone_mode: ["circular", "rosette_cmyk"],
+      session_status: ["active", "revoked", "expired"],
+      subscription_status: [
+        "pending",
+        "active",
+        "past_due",
+        "canceled",
+        "expired",
+      ],
+    },
   },
 } as const
