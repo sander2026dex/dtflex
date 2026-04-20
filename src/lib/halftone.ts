@@ -1,0 +1,340 @@
+// ============================================================================
+// HALFTONE PIPELINE — Offset de Alta Fidelidade
+// 300 DPI · 3307×4961 px · AM Halftone 35 LPI @ 22° · Pontos Circulares
+// ============================================================================
+
+export type ProgressFn = (stage: string, pct: number) => void;
+
+// PNG signature + helpers para injetar pHYs (300 DPI)
+function crc32(buf: Uint8Array): number {
+  let c: number;
+  const table: number[] = [];
+  for (let n = 0; n < 256; n++) {
+    c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c;
+  }
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) crc = table[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** Insere chunk pHYs (300 dpi = 11811 ppm) num blob PNG. */
+async function injectDpiPng(blob: Blob, dpi = 300): Promise<Blob> {
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  const ppm = Math.round(dpi * 39.3701); // pixels per meter
+  const phys = new Uint8Array(21);
+  // length = 9
+  phys[0] = 0; phys[1] = 0; phys[2] = 0; phys[3] = 9;
+  // type "pHYs"
+  phys[4] = 0x70; phys[5] = 0x48; phys[6] = 0x59; phys[7] = 0x73;
+  // x ppu, y ppu (big-endian uint32)
+  const dv = new DataView(phys.buffer);
+  dv.setUint32(8, ppm); dv.setUint32(12, ppm);
+  phys[16] = 1; // unit = meters
+  // CRC over type+data
+  const crcInput = phys.slice(4, 17);
+  dv.setUint32(17, crc32(crcInput));
+
+  // Insere depois do IHDR (IHDR sempre começa em offset 8, comprimento 13 + 12 = 25 → próximo offset 33)
+  const ihdrEnd = 8 + 4 + 4 + 13 + 4; // sig + len + type + data + crc
+  const out = new Uint8Array(buf.length + phys.length);
+  out.set(buf.subarray(0, ihdrEnd), 0);
+  out.set(phys, ihdrEnd);
+  out.set(buf.subarray(ihdrEnd), ihdrEnd + phys.length);
+  return new Blob([out], { type: "image/png" });
+}
+
+// ---------------------------------------------------------------------------
+// 1. Resize de alta qualidade (Lanczos via downscale em estágios + browser bicubic)
+//    Para upscale grande, browser drawImage com imageSmoothingQuality "high"
+// ---------------------------------------------------------------------------
+function makeCanvas(w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  return c;
+}
+
+function resizeTo(src: HTMLCanvasElement | HTMLImageElement, tw: number, th: number): HTMLCanvasElement {
+  const sw = "naturalWidth" in src ? src.naturalWidth : src.width;
+  const sh = "naturalHeight" in src ? src.naturalHeight : src.height;
+
+  // Downscale em passos de 0.5 (mimetiza Lanczos para o caminho descendente)
+  let curW = sw, curH = sh;
+  let cur: HTMLCanvasElement | HTMLImageElement = src;
+  while (curW * 0.5 > tw && curH * 0.5 > th) {
+    const next = makeCanvas(Math.round(curW * 0.5), Math.round(curH * 0.5));
+    const ctx = next.getContext("2d")!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(cur, 0, 0, next.width, next.height);
+    cur = next;
+    curW = next.width; curH = next.height;
+  }
+  const out = makeCanvas(tw, th);
+  const octx = out.getContext("2d")!;
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.drawImage(cur, 0, 0, tw, th);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 2. Unsharp Mask (acentua arestas antes da retícula)
+// ---------------------------------------------------------------------------
+function unsharpMask(img: ImageData, amount = 0.6, radius = 1): ImageData {
+  const { width: w, height: h, data } = img;
+  // Box blur 3x3 simples (radius 1)
+  const blurred = new Uint8ClampedArray(data);
+  const get = (x: number, y: number, c: number) => {
+    const xi = Math.max(0, Math.min(w - 1, x));
+    const yi = Math.max(0, Math.min(h - 1, y));
+    return data[(yi * w + xi) * 4 + c];
+  };
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        let s = 0;
+        for (let dy = -radius; dy <= radius; dy++)
+          for (let dx = -radius; dx <= radius; dx++) s += get(x + dx, y + dy, c);
+        blurred[i + c] = s / ((radius * 2 + 1) * (radius * 2 + 1));
+      }
+    }
+  }
+  const out = new ImageData(w, h);
+  for (let i = 0; i < data.length; i += 4) {
+    for (let c = 0; c < 3; c++) {
+      const v = data[i + c] + amount * (data[i + c] - blurred[i + c]);
+      out.data[i + c] = Math.max(0, Math.min(255, v));
+    }
+    out.data[i + 3] = data[i + 3];
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 3. Levels + Gamma midtones-darker
+// ---------------------------------------------------------------------------
+function applyLevelsAndGamma(
+  img: ImageData,
+  blackPoint = 80,
+  whitePoint = 255,
+  gammaLevels = 1.0,
+  midtoneGamma = 0.7
+): ImageData {
+  const lut = new Uint8ClampedArray(256);
+  const range = whitePoint - blackPoint;
+  for (let i = 0; i < 256; i++) {
+    let v = (i - blackPoint) / range;
+    v = Math.max(0, Math.min(1, v));
+    v = Math.pow(v, 1 / gammaLevels);
+    // Midtones darker: gamma < 1 escurece os meios-tons
+    v = Math.pow(v, 1 / midtoneGamma);
+    lut[i] = Math.round(v * 255);
+  }
+  const out = new ImageData(img.width, img.height);
+  for (let i = 0; i < img.data.length; i += 4) {
+    out.data[i] = lut[img.data[i]];
+    out.data[i + 1] = lut[img.data[i + 1]];
+    out.data[i + 2] = lut[img.data[i + 2]];
+    out.data[i + 3] = img.data[i + 3];
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 4. AM Halftone — pontos circulares rotacionados
+// ---------------------------------------------------------------------------
+function rgbToLuma(r: number, g: number, b: number) {
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+/**
+ * Halftone AM circular. Frequência em LPI, ângulo em graus, DPI da imagem.
+ * Preserva canal RGB médio do ponto (cor mantida) e aplica máscara halftone na luminância.
+ */
+function applyHalftone(
+  img: ImageData,
+  dpi = 300,
+  lpi = 35,
+  angleDeg = 22
+): ImageData {
+  const { width: w, height: h, data } = img;
+  const out = new ImageData(w, h);
+  // fundo transparente por padrão
+  const cellPx = dpi / lpi; // tamanho da célula em px
+  const angle = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  // base anti-rotação: a malha é alinhada num sistema rotacionado
+  const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
+
+  // Fator do raio máximo do ponto: sqrt(2)/2 cobre toda célula
+  const maxR = cellPx * 0.5 * Math.SQRT2;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const a = data[i + 3];
+      if (a < 8) continue; // fora do objeto → 100% transparente
+
+      // Coordenadas no espaço da malha rotacionada
+      const xr = x * cosI - y * sinI;
+      const yr = x * sinI + y * cosI;
+      // Centro da célula mais próxima
+      const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
+      const cyr = (Math.floor(yr / cellPx) + 0.5) * cellPx;
+      // Distância do ponto ao centro da célula (no espaço rotacionado)
+      const dxr = xr - cxr;
+      const dyr = yr - cyr;
+      const dist = Math.sqrt(dxr * dxr + dyr * dyr);
+
+      // Amostra a luminância média da célula → tom (0=preto, 1=branco)
+      // Para performance, amostra o pixel central (rotação inversa)
+      const cx = Math.round(cxr * cos - cyr * sin);
+      const cy = Math.round(cxr * sin + cyr * cos);
+      const sxi = Math.max(0, Math.min(w - 1, cx));
+      const syi = Math.max(0, Math.min(h - 1, cy));
+      const si = (syi * w + sxi) * 4;
+      const sA = data[si + 3];
+      if (sA < 8) continue;
+      const luma = rgbToLuma(data[si], data[si + 1], data[si + 2]) / 255;
+      // Cobertura desejada (1 = preto cheio)
+      const coverage = 1 - luma;
+      // Raio do ponto para essa cobertura (área = π r² = coverage * cellPx²)
+      const r = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
+
+      if (dist <= r) {
+        // pinta com a cor da célula
+        out.data[i] = data[si];
+        out.data[i + 1] = data[si + 1];
+        out.data[i + 2] = data[si + 2];
+        out.data[i + 3] = a;
+      } else if (dist <= maxR && coverage > 0.92) {
+        // áreas muito escuras: preenche cantos remanescentes
+        out.data[i] = data[si];
+        out.data[i + 1] = data[si + 1];
+        out.data[i + 2] = data[si + 2];
+        out.data[i + 3] = a;
+      }
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 5. Vibrance / Saturation boost (+15%)
+// ---------------------------------------------------------------------------
+function applyVibrance(img: ImageData, amount = 0.15): ImageData {
+  const out = new ImageData(img.width, img.height);
+  const d = img.data, o = out.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const max = Math.max(r, g, b);
+    const avg = (r + g + b) / 3;
+    const sat = (max - avg) / 255; // 0..1 aprox
+    const boost = amount * (1 - sat);
+    o[i] = Math.max(0, Math.min(255, r + (r - avg) * boost));
+    o[i + 1] = Math.max(0, Math.min(255, g + (g - avg) * boost));
+    o[i + 2] = Math.max(0, Math.min(255, b + (b - avg) * boost));
+    o[i + 3] = d[i + 3];
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline principal
+// ---------------------------------------------------------------------------
+export interface HalftoneOptions {
+  targetW?: number;
+  targetH?: number;
+  dpi?: number;
+  lpi?: number;
+  angleDeg?: number;
+  blackPoint?: number;
+  whitePoint?: number;
+  gammaLevels?: number;
+  midtoneGamma?: number;
+  unsharpAmount?: number;
+  vibrance?: number;
+}
+
+export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
+  targetW: 3307,
+  targetH: 4961,
+  dpi: 300,
+  lpi: 35,
+  angleDeg: 22,
+  blackPoint: 80,
+  whitePoint: 255,
+  gammaLevels: 1.0,
+  midtoneGamma: 0.7,
+  unsharpAmount: 0.6,
+  vibrance: 0.15,
+};
+
+/** Yield ao event loop entre estágios pesados. */
+const tick = () => new Promise<void>((r) => setTimeout(r, 0));
+
+export async function processImage(
+  source: HTMLImageElement,
+  opts: HalftoneOptions = {},
+  onProgress?: ProgressFn,
+  // Opcional: usar resolução reduzida para preview rápido
+  previewMaxDim?: number
+): Promise<Blob> {
+  const o = { ...DEFAULT_OPTIONS, ...opts };
+  let tw = o.targetW, th = o.targetH;
+
+  if (previewMaxDim) {
+    const ratio = Math.min(previewMaxDim / tw, previewMaxDim / th);
+    tw = Math.round(tw * ratio);
+    th = Math.round(th * ratio);
+  }
+
+  onProgress?.("Redimensionando para 300 DPI", 5);
+  await tick();
+  const resized = resizeTo(source, tw, th);
+
+  onProgress?.("Aplicando Unsharp Mask", 20);
+  await tick();
+  const ctx = resized.getContext("2d")!;
+  let data = ctx.getImageData(0, 0, tw, th);
+  data = unsharpMask(data, o.unsharpAmount, 1);
+
+  onProgress?.("Ajustando níveis e meios-tons", 35);
+  await tick();
+  data = applyLevelsAndGamma(data, o.blackPoint, o.whitePoint, o.gammaLevels, o.midtoneGamma);
+
+  onProgress?.("Gerando halftone AM 35 LPI @ 22°", 55);
+  await tick();
+  // Escala o DPI proporcionalmente em modo preview para manter aparência
+  const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
+  data = applyHalftone(data, effectiveDpi, o.lpi, o.angleDeg);
+
+  onProgress?.("Aplicando vibrance", 80);
+  await tick();
+  data = applyVibrance(data, o.vibrance);
+
+  onProgress?.("Exportando PNG 32-bit", 92);
+  await tick();
+  ctx.putImageData(data, 0, 0);
+  const blob: Blob = await new Promise((res) =>
+    resized.toBlob((b) => res(b!), "image/png")
+  );
+
+  onProgress?.("Inserindo metadados 300 DPI", 98);
+  const finalBlob = await injectDpiPng(blob, o.dpi);
+  onProgress?.("Concluído", 100);
+  return finalBlob;
+}
+
+export function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = (e) => rej(e);
+    img.src = url;
+  });
+}
