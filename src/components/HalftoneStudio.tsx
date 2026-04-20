@@ -281,6 +281,34 @@ export function HalftoneStudio() {
               format={(v) => `${(v * 100).toFixed(0)}%`}
               onChange={(v) => setOpts((o) => ({ ...o, vibrance: v }))}
             />
+            <SliderRow
+              label="Warmth (dourado)"
+              value={opts.warmth ?? 0.08}
+              min={0} max={0.25} step={0.01}
+              format={(v) => `${(v * 100).toFixed(0)}%`}
+              onChange={(v) => setOpts((o) => ({ ...o, warmth: v }))}
+            />
+            <SliderRow
+              label="High-Key Lift"
+              value={opts.highKeyLift ?? 0.18}
+              min={0} max={0.4} step={0.01}
+              format={(v) => v.toFixed(2)}
+              onChange={(v) => setOpts((o) => ({ ...o, highKeyLift: v }))}
+            />
+            <SliderRow
+              label="Vignette início"
+              value={opts.vignetteInner ?? 0.55}
+              min={0.1} max={0.9} step={0.02}
+              format={(v) => v.toFixed(2)}
+              onChange={(v) => setOpts((o) => ({ ...o, vignetteInner: v }))}
+            />
+            <SliderRow
+              label="Vignette fim (branco)"
+              value={opts.vignetteOuter ?? 0.95}
+              min={0.5} max={1.2} step={0.02}
+              format={(v) => v.toFixed(2)}
+              onChange={(v) => setOpts((o) => ({ ...o, vignetteOuter: v }))}
+            />
 
             <Separator />
 
