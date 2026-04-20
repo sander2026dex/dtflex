@@ -206,8 +206,9 @@ function applyHalftone(
         out.data[i] = data[si];
         out.data[i + 1] = data[si + 1];
         out.data[i + 2] = data[si + 2];
-        // alpha já é 255 (fundo)
+        out.data[i + 3] = 255; // ponto opaco
       }
+      // else: permanece transparente (alpha = 0)
     }
   }
   return out;
