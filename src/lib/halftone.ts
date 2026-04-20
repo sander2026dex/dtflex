@@ -48,26 +48,112 @@ function makeCanvas(w: number, h: number): HTMLCanvasElement {
   return c;
 }
 
+// Sinc Lanczos (a=3) — nitidez de pré-impressão
+function lanczosKernel(x: number, a = 3): number {
+  if (x === 0) return 1;
+  if (x <= -a || x >= a) return 0;
+  const px = Math.PI * x;
+  return (a * Math.sin(px) * Math.sin(px / a)) / (px * px);
+}
+
+function lanczosResize(src: HTMLCanvasElement, tw: number, th: number, a = 3): HTMLCanvasElement {
+  const sw = src.width, sh = src.height;
+  const sctx = src.getContext("2d")!;
+  const srcData = sctx.getImageData(0, 0, sw, sh).data;
+
+  // Passo horizontal: sw×sh -> tw×sh
+  const horiz = new Float32Array(tw * sh * 4);
+  const xRatio = sw / tw;
+  const xSupport = Math.max(1, xRatio) * a;
+  for (let x = 0; x < tw; x++) {
+    const cx = (x + 0.5) * xRatio - 0.5;
+    const x0 = Math.max(0, Math.floor(cx - xSupport));
+    const x1 = Math.min(sw - 1, Math.ceil(cx + xSupport));
+    const weights: number[] = [];
+    let wsum = 0;
+    for (let sx = x0; sx <= x1; sx++) {
+      const w = lanczosKernel((sx - cx) / Math.max(1, xRatio), a);
+      weights.push(w);
+      wsum += w;
+    }
+    for (let y = 0; y < sh; y++) {
+      let r = 0, g = 0, b = 0, alpha = 0;
+      for (let k = 0, sx = x0; sx <= x1; sx++, k++) {
+        const w = weights[k];
+        const i = (y * sw + sx) * 4;
+        r += srcData[i] * w;
+        g += srcData[i + 1] * w;
+        b += srcData[i + 2] * w;
+        alpha += srcData[i + 3] * w;
+      }
+      const oi = (y * tw + x) * 4;
+      horiz[oi] = r / wsum;
+      horiz[oi + 1] = g / wsum;
+      horiz[oi + 2] = b / wsum;
+      horiz[oi + 3] = alpha / wsum;
+    }
+  }
+
+  // Passo vertical: tw×sh -> tw×th
+  const out = makeCanvas(tw, th);
+  const octx = out.getContext("2d")!;
+  const outData = octx.createImageData(tw, th);
+  const yRatio = sh / th;
+  const ySupport = Math.max(1, yRatio) * a;
+  for (let y = 0; y < th; y++) {
+    const cy = (y + 0.5) * yRatio - 0.5;
+    const y0 = Math.max(0, Math.floor(cy - ySupport));
+    const y1 = Math.min(sh - 1, Math.ceil(cy + ySupport));
+    const weights: number[] = [];
+    let wsum = 0;
+    for (let sy = y0; sy <= y1; sy++) {
+      const w = lanczosKernel((sy - cy) / Math.max(1, yRatio), a);
+      weights.push(w);
+      wsum += w;
+    }
+    for (let x = 0; x < tw; x++) {
+      let r = 0, g = 0, b = 0, alpha = 0;
+      for (let k = 0, sy = y0; sy <= y1; sy++, k++) {
+        const w = weights[k];
+        const i = (sy * tw + x) * 4;
+        r += horiz[i] * w;
+        g += horiz[i + 1] * w;
+        b += horiz[i + 2] * w;
+        alpha += horiz[i + 3] * w;
+      }
+      const oi = (y * tw + x) * 4;
+      outData.data[oi] = Math.max(0, Math.min(255, r / wsum));
+      outData.data[oi + 1] = Math.max(0, Math.min(255, g / wsum));
+      outData.data[oi + 2] = Math.max(0, Math.min(255, b / wsum));
+      outData.data[oi + 3] = Math.max(0, Math.min(255, alpha / wsum));
+    }
+  }
+  octx.putImageData(outData, 0, 0);
+  return out;
+}
+
 function resizeTo(src: HTMLCanvasElement | HTMLImageElement, tw: number, th: number): HTMLCanvasElement {
   const sw = "naturalWidth" in src ? src.naturalWidth : src.width;
   const sh = "naturalHeight" in src ? src.naturalHeight : src.height;
-  let curW = sw, curH = sh;
-  let cur: HTMLCanvasElement | HTMLImageElement = src;
-  while (curW * 0.5 > tw && curH * 0.5 > th) {
-    const next = makeCanvas(Math.round(curW * 0.5), Math.round(curH * 0.5));
+  // Coloca em canvas para manipular pixels
+  let stage: HTMLCanvasElement;
+  if (src instanceof HTMLCanvasElement) {
+    stage = src;
+  } else {
+    stage = makeCanvas(sw, sh);
+    stage.getContext("2d")!.drawImage(src, 0, 0);
+  }
+  // Pré-downscale rápido por etapas até ficar perto do alvo (acelera Lanczos)
+  while (stage.width * 0.5 > tw * 1.4 && stage.height * 0.5 > th * 1.4) {
+    const next = makeCanvas(Math.round(stage.width * 0.5), Math.round(stage.height * 0.5));
     const ctx = next.getContext("2d")!;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(cur, 0, 0, next.width, next.height);
-    cur = next;
-    curW = next.width; curH = next.height;
+    ctx.drawImage(stage, 0, 0, next.width, next.height);
+    stage = next;
   }
-  const out = makeCanvas(tw, th);
-  const octx = out.getContext("2d")!;
-  octx.imageSmoothingEnabled = true;
-  octx.imageSmoothingQuality = "high";
-  octx.drawImage(cur, 0, 0, tw, th);
-  return out;
+  // Upscale também usa Lanczos quando necessário
+  return lanczosResize(stage, tw, th, 3);
 }
 
 // ---------------------------------------------------------------------------
