@@ -109,7 +109,7 @@ export function HalftoneStudio() {
             </h1>
             <p className="text-muted-foreground mt-2 max-w-xl">
               Pipeline 300 DPI · Retícula AM 35 LPI @ 22° · Pontos circulares ·
-              Saída PNG RGBA com transparência preservada.
+              Pôster sobre papel branco com vignette radial.
             </p>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 rounded-md border border-border bg-card/50 backdrop-blur">
