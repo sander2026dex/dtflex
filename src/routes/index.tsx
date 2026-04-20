@@ -1,23 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { HalftoneStudio } from "@/components/HalftoneStudio";
+import { LandingPage } from "@/components/LandingPage";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "DTFLEX Pro | Halftone CMYK Profissional" },
+      { title: "DTFLEXPRO | Plataforma com acesso liberado por código" },
       {
         name: "description",
         content:
-          "Landing + estúdio profissional com Circular e Rosette CMYK real, fundo vazado, preto transparente e exportação PNG 300 DPI.",
+          "Landing pública da DTFLEXPRO com checkout, painel admin, validação por código e acesso seguro à plataforma.",
       },
-      { property: "og:title", content: "DTFLEX Pro | Halftone CMYK Profissional" },
+      { property: "og:title", content: "DTFLEXPRO | Plataforma com acesso liberado por código" },
       {
         property: "og:description",
         content:
-          "Circular e Rosette CMYK com retícula real, preto vazado e saída pronta para comercializar sua plataforma.",
+          "Venda acesso à sua plataforma com pagamento, envio automático de código por e-mail e painel protegido para administração.",
       },
     ],
     links: [{ rel: "canonical", href: "https://www.dtflexpro.com" }],
   }),
-  component: HalftoneStudio,
+  component: LandingPage,
 });
