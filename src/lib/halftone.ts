@@ -291,31 +291,49 @@ function applyRadialAlphaVignette(
 }
 
 // ---------------------------------------------------------------------------
-// 4e. Máscara de luminosidade → alpha (pixels quase brancos viram transparentes)
-//     Threshold em ~95% (luma > 242). Suavização com box blur no canal alpha.
+// 4e. Remoção de fundo branco PRÉ-halftone — gera máscara de subject (alpha=0 no fundo)
+//     Pixels quase-brancos (luma > threshold) recebem alpha=0 ANTES da retícula.
+//     Retorna { rgba, mask } onde mask é Float32 0..1 (1 = subject, 0 = fundo).
 // ---------------------------------------------------------------------------
-function applyLuminanceAlphaMask(
+function removeWhiteBackground(
   img: ImageData,
-  thresholdLuma = 242, // ~95%
-  softness = 16        // largura da rampa em níveis de luma
-): ImageData {
+  thresholdLuma = 240,
+  softness = 18
+): { rgba: ImageData; mask: Float32Array } {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
-  for (let i = 0; i < data.length; i += 4) {
+  const mask = new Float32Array(w * h);
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
     const luma = rgbToLuma(data[i], data[i + 1], data[i + 2]);
-    // Acima do threshold = transparente; abaixo = opaco; rampa suave entre.
     let a = 1;
     if (luma >= thresholdLuma + softness) a = 0;
     else if (luma > thresholdLuma) {
       const u = (luma - thresholdLuma) / softness;
       a = 1 - u * u * (3 - 2 * u);
     }
-    // Combina com alpha existente (multiplicativo)
-    const baseA = data[i + 3] / 255;
+    // Combina com alpha original
+    a *= data[i + 3] / 255;
+    mask[p] = a;
     out.data[i] = data[i];
     out.data[i + 1] = data[i + 1];
     out.data[i + 2] = data[i + 2];
-    out.data[i + 3] = Math.round(baseA * a * 255);
+    out.data[i + 3] = Math.round(a * 255);
+  }
+  return { rgba: out, mask };
+}
+
+// ---------------------------------------------------------------------------
+// 4e2. Aplica máscara pré-computada (Float32 0..1) ao alpha de uma ImageData.
+//      Usado APÓS o halftone para garantir que o fundo permaneça transparente.
+// ---------------------------------------------------------------------------
+function applyMaskToAlpha(img: ImageData, mask: Float32Array): ImageData {
+  const out = new ImageData(img.width, img.height);
+  const d = img.data, o = out.data;
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    o[i] = d[i];
+    o[i + 1] = d[i + 1];
+    o[i + 2] = d[i + 2];
+    o[i + 3] = Math.round((d[i + 3] / 255) * mask[p] * 255);
   }
   return out;
 }
@@ -436,15 +454,20 @@ export async function processImage(
   const ctx = resized.getContext("2d")!;
   let data = ctx.getImageData(0, 0, tw, th);
 
-  onProgress?.("Aplicando Unsharp Mask", 22);
+  onProgress?.("Aplicando Unsharp Mask", 18);
   await tick();
   data = unsharpMask(data, o.unsharpAmount, 1);
 
-  onProgress?.("Curva High-Key + warmth", 32);
+  onProgress?.("Removendo fundo branco (pré-halftone)", 28);
+  await tick();
+  const { rgba: noBg, mask: subjectMask } = removeWhiteBackground(data, 240, 18);
+  data = noBg;
+
+  onProgress?.("Curva High-Key + warmth", 36);
   await tick();
   data = applyHighKeyWarmCurve(data, o.warmth, o.highKeyLift);
 
-  onProgress?.("Ajustando níveis e meios-tons", 42);
+  onProgress?.("Ajustando níveis e meios-tons", 44);
   await tick();
   data = applyLevelsAndGamma(data, o.blackPoint, o.whitePoint, o.gammaLevels, o.midtoneGamma);
 
@@ -457,9 +480,9 @@ export async function processImage(
   await tick();
   data = applyVibrance(data, o.vibrance);
 
-  onProgress?.("Máscara de luminosidade → alpha", 80);
+  onProgress?.("Aplicando máscara de transparência (pós-halftone)", 80);
   await tick();
-  data = applyLuminanceAlphaMask(data, 242, 16);
+  data = applyMaskToAlpha(data, subjectMask);
 
   onProgress?.("Vignette radial → transparente", 86);
   await tick();
