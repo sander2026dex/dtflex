@@ -404,7 +404,11 @@ function applyMaskToRGBA(img: ImageData, mask: Float32Array): ImageData {
 }
 
 // ---------------------------------------------------------------------------
-// Halftone AM circular (single-channel grayscale-driven, RGB color preservada)
+// HALFTONE AM CIRCULAR — RETÍCULA REAL DE PRÉ-IMPRESSÃO
+// • Pontos sólidos da cor original onde há tinta
+// • TRANSPARENTE entre os pontos (papel = vazado)
+// • PRETO/sombras = SEM TINTA = TRANSPARENTE (vazado)
+// • Cobertura proporcional à luminância (claro = ponto grande, escuro = vazado)
 // ---------------------------------------------------------------------------
 function applyHalftoneCircular(
   img: ImageData,
@@ -419,11 +423,15 @@ function applyHalftoneCircular(
   const angle = (angleDeg * Math.PI) / 180;
   const cos = Math.cos(angle), sin = Math.sin(angle);
   const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
-  const maxR = cellPx * 0.5 * Math.SQRT2;
+  const cellArea = cellPx * cellPx;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
+      const pixelMask = mask ? mask[y * w + x] : 1;
+      if (pixelMask <= 0.01) continue; // fora do sujeito → transparente
+
+      // posição rotacionada → célula da retícula
       const xr = x * cosI - y * sinI;
       const yr = x * sinI + y * cosI;
       const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
@@ -431,32 +439,32 @@ function applyHalftoneCircular(
       const dxr = xr - cxr;
       const dyr = yr - cyr;
       const dist = Math.sqrt(dxr * dxr + dyr * dyr);
+
+      // amostra cor no centro da célula (rotação inversa)
       const cx = Math.round(cxr * cos - cyr * sin);
       const cy = Math.round(cxr * sin + cyr * cos);
       const sxi = Math.max(0, Math.min(w - 1, cx));
       const syi = Math.max(0, Math.min(h - 1, cy));
       const si = (syi * w + sxi) * 4;
-      const luma = rgbToLuma(data[si], data[si + 1], data[si + 2]) / 255;
+      const r = data[si], g = data[si + 1], b = data[si + 2];
+      const luma = rgbToLuma(r, g, b) / 255;
       const cellMask = mask ? mask[syi * w + sxi] : 1;
-      const pixelMask = mask ? mask[y * w + x] : 1;
-      const paperAlpha = getPaperAlpha(pixelMask);
-      const toneMask = Math.min(cellMask, pixelMask);
-      if (toneMask <= 0.01) continue;
-      const coverage = (1 - luma) * toneMask;
-      const dotRadius = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
-      const insideDot = coverage > 0.01 && dist <= dotRadius;
-      const insideCorner = coverage > 0.92 && dist <= maxR;
-      if (insideDot || insideCorner) {
-        out.data[i] = data[si];
-        out.data[i + 1] = data[si + 1];
-        out.data[i + 2] = data[si + 2];
-        out.data[i + 3] = Math.max(paperAlpha, Math.round(255 * toneMask));
-      } else if (paperAlpha > 0) {
-        out.data[i] = 255;
-        out.data[i + 1] = 255;
-        out.data[i + 2] = 255;
-        out.data[i + 3] = paperAlpha;
-      }
+
+      // RETÍCULA PRO: cobertura proporcional ao brilho do pixel
+      // PRETO (luma=0) → ponto zero → 100% VAZADO/TRANSPARENTE
+      // BRANCO/CLARO (luma=1) → ponto grande
+      const coverage = luma * cellMask * pixelMask;
+      if (coverage <= 0.02) continue; // preto/sombra = vazado
+
+      // Raio do ponto proporcional à cobertura desejada
+      const dotRadius = Math.sqrt((coverage * cellArea) / Math.PI);
+      if (dist > dotRadius) continue; // entre pontos = transparente
+
+      // Dentro do ponto: tinta sólida da cor original do pixel
+      out.data[i]     = r;
+      out.data[i + 1] = g;
+      out.data[i + 2] = b;
+      out.data[i + 3] = 255;
     }
   }
   return out;
