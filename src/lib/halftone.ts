@@ -715,9 +715,9 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   targetW: 3307,
   targetH: 4961,
   dpi: 300,
-  lpi: 40,
+  lpi: 35,
   angleDeg: 22,
-  blackPoint: 60,
+  blackPoint: 0,
   whitePoint: 250,
   gammaLevels: 1.0,
   midtoneGamma: 0.85,
@@ -771,9 +771,12 @@ export async function processImage(
   await tick();
   data = applyHighKeyWarmCurve(data, o.warmth, o.highKeyLift);
 
-  onProgress?.("Níveis e meios-tons", 46);
+  onProgress?.("Black point dinâmico + níveis", 46);
   await tick();
-  data = applyLevelsAndGamma(data, o.blackPoint, o.whitePoint, o.gammaLevels, o.midtoneGamma);
+  const autoLevels = analyzeMaskedLevels(data, subjectMask);
+  const effectiveBlackPoint = o.blackPoint > 0 ? o.blackPoint : autoLevels.blackPoint;
+  const effectiveWhitePoint = Math.max(effectiveBlackPoint + 24, Math.min(255, o.whitePoint > 0 ? o.whitePoint : autoLevels.whitePoint));
+  data = applyLevelsAndGamma(data, effectiveBlackPoint, effectiveWhitePoint, o.gammaLevels, o.midtoneGamma);
 
   const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
 
