@@ -454,15 +454,20 @@ export async function processImage(
   const ctx = resized.getContext("2d")!;
   let data = ctx.getImageData(0, 0, tw, th);
 
-  onProgress?.("Aplicando Unsharp Mask", 22);
+  onProgress?.("Aplicando Unsharp Mask", 18);
   await tick();
   data = unsharpMask(data, o.unsharpAmount, 1);
 
-  onProgress?.("Curva High-Key + warmth", 32);
+  onProgress?.("Removendo fundo branco (pré-halftone)", 28);
+  await tick();
+  const { rgba: noBg, mask: subjectMask } = removeWhiteBackground(data, 240, 18);
+  data = noBg;
+
+  onProgress?.("Curva High-Key + warmth", 36);
   await tick();
   data = applyHighKeyWarmCurve(data, o.warmth, o.highKeyLift);
 
-  onProgress?.("Ajustando níveis e meios-tons", 42);
+  onProgress?.("Ajustando níveis e meios-tons", 44);
   await tick();
   data = applyLevelsAndGamma(data, o.blackPoint, o.whitePoint, o.gammaLevels, o.midtoneGamma);
 
@@ -475,9 +480,9 @@ export async function processImage(
   await tick();
   data = applyVibrance(data, o.vibrance);
 
-  onProgress?.("Máscara de luminosidade → alpha", 80);
+  onProgress?.("Aplicando máscara de transparência (pós-halftone)", 80);
   await tick();
-  data = applyLuminanceAlphaMask(data, 242, 16);
+  data = applyMaskToAlpha(data, subjectMask);
 
   onProgress?.("Vignette radial → transparente", 86);
   await tick();
