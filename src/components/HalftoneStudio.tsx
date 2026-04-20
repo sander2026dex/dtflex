@@ -244,14 +244,14 @@ export function HalftoneStudio() {
 
             <div>
               <Label className="text-sm mb-2 block">Tipo de retícula</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <Button
                   type="button"
                   size="sm"
-                  variant={(opts.halftoneType ?? "circular") === "circular" ? "default" : "outline"}
-                  onClick={() => setOpts((o) => ({ ...o, halftoneType: "circular" }))}
+                  variant={opts.halftoneType === "warmDuotone" ? "default" : "outline"}
+                  onClick={() => setOpts((o) => ({ ...o, halftoneType: "warmDuotone" }))}
                 >
-                  Circular
+                  Warm
                 </Button>
                 <Button
                   type="button"
@@ -259,11 +259,21 @@ export function HalftoneStudio() {
                   variant={opts.halftoneType === "rosette" ? "default" : "outline"}
                   onClick={() => setOpts((o) => ({ ...o, halftoneType: "rosette" }))}
                 >
-                  Rosette CMYK
+                  Rosette
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={opts.halftoneType === "circular" ? "default" : "outline"}
+                  onClick={() => setOpts((o) => ({ ...o, halftoneType: "circular" }))}
+                >
+                  Circular
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                {opts.halftoneType === "rosette"
+                {opts.halftoneType === "warmDuotone"
+                  ? "Paleta Jack Sparrow · Magenta 75° + Yellow 0° · ZERO preto"
+                  : opts.halftoneType === "rosette"
                   ? "Separação CMYK · 15°/75°/0°/45° · padrão floral offset"
                   : "Pontos circulares monocromáticos rotacionados"}
               </p>
