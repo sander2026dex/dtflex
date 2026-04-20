@@ -904,21 +904,10 @@ export async function processImage(
 
   const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
 
-  // Color grading WARM (paleta Jack Sparrow) — aplicado antes do halftone
-  if (o.halftoneType === "warmDuotone") {
-    onProgress?.("Color grading warm (sem preto)", 54);
-    await tick();
-    data = applyWarmGrading(data, 1);
-  }
-
-  if (o.halftoneType === "rosette") {
+  if (o.halftoneType === "rosette_cmyk") {
     onProgress?.("Halftone Rosette CMYK (15°/75°/0°/45°)", 60);
     await tick();
     data = applyHalftoneRosette(data, effectiveDpi, o.lpi, subjectMask);
-  } else if (o.halftoneType === "warmDuotone") {
-    onProgress?.("Halftone Warm Duotone (M 75° + Y 0°, sem preto)", 60);
-    await tick();
-    data = applyHalftoneWarmDuotone(data, effectiveDpi, o.lpi, subjectMask);
   } else {
     onProgress?.("Halftone AM circular @ ângulo", 60);
     await tick();
