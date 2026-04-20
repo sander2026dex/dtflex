@@ -825,16 +825,16 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   blackPoint: 0,
   whitePoint: 250,
   gammaLevels: 1.0,
-  midtoneGamma: 0.85,
-  unsharpAmount: 0.7,
-  vibrance: 0.18,
-  warmth: 0.05,
-  highKeyLift: 0.12,
+  midtoneGamma: 0.9,
+  unsharpAmount: 0.6,
+  vibrance: 0.20,
+  warmth: 0.06,
+  highKeyLift: 0.10,
   vignetteInner: 1.0,    // desligada por padrão — fade vem dos pontinhos
   vignetteOuter: 1.2,
-  halftoneType: "rosette",
-  bgTolerance: 36,
-  featherPx: 2,
+  halftoneType: "warmDuotone",
+  bgTolerance: 38,
+  featherPx: 14,         // feather largo (10-20px) para borda dissolvida
 };
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
