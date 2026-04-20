@@ -665,10 +665,10 @@ function applyHalftoneWarmDuotone(
   const dotsY = halftoneChannel(Ych, w, h, cellPx, 0, mask);
   const dotsM = halftoneChannel(Mch, w, h, cellPx, 75, mask);
 
-  // Tintas em RGB (papel branco)
+  // Tintas em RGB (offset quente — sem papel, fundo vazado)
   const INK_M = { r: 226, g: 56,  b: 92  };  // magenta levemente quente
   const INK_Y = { r: 248, g: 200, b: 60  };  // amarelo dourado
-  const PAPER = { r: 255, g: 248, b: 232 };  // branco quente
+
 
   const out = new ImageData(w, h);
   const o = out.data;
