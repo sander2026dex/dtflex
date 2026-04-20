@@ -526,6 +526,14 @@ function halftoneChannel(
   return dots;
 }
 
+// ---------------------------------------------------------------------------
+// HALFTONE ROSETTE CMYK — RETÍCULA REAL DE PRÉ-IMPRESSÃO
+// • 4 chapas: C 15° · M 75° · Y 0° · K 45° → padrão floral (rosette)
+// • Cada ponto = TINTA SÓLIDA da chapa (Cyan, Magenta, Yellow, Black)
+// • Preto = ponto K SÓLIDO (mas é a chapa K, não fundo)
+// • Entre os pontos = TRANSPARENTE (papel vazado)
+// • Sobreposição de tintas = multiply real
+// ---------------------------------------------------------------------------
 function applyHalftoneRosette(
   img: ImageData,
   dpi = 300,
@@ -536,7 +544,7 @@ function applyHalftoneRosette(
   const total = w * h;
   const cellPx = dpi / lpi;
 
-  // Separação CMYK
+  // Separação CMYK real
   const C = new Float32Array(total);
   const M = new Float32Array(total);
   const Y = new Float32Array(total);
@@ -546,37 +554,41 @@ function applyHalftoneRosette(
     C[p] = c; M[p] = m; Y[p] = y; K[p] = k;
   }
 
-  // Halftone por canal nos ângulos clássicos
+  // Halftone por chapa nos ângulos clássicos offset
   const dotsC = halftoneChannel(C, w, h, cellPx, 15, mask);
   const dotsM = halftoneChannel(M, w, h, cellPx, 75, mask);
-  const dotsY = halftoneChannel(Y, w, h, cellPx, 0, mask);
+  const dotsY = halftoneChannel(Y, w, h, cellPx, 0,  mask);
   const dotsK = halftoneChannel(K, w, h, cellPx, 45, mask);
 
-  // Composição multiplicativa (papel branco) — cada ponto subtrai sua cor complementar
+  // Cores das tintas (process inks)
+  const INK_C = { r: 0,   g: 174, b: 239 };
+  const INK_M = { r: 236, g: 0,   b: 140 };
+  const INK_Y = { r: 255, g: 237, b: 0   };
+  const INK_K = { r: 20,  g: 20,  b: 20  };
+
   const out = new ImageData(w, h);
   const o = out.data;
   for (let p = 0, i = 0; p < total; p++, i += 4) {
-    const m = mask ? mask[p] : 1;
-    if (m <= 0.01) continue;
-    const paperAlpha = getPaperAlpha(m);
+    const mk = mask ? mask[p] : 1;
+    if (mk <= 0.01) continue;
 
-    o[i] = 255;
-    o[i + 1] = 255;
-    o[i + 2] = 255;
-    o[i + 3] = paperAlpha;
+    const hC = !!dotsC[p];
+    const hM = !!dotsM[p];
+    const hY = !!dotsY[p];
+    const hK = !!dotsK[p];
+    if (!hC && !hM && !hY && !hK) continue; // sem tinta = vazado
 
+    // Multiply das tintas presentes (sobre branco virtual = 1,1,1)
     let r = 1, g = 1, b = 1;
-    let hasDot = false;
-    if (dotsC[p]) { r *= 0; g *= 1; b *= 1; hasDot = true; }       // Cyan = (0,255,255)
-    if (dotsM[p]) { r *= 1; g *= 0; b *= 1; hasDot = true; }       // Magenta = (255,0,255)
-    if (dotsY[p]) { r *= 1; g *= 1; b *= 0; hasDot = true; }       // Yellow = (255,255,0)
-    if (dotsK[p]) { r = 0; g = 0; b = 0; hasDot = true; }          // Black domina
-    if (!hasDot) continue;
+    if (hC) { r *= INK_C.r / 255; g *= INK_C.g / 255; b *= INK_C.b / 255; }
+    if (hM) { r *= INK_M.r / 255; g *= INK_M.g / 255; b *= INK_M.b / 255; }
+    if (hY) { r *= INK_Y.r / 255; g *= INK_Y.g / 255; b *= INK_Y.b / 255; }
+    if (hK) { r *= INK_K.r / 255; g *= INK_K.g / 255; b *= INK_K.b / 255; }
 
-    o[i] = Math.round(r * 255);
+    o[i]     = Math.round(r * 255);
     o[i + 1] = Math.round(g * 255);
     o[i + 2] = Math.round(b * 255);
-    o[i + 3] = Math.max(paperAlpha, Math.round(255 * m));
+    o[i + 3] = 255; // ponto sólido
   }
   return out;
 }
