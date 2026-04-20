@@ -125,6 +125,33 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          email: string
+          id: string
+          status: string
+          stripe_session_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          email: string
+          id?: string
+          status: string
+          stripe_session_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          email?: string
+          id?: string
+          status?: string
+          stripe_session_id?: string
+        }
+        Relationships: []
+      }
       plans: {
         Row: {
           active: boolean
@@ -200,6 +227,33 @@ export type Database = {
         }
         Relationships: []
       }
+      security_logs: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          ip: string | null
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          ip?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean
@@ -249,6 +303,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_access: {
+        Row: {
+          access_code: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          status: string
+        }
+        Insert: {
+          access_code: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          status?: string
+        }
+        Update: {
+          access_code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          status?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
