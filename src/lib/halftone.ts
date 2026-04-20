@@ -502,9 +502,9 @@ export async function processImage(
   await tick();
   data = unsharpMask(data, o.unsharpAmount, 1);
 
-  onProgress?.("Removendo fundo branco (pré-halftone)", 28);
+  onProgress?.("Detectando fundo e criando máscara (pré-halftone)", 28);
   await tick();
-  const { rgba: noBg, mask: subjectMask } = removeWhiteBackground(data, 240, 18);
+  const { rgba: noBg, mask: subjectMask } = removeDetectedBackground(data, 24);
   data = noBg;
 
   onProgress?.("Curva High-Key + warmth", 36);
@@ -518,7 +518,7 @@ export async function processImage(
   onProgress?.("Gerando halftone AM @ ângulo", 58);
   await tick();
   const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
-  data = applyHalftone(data, effectiveDpi, o.lpi, o.angleDeg);
+  data = applyHalftone(data, effectiveDpi, o.lpi, o.angleDeg, subjectMask);
 
   onProgress?.("Aplicando vibrance", 72);
   await tick();
