@@ -451,10 +451,13 @@ function SliderRow({
 }
 
 function PreviewCard({
-  title, url, meta, highlight,
+  title, url, meta, highlight, busy, pct, stage,
 }: {
   title: string; url: string | null; meta: string;
   highlight?: boolean;
+  busy?: boolean;
+  pct?: number;
+  stage?: string;
 }) {
   return (
     <Card
@@ -479,7 +482,20 @@ function PreviewCard({
           backgroundPosition: "0 0, 0 10px, 10px -10px, 10px 0px",
         }}
       >
-        {url ? (
+        {busy ? (
+          <div className="flex flex-col items-center gap-3 px-6 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="text-xs font-medium text-foreground/80">
+              Processando Retícula em 300 DPI…
+            </div>
+            <div className="text-[10px] text-muted-foreground font-mono">
+              {stage || "iniciando"} · {pct ?? 0}%
+            </div>
+            <div className="w-full max-w-[200px]">
+              <Progress value={pct ?? 0} className="h-1" />
+            </div>
+          </div>
+        ) : url ? (
           <img
             src={url}
             alt={title}
