@@ -153,13 +153,15 @@ function rgbToLuma(r: number, g: number, b: number) {
 /**
  * Halftone AM circular sobre fundo TRANSPARENTE.
  * Áreas claras = sem ponto (alpha 0). Sombras = pontos densos.
- * Saída RGBA com canal alpha real (sem fundo branco).
+ * Quando uma máscara é fornecida, o raio/alpha dos pontos é reduzido na borda
+ * para que o fade seja feito pela própria retícula.
  */
 function applyHalftone(
   img: ImageData,
   dpi = 300,
   lpi = 35,
-  angleDeg = 22
+  angleDeg = 22,
+  mask?: Float32Array
 ): ImageData {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
@@ -192,12 +194,15 @@ function applyHalftone(
       const syi = Math.max(0, Math.min(h - 1, cy));
       const si = (syi * w + sxi) * 4;
       const luma = rgbToLuma(data[si], data[si + 1], data[si + 2]) / 255;
+      const cellMask = mask ? mask[syi * w + sxi] : 1;
+      const pixelMask = mask ? mask[y * w + x] : 1;
+      const toneMask = Math.min(cellMask, pixelMask);
 
-      // Threshold: luma ≥ 0.96 não desenha nada (fica branco puro, sem sujeira)
-      if (luma >= 0.96) continue;
+      if (toneMask <= 0.01) continue;
 
       // Cobertura desejada (1 = ponto cheio)
-      const coverage = 1 - luma;
+      const coverage = (1 - luma) * toneMask;
+      if (coverage <= 0.01) continue;
       const r = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
 
       const insideDot = dist <= r;
@@ -206,7 +211,7 @@ function applyHalftone(
         out.data[i] = data[si];
         out.data[i + 1] = data[si + 1];
         out.data[i + 2] = data[si + 2];
-        out.data[i + 3] = 255; // ponto opaco
+        out.data[i + 3] = Math.round(255 * toneMask);
       }
       // else: permanece transparente (alpha = 0)
     }
@@ -291,26 +296,65 @@ function applyRadialAlphaVignette(
 }
 
 // ---------------------------------------------------------------------------
-// 4e. Remoção de fundo branco PRÉ-halftone — gera máscara de subject (alpha=0 no fundo)
-//     Pixels quase-brancos (luma > threshold) recebem alpha=0 ANTES da retícula.
-//     Retorna { rgba, mask } onde mask é Float32 0..1 (1 = subject, 0 = fundo).
+// 4e. Remoção de fundo dinâmica PRÉ-halftone — detecta fundo claro/escuro pelos cantos
+//     e gera máscara suave do subject (Float32 0..1) para a retícula respeitar a borda.
 // ---------------------------------------------------------------------------
-function removeWhiteBackground(
+type BackgroundMode = "light" | "dark";
+
+function detectBackgroundMode(img: ImageData): BackgroundMode {
+  const { width: w, height: h, data } = img;
+  const cornerIndices = [
+    0,
+    (w - 1) * 4,
+    ((h - 1) * w) * 4,
+    ((h - 1) * w + (w - 1)) * 4,
+  ];
+
+  let darkVotes = 0;
+  let lightVotes = 0;
+  let lumaSum = 0;
+
+  for (const idx of cornerIndices) {
+    const luma = rgbToLuma(data[idx], data[idx + 1], data[idx + 2]);
+    lumaSum += luma;
+    if (luma < 30) darkVotes++;
+    if (luma > 220) lightVotes++;
+  }
+
+  if (darkVotes > lightVotes) return "dark";
+  if (lightVotes > darkVotes) return "light";
+  return lumaSum / cornerIndices.length < 128 ? "dark" : "light";
+}
+
+function removeDetectedBackground(
   img: ImageData,
-  thresholdLuma = 240,
-  softness = 18
-): { rgba: ImageData; mask: Float32Array } {
+  softness = 24
+): { rgba: ImageData; mask: Float32Array; backgroundMode: BackgroundMode } {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
   const mask = new Float32Array(w * h);
+  const backgroundMode = detectBackgroundMode(img);
+  const darkThreshold = 30;
+  const lightThreshold = 242;
+
   for (let i = 0, p = 0; i < data.length; i += 4, p++) {
     const luma = rgbToLuma(data[i], data[i + 1], data[i + 2]);
     let a = 1;
-    if (luma >= thresholdLuma + softness) a = 0;
-    else if (luma > thresholdLuma) {
-      const u = (luma - thresholdLuma) / softness;
-      a = 1 - u * u * (3 - 2 * u);
+
+    if (backgroundMode === "dark") {
+      if (luma <= darkThreshold) a = 0;
+      else if (luma < darkThreshold + softness) {
+        const u = (luma - darkThreshold) / softness;
+        a = u * u * (3 - 2 * u);
+      }
+    } else {
+      if (luma >= lightThreshold) a = 0;
+      else if (luma > lightThreshold - softness) {
+        const u = (luma - (lightThreshold - softness)) / softness;
+        a = 1 - u * u * (3 - 2 * u);
+      }
     }
+
     // Combina com alpha original
     a *= data[i + 3] / 255;
     mask[p] = a;
@@ -319,7 +363,7 @@ function removeWhiteBackground(
     out.data[i + 2] = data[i + 2];
     out.data[i + 3] = Math.round(a * 255);
   }
-  return { rgba: out, mask };
+  return { rgba: out, mask, backgroundMode };
 }
 
 // ---------------------------------------------------------------------------
