@@ -30,7 +30,7 @@ export function HalftoneStudio() {
   const [pct, setPct] = useState(0);
   const [busy, setBusy] = useState(false);
   const [opts, setOpts] = useState<HalftoneOptions>(DEFAULT_OPTIONS);
-  const [livePreview, setLivePreview] = useState(true);
+  const [livePreview, setLivePreview] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const cachedImg = useRef<HTMLImageElement | null>(null);
   const previewTimer = useRef<number | null>(null);
