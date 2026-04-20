@@ -309,10 +309,10 @@ export function HalftoneStudio() {
               </div>
               <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
                 {opts.halftoneType === "warmDuotone"
-                  ? "Paleta Jack Sparrow · Magenta 75° + Yellow 0° · ZERO preto"
+                  ? "Retícula REAL · Magenta 75° + Yellow 0° · Pretos VAZADOS · Entre pontos = transparente"
                   : opts.halftoneType === "rosette"
-                  ? "Separação CMYK · 15°/75°/0°/45° · padrão floral offset"
-                  : "Pontos circulares monocromáticos rotacionados"}
+                  ? "Retícula CMYK REAL · 4 chapas C/M/Y/K · Padrão floral offset · Fundo vazado"
+                  : "Retícula AM REAL · Pontos sólidos da cor original · Pretos = vazados"}
               </p>
             </div>
 
