@@ -95,7 +95,11 @@ export function LandingPage() {
               </Button>
             </div>
             <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-              <Link to="/login" className="inline-flex items-center gap-2 text-foreground hover:text-primary">
+              <Link
+                to="/login"
+                search={{ code: "", email: "" }}
+                className="inline-flex items-center gap-2 text-foreground hover:text-primary"
+              >
                 <MailCheck className="h-4 w-4" />
                 Já tenho código de acesso
               </Link>

@@ -11,7 +11,9 @@ function AppError() {
         <h1 className="text-2xl font-semibold text-foreground">Acesso indisponível</h1>
         <p className="mt-2 text-muted-foreground">Tente validar seu código novamente.</p>
         <Button asChild className="mt-6">
-          <Link to="/login">Voltar ao login</Link>
+          <Link to="/login" search={{ code: "", email: "" }}>
+            Voltar ao login
+          </Link>
         </Button>
       </div>
     </div>
@@ -32,7 +34,7 @@ export const Route = createFileRoute("/app")({
   loader: async () => {
     const session = await getAccessSession();
     if (!session.authenticated) {
-      throw redirect({ to: "/login" });
+      throw redirect({ to: "/login", search: { code: "", email: "" } });
     }
     return session;
   },
