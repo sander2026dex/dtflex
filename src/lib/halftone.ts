@@ -4,7 +4,7 @@
 // ============================================================================
 
 export type ProgressFn = (stage: string, pct: number) => void;
-export type HalftoneType = "circular" | "rosette" | "warmDuotone";
+export type HalftoneType = "circular" | "rosette_cmyk";
 
 // PNG signature + helpers para injetar pHYs (300 DPI)
 function crc32(buf: Uint8Array): number {
@@ -495,8 +495,10 @@ function halftoneChannel(
 ): Uint8Array {
   const dots = new Uint8Array(w * h);
   const angle = (angleDeg * Math.PI) / 180;
+  const cs = Math.cos(angle), ss = Math.sin(angle);
   const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
   const maxR = cellPx * 0.5 * Math.SQRT2;
+  const maxRSq = maxR * maxR;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -506,9 +508,8 @@ function halftoneChannel(
       const cyr = (Math.floor(yr / cellPx) + 0.5) * cellPx;
       const dxr = xr - cxr;
       const dyr = yr - cyr;
-      const dist = Math.sqrt(dxr * dxr + dyr * dyr);
+      const distSq = dxr * dxr + dyr * dyr;
       // amostra cobertura no centro da célula (rotação inversa de volta)
-      const cs = Math.cos(angle), ss = Math.sin(angle);
       const sx = Math.round(cxr * cs - cyr * ss);
       const sy = Math.round(cxr * ss + cyr * cs);
       const sxi = Math.max(0, Math.min(w - 1, sx));
@@ -518,7 +519,8 @@ function halftoneChannel(
       const coverage = channel[syi * w + sxi] * cellMask;
       if (coverage <= 0.01) continue;
       const r = Math.sqrt((coverage * cellPx * cellPx) / Math.PI);
-      if (dist <= r || (dist <= maxR && coverage > 0.95)) {
+      const rSq = r * r;
+      if (distSq <= rSq || (distSq <= maxRSq && coverage > 0.95)) {
         dots[y * w + x] = 1;
       }
     }
@@ -849,7 +851,7 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   highKeyLift: 0.10,
   vignetteInner: 1.0,    // desligada por padrão — fade vem dos pontinhos
   vignetteOuter: 1.2,
-  halftoneType: "warmDuotone",
+  halftoneType: "circular",
   bgTolerance: 38,
   featherPx: 14,         // feather largo (10-20px) para borda dissolvida
 };
@@ -902,21 +904,10 @@ export async function processImage(
 
   const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
 
-  // Color grading WARM (paleta Jack Sparrow) — aplicado antes do halftone
-  if (o.halftoneType === "warmDuotone") {
-    onProgress?.("Color grading warm (sem preto)", 54);
-    await tick();
-    data = applyWarmGrading(data, 1);
-  }
-
-  if (o.halftoneType === "rosette") {
+  if (o.halftoneType === "rosette_cmyk") {
     onProgress?.("Halftone Rosette CMYK (15°/75°/0°/45°)", 60);
     await tick();
     data = applyHalftoneRosette(data, effectiveDpi, o.lpi, subjectMask);
-  } else if (o.halftoneType === "warmDuotone") {
-    onProgress?.("Halftone Warm Duotone (M 75° + Y 0°, sem preto)", 60);
-    await tick();
-    data = applyHalftoneWarmDuotone(data, effectiveDpi, o.lpi, subjectMask);
   } else {
     onProgress?.("Halftone AM circular @ ângulo", 60);
     await tick();
