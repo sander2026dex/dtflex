@@ -30,7 +30,7 @@ export function HalftoneStudio() {
   const [pct, setPct] = useState(0);
   const [busy, setBusy] = useState(false);
   const [opts, setOpts] = useState<HalftoneOptions>(DEFAULT_OPTIONS);
-  const [livePreview, setLivePreview] = useState(true);
+  const [livePreview, setLivePreview] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const cachedImg = useRef<HTMLImageElement | null>(null);
   const previewTimer = useRef<number | null>(null);
@@ -188,16 +188,21 @@ export function HalftoneStudio() {
                   meta={sourceFile?.name ?? ""}
                 />
                 <PreviewCard
-                  title={fullResult ? "Final 300 DPI" : "Preview rápido"}
-                  url={fullResult?.url ?? previewResult?.url ?? null}
+                  title={fullResult ? "Final 300 DPI" : "Preview"}
+                  url={busy ? null : (fullResult?.url ?? previewResult?.url ?? null)}
                   meta={
-                    fullResult
+                    busy
+                      ? "Processando…"
+                      : fullResult
                       ? `${fullResult.sizeKB} KB · 3307×4961`
                       : previewResult
                       ? `${previewResult.sizeKB} KB · preview`
                       : "—"
                   }
-                  highlight={!!fullResult}
+                  highlight={!!fullResult && !busy}
+                  busy={busy}
+                  pct={pct}
+                  stage={stage}
                 />
               </div>
             )}
@@ -446,10 +451,13 @@ function SliderRow({
 }
 
 function PreviewCard({
-  title, url, meta, highlight,
+  title, url, meta, highlight, busy, pct, stage,
 }: {
   title: string; url: string | null; meta: string;
   highlight?: boolean;
+  busy?: boolean;
+  pct?: number;
+  stage?: string;
 }) {
   return (
     <Card
@@ -474,7 +482,20 @@ function PreviewCard({
           backgroundPosition: "0 0, 0 10px, 10px -10px, 10px 0px",
         }}
       >
-        {url ? (
+        {busy ? (
+          <div className="flex flex-col items-center gap-3 px-6 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="text-xs font-medium text-foreground/80">
+              Processando Retícula em 300 DPI…
+            </div>
+            <div className="text-[10px] text-muted-foreground font-mono">
+              {stage || "iniciando"} · {pct ?? 0}%
+            </div>
+            <div className="w-full max-w-[200px]">
+              <Progress value={pct ?? 0} className="h-1" />
+            </div>
+          </div>
+        ) : url ? (
           <img
             src={url}
             alt={title}
