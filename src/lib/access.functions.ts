@@ -6,7 +6,7 @@ import {
   clearSession,
   useSession,
 } from "@tanstack/react-start/server";
-import { timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
@@ -103,7 +103,11 @@ function safeEqual(input: string, expected: string) {
 }
 
 function generateAccessCode() {
-  return Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(2, 10);
+  return randomBytes(6)
+    .toString("base64")
+    .replace(/[^A-Z0-9]/gi, "")
+    .toUpperCase()
+    .slice(0, 8);
 }
 
 async function sendAccessEmail({

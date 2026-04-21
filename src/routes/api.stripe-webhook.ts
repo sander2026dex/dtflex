@@ -51,6 +51,12 @@ function verifyStripeSignature(payload: string, signatureHeader: string, secret:
 
   if (!timestamp || !signature) return false;
 
+  // Replay protection: reject events older than 5 minutes (Stripe's recommended tolerance)
+  const timestampSeconds = parseInt(timestamp, 10);
+  if (!Number.isFinite(timestampSeconds)) return false;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSeconds - timestampSeconds) > 300) return false;
+
   const signedPayload = `${timestamp}.${payload}`;
   const expected = createHmac("sha256", secret).update(signedPayload).digest("hex");
   const received = Buffer.from(signature);
