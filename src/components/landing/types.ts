@@ -28,6 +28,14 @@ export interface PricingOption {
   benefits: string[];
 }
 
+export interface DemoAsset {
+  title: string;
+  subtitle: string;
+  src: string;
+  alt: string;
+  downloadName?: string;
+}
+
 export interface FaqItem {
   question: string;
   answer: string;
