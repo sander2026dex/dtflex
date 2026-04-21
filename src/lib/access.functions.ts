@@ -232,12 +232,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
     if (!stripeSecretKey) {
-      throw new Error("Pagamento indisponível no momento");
+      console.error("[checkout] STRIPE_SECRET_KEY ausente");
+      throw new Error("Pagamento indisponível: chave Stripe não configurada. Adicione STRIPE_SECRET_KEY (sk_test_... ou sk_live_...) nos secrets.");
     }
 
-    if (!stripeSecretKey.startsWith("sk_")) {
+    if (!stripeSecretKey.startsWith("sk_test_") && !stripeSecretKey.startsWith("sk_live_")) {
       await logSecurity("checkout_invalid_secret", false);
-      throw new Error("Configuração de pagamento inválida");
+      console.error("[checkout] STRIPE_SECRET_KEY com formato inválido. Prefixo recebido:", stripeSecretKey.slice(0, 6));
+      throw new Error("Chave Stripe inválida. Atualize STRIPE_SECRET_KEY com uma chave que comece com sk_test_ ou sk_live_ (Stripe Dashboard → Developers → API keys).");
     }
 
     const email = data.email ? normalizeEmail(data.email) : "";
@@ -287,9 +289,18 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       await logSecurity("checkout_session_error", false);
-      const errorPayload = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-      const message = errorPayload?.error?.message ?? "Pagamento indisponível no momento";
-      throw new Error(message.includes("Invalid API Key") ? "Configuração de pagamento inválida" : "Pagamento indisponível no momento");
+      const errorPayload = (await response.json().catch(() => null)) as { error?: { message?: string; type?: string; code?: string } } | null;
+      const stripeMsg = errorPayload?.error?.message ?? "";
+      const stripeType = errorPayload?.error?.type ?? "";
+      console.error("[checkout] Stripe respondeu com erro:", { status: response.status, type: stripeType, message: stripeMsg });
+
+      if (stripeType === "invalid_request_error" && stripeMsg.toLowerCase().includes("api key")) {
+        throw new Error("Chave Stripe inválida ou expirada. Atualize STRIPE_SECRET_KEY nos secrets.");
+      }
+      if (stripeType === "invalid_request_error") {
+        throw new Error(`Parâmetros inválidos no checkout: ${stripeMsg}`);
+      }
+      throw new Error(stripeMsg || "Não foi possível iniciar o pagamento. Tente novamente.");
     }
 
     const payload = await response.json();
