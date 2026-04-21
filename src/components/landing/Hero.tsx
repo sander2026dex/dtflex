@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
-import beforeImage from "@/assets/shark-before.jpg";
+import beforeImage from "@/assets/tubarrao-demo.png";
 import afterImage from "@/assets/landing-demo.jpg";
 import { Button } from "@/components/ui/button";
 
@@ -25,9 +25,9 @@ export function Hero() {
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance md:text-6xl">
               Transforme qualquer imagem em arte Halftone profissional em segundos
             </h1>
-            <p className="max-w-2xl text-base leading-8 text-muted-foreground md:text-lg">
-              Conversão inteligente, DPI ajustável e exportação em alta qualidade. Feita para designers,
-              artistas e profissionais de impressão que exigem precisão e velocidade.
+              <p className="max-w-2xl text-base leading-8 text-muted-foreground md:text-lg">
+               Conversão inteligente, DPI ajustável e exportação em alta qualidade. Feita para designers,
+               artistas e profissionais de impressão que exigem precisão, velocidade e entrega em cerca de 10 segundos.
             </p>
           </div>
 
@@ -61,15 +61,17 @@ export function Hero() {
           <div className="grid gap-4 rounded-lg border border-border/70 bg-card/70 p-4 shadow-[var(--shadow-panel)] backdrop-blur-xl md:grid-cols-2">
             <ShowcaseCard
               title="Antes"
-              subtitle="Imagem original"
+              subtitle="Imagem original enviada"
               src={beforeImage}
               alt="Arte original antes do processamento halftone"
+              downloadName="dtflexpro-demo-original.png"
             />
             <ShowcaseCard
               title="Depois"
               subtitle="Resultado halftone"
               src={afterImage}
               alt="Resultado final da imagem em halftone após o processamento"
+              downloadName="dtflexpro-demo-halftone.png"
             />
           </div>
         </div>
@@ -83,20 +85,31 @@ function ShowcaseCard({
   subtitle,
   src,
   alt,
+  downloadName,
 }: {
   title: string;
   subtitle: string;
   src: string;
   alt: string;
+  downloadName?: string;
 }) {
   return (
     <article className="rounded-md border border-border/70 bg-background/80 p-3">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{title}</p>
           <p className="text-sm text-foreground">{subtitle}</p>
         </div>
-        <span className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">Preview real</span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">Preview real</span>
+          <a
+            href={src}
+            download={downloadName}
+            className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-foreground transition-colors hover:border-brand/60 hover:text-brand"
+          >
+            Download
+          </a>
+        </div>
       </div>
       <div className="aspect-[4/5] overflow-hidden rounded-md border border-border/60 bg-card">
         <img src={src} alt={alt} className="h-full w-full object-cover object-center" loading="eager" />
