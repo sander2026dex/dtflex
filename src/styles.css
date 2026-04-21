@@ -51,6 +51,9 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-muted: var(--brand-muted);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -77,12 +80,17 @@
   --muted-foreground: oklch(0.68 0.02 240);
   --accent: oklch(0.78 0.18 75);
   --accent-foreground: oklch(0.15 0.01 240);
+  --brand: oklch(0.82 0.15 215);
+  --brand-foreground: oklch(0.14 0.01 260);
+  --brand-muted: oklch(0.31 0.05 250 / 0.45);
   --destructive: oklch(0.62 0.24 25);
   --destructive-foreground: oklch(0.97 0.005 90);
   --border: oklch(0.28 0.015 240);
   --input: oklch(0.24 0.012 240);
   --ring: oklch(0.78 0.18 75);
   --gradient-glow: radial-gradient(ellipse at top, oklch(0.78 0.18 75 / 0.15), transparent 60%);
+  --gradient-hero: radial-gradient(circle at top right, oklch(0.82 0.15 215 / 0.22), transparent 34%),
+    radial-gradient(circle at 20% 20%, oklch(0.62 0.24 305 / 0.22), transparent 36%);
   --shadow-glow: 0 0 40px oklch(0.78 0.18 75 / 0.25);
   --shadow-panel: 0 20px 60px -20px oklch(0 0 0 / 0.5);
   --chart-1: oklch(0.646 0.222 41.116);
@@ -115,11 +123,16 @@
   --muted-foreground: oklch(0.704 0.04 256.788);
   --accent: oklch(0.279 0.041 260.031);
   --accent-foreground: oklch(0.984 0.003 247.858);
+  --brand: oklch(0.85 0.12 220);
+  --brand-foreground: oklch(0.16 0.02 265);
+  --brand-muted: oklch(0.29 0.055 255 / 0.55);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.551 0.027 264.364);
+  --gradient-hero: radial-gradient(circle at top right, oklch(0.85 0.12 220 / 0.2), transparent 34%),
+    radial-gradient(circle at 20% 20%, oklch(0.68 0.2 305 / 0.18), transparent 36%);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -143,5 +156,10 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 }
