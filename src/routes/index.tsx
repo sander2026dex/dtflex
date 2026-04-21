@@ -4,17 +4,17 @@ import { LandingPage } from "@/components/LandingPage";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "DTFLEXPRO | Plataforma com acesso liberado por código" },
+      { title: "DTFLEXPRO | Halftone profissional em segundos" },
       {
         name: "description",
         content:
-          "Landing pública da DTFLEXPRO com checkout, painel admin, validação por código e acesso seguro à plataforma.",
+          "Landing page da DTFLEXPRO para criar arte halftone profissional com rapidez, planos mensais e anuais e acesso à plataforma.",
       },
-      { property: "og:title", content: "DTFLEXPRO | Plataforma com acesso liberado por código" },
+      { property: "og:title", content: "DTFLEXPRO | Halftone profissional em segundos" },
       {
         property: "og:description",
         content:
-          "Venda acesso à sua plataforma com pagamento, envio automático de código por e-mail e painel protegido para administração.",
+          "Transforme imagens em arte halftone com controle profissional, exportação em alta resolução e assinatura mensal ou anual.",
       },
     ],
     links: [{ rel: "canonical", href: "https://www.dtflexpro.com" }],
