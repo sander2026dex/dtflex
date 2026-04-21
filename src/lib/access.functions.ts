@@ -289,9 +289,18 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       await logSecurity("checkout_session_error", false);
-      const errorPayload = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-      const message = errorPayload?.error?.message ?? "Pagamento indisponível no momento";
-      throw new Error(message.includes("Invalid API Key") ? "Configuração de pagamento inválida" : "Pagamento indisponível no momento");
+      const errorPayload = (await response.json().catch(() => null)) as { error?: { message?: string; type?: string; code?: string } } | null;
+      const stripeMsg = errorPayload?.error?.message ?? "";
+      const stripeType = errorPayload?.error?.type ?? "";
+      console.error("[checkout] Stripe respondeu com erro:", { status: response.status, type: stripeType, message: stripeMsg });
+
+      if (stripeType === "invalid_request_error" && stripeMsg.toLowerCase().includes("api key")) {
+        throw new Error("Chave Stripe inválida ou expirada. Atualize STRIPE_SECRET_KEY nos secrets.");
+      }
+      if (stripeType === "invalid_request_error") {
+        throw new Error(`Parâmetros inválidos no checkout: ${stripeMsg}`);
+      }
+      throw new Error(stripeMsg || "Não foi possível iniciar o pagamento. Tente novamente.");
     }
 
     const payload = await response.json();
