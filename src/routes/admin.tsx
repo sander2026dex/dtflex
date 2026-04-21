@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
+  generateManualAccessCode,
   getAdminDashboardData,
   getAdminSession,
   logoutAdminSession,
@@ -57,12 +58,15 @@ function AdminPage() {
   const readSession = useServerFn(getAdminSession);
   const readDashboard = useServerFn(getAdminDashboardData);
   const revoke = useServerFn(revokeAccess);
+  const generateManualCode = useServerFn(generateManualAccessCode);
   const logout = useServerFn(logoutAdminSession);
 
   const [password, setPassword] = useState("");
+  const [manualEmail, setManualEmail] = useState("");
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [manualLoading, setManualLoading] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardPayload>({ codes: [], payments: [], logs: [] });
 
   async function loadDashboard() {
@@ -122,7 +126,8 @@ function AdminPage() {
               try {
                 setLoading(true);
                 await verifyPassword({ data: { password } });
-                setAuthenticated(true);
+                const session = await readSession();
+                setAuthenticated(Boolean(session.authenticated));
                 setPassword("");
                 await loadDashboard();
               } catch {
@@ -185,6 +190,40 @@ function AdminPage() {
           <StatCard title="Pagamentos registrados" value={String(dashboard.payments.length)} />
           <StatCard title="Eventos de segurança" value={String(dashboard.logs.length)} />
         </section>
+
+        <DataCard title="Gerar código manual">
+          <form
+            className="flex flex-col gap-3 md:flex-row md:items-end"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              try {
+                setManualLoading(true);
+                const result = await generateManualCode({ data: { email: manualEmail } });
+                toast.success(`Código ${result.accessCode} enviado para ${result.email}.`);
+                setManualEmail("");
+                await loadDashboard();
+              } catch {
+                toast.error("Não foi possível gerar o código manual.");
+              } finally {
+                setManualLoading(false);
+              }
+            }}
+          >
+            <div className="w-full space-y-2 md:max-w-sm">
+              <Label htmlFor="manual-email">E-mail do cliente</Label>
+              <Input
+                id="manual-email"
+                type="email"
+                value={manualEmail}
+                onChange={(event) => setManualEmail(event.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" disabled={manualLoading}>
+              {manualLoading ? "Gerando..." : "Gerar e enviar código"}
+            </Button>
+          </form>
+        </DataCard>
 
         <section className="grid gap-6 xl:grid-cols-2">
           <DataCard title="Usuários e códigos ativos">
