@@ -232,12 +232,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
     if (!stripeSecretKey) {
-      throw new Error("Pagamento indisponível no momento");
+      console.error("[checkout] STRIPE_SECRET_KEY ausente");
+      throw new Error("Pagamento indisponível: chave Stripe não configurada. Adicione STRIPE_SECRET_KEY (sk_test_... ou sk_live_...) nos secrets.");
     }
 
-    if (!stripeSecretKey.startsWith("sk_")) {
+    if (!stripeSecretKey.startsWith("sk_test_") && !stripeSecretKey.startsWith("sk_live_")) {
       await logSecurity("checkout_invalid_secret", false);
-      throw new Error("Configuração de pagamento inválida");
+      console.error("[checkout] STRIPE_SECRET_KEY com formato inválido. Prefixo recebido:", stripeSecretKey.slice(0, 6));
+      throw new Error("Chave Stripe inválida. Atualize STRIPE_SECRET_KEY com uma chave que comece com sk_test_ ou sk_live_ (Stripe Dashboard → Developers → API keys).");
     }
 
     const email = data.email ? normalizeEmail(data.email) : "";
