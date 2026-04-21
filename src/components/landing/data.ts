@@ -80,13 +80,13 @@ export const pricingOptions: PricingOption[] = [
     label: "Plano Pro",
     price: "R$ 49,90",
     cadence: "/mês",
-    summary: "Ideal para validar o fluxo, produzir sob demanda e acessar todos os controles profissionais da ferramenta.",
-    checkoutHref: "#",
+    summary: "Ideal para produção recorrente com processamento rápido, acesso à plataforma e envio do acesso por e-mail após a confirmação do pagamento.",
+    checkoutHref: "/checkout/mensal",
     benefits: [
       "Acesso completo à geração halftone profissional",
-      "Processamento local com exportação em alta resolução",
+      "Processamento online com entrega do arquivo em cerca de 10 segundos",
       "Presets salvos e suporte rápido via WhatsApp",
-      "Liberação imediata após confirmação do pagamento",
+      "Liberação de acesso por e-mail após confirmação do pagamento",
     ],
   },
   {
@@ -95,13 +95,13 @@ export const pricingOptions: PricingOption[] = [
     price: "R$ 479,00",
     cadence: "/ano",
     badge: "Economize 20%",
-    summary: "Melhor escolha para estúdios e operações contínuas que precisam de ganho de margem e previsibilidade ao longo do ano.",
-    checkoutHref: "#",
+    summary: "Melhor escolha para estúdios e operações contínuas que precisam de economia, prioridade e previsibilidade ao longo do ano.",
+    checkoutHref: "/checkout/anual",
     benefits: [
       "Tudo do plano mensal com menor custo por período",
       "Acesso contínuo para equipes e volume recorrente",
       "Mais economia para produção comercial durante o ano todo",
-      "Mesma liberação imediata com suporte prioritário no fluxo",
+      "Suporte prioritário e melhor custo anual para operação contínua",
     ],
   },
 ];
@@ -113,11 +113,11 @@ export const faqItems: FaqItem[] = [
   },
   {
     question: "Funciona offline?",
-    answer: "Sim. Depois do carregamento inicial, o processamento principal acontece localmente no navegador.",
+    answer: "Não. O uso da plataforma depende de conexão online para acessar a ferramenta e o fluxo de liberação.",
   },
   {
     question: "Quais formatos são aceitos?",
-    answer: "JPG, PNG, WebP e SVG, com arquivos de até 50 MB.",
+    answer: "PNG e JPEG.",
   },
   {
     question: "Como funciona o suporte?",
