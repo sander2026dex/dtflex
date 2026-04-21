@@ -2,7 +2,7 @@ import { MessageCircleMore } from "lucide-react";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const whatsappHref = "https://wa.me/5511943152441";
+const whatsappHref = "https://wa.me/5511943152441?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20sobre%20a%20plataforma";
 
 export function WhatsAppFloat() {
   return (
