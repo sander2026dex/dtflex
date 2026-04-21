@@ -18,7 +18,7 @@ export function Hero() {
       <div className="mx-auto grid max-w-7xl gap-14 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24">
         <div className="relative space-y-8 animate-fade-in">
           <div className="inline-flex items-center gap-2 rounded-md border border-border/70 bg-card/70 px-3 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground">
-            Halftone profissional para DTF, serigrafia e direção de arte
+            Halftone profissional para DTF e produção de impressão
           </div>
 
           <div className="space-y-5">
