@@ -231,6 +231,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       throw new Error("Pagamento indisponível no momento");
     }
 
+    if (!stripeSecretKey.startsWith("sk_")) {
+      await logSecurity("checkout_invalid_secret", false);
+      throw new Error("Configuração de pagamento inválida");
+    }
+
     const email = data.email ? normalizeEmail(data.email) : "";
     const { data: plan } = await db
       .from("plans")
@@ -278,7 +283,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       await logSecurity("checkout_session_error", false);
-      throw new Error("Pagamento indisponível no momento");
+      const errorPayload = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      const message = errorPayload?.error?.message ?? "Pagamento indisponível no momento";
+      throw new Error(message.includes("Invalid API Key") ? "Configuração de pagamento inválida" : "Pagamento indisponível no momento");
     }
 
     const payload = await response.json();

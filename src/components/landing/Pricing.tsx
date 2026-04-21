@@ -24,8 +24,9 @@ export function Pricing() {
       setLoadingCheckout(true);
       const result = await startCheckout({ data: { planCode: billing, email: "" } });
       window.location.href = result.url;
-    } catch {
-      toast.error("Não foi possível iniciar o checkout agora.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível iniciar o checkout agora.";
+      toast.error(message);
     } finally {
       setLoadingCheckout(false);
     }
