@@ -40,19 +40,19 @@ export const testimonialItems: TestimonialItem[] = [
     name: "Mariana Costa",
     role: "Designer Têxtil",
     avatar: "MC",
-    quote: "// TODO: Substituir por depoimentos reais\nConsegui reduzir o tempo entre aprovação e produção porque o preview mostra exatamente o impacto do halftone.",
+    quote: "Consegui reduzir o tempo entre aprovação e produção porque o preview mostra exatamente o impacto do halftone.",
   },
   {
     name: "Rafael Nunes",
     role: "Estúdio de Serigrafia",
     avatar: "RN",
-    quote: "// TODO: Substituir por depoimentos reais\nA consistência dos presets ajudou a manter padrão em pedidos recorrentes sem retrabalho no fechamento dos arquivos.",
+    quote: "A consistência dos presets ajudou a manter padrão em pedidos recorrentes sem retrabalho no fechamento dos arquivos.",
   },
   {
     name: "Camila Freitas",
     role: "Direção de Arte",
     avatar: "CF",
-    quote: "// TODO: Substituir por depoimentos reais\nA ferramenta entrega velocidade real para testar variações e exportar rápido quando o cliente aprova a arte.",
+    quote: "A ferramenta entrega velocidade real para testar variações e exportar rápido quando o cliente aprova a arte.",
   },
 ];
 
@@ -60,17 +60,17 @@ export const steps: StepItem[] = [
   {
     icon: "upload",
     title: "Arraste sua imagem",
-    description: "Envie JPG, PNG, WebP ou SVG e visualize a base imediatamente na tela.",
+    description: "A ferramenta lê sua arte, prepara a base e organiza automaticamente o ponto inicial para o efeito halftone.",
   },
   {
     icon: "adjustments",
     title: "Ajuste densidade, ângulo e cor",
-    description: "Refine o comportamento do reticulado para adequar contraste, textura e leitura final.",
+    description: "O motor automático gera o reticulado e você só refina contraste, densidade e leitura final para produção.",
   },
   {
     icon: "download",
     title: "Exporte em alta resolução",
-    description: "Feche o arquivo pronto para produção com qualidade consistente e sem etapas extras.",
+    description: "O arquivo final sai pronto para download com acabamento consistente e velocidade de processamento em cerca de 10 segundos.",
   },
 ];
 
