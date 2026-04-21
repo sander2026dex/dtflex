@@ -73,8 +73,10 @@ function AdminPage() {
     try {
       const data = await readDashboard();
       setDashboard(data as DashboardPayload);
+      return true;
     } catch {
-      setAuthenticated(false);
+      toast.error("Não foi possível carregar os dados do painel agora.");
+      return false;
     }
   }
 
@@ -85,9 +87,7 @@ function AdminPage() {
         const session = await readSession();
         if (!active) return;
         setAuthenticated(Boolean(session.authenticated));
-        if (session.authenticated) {
-          await loadDashboard();
-        }
+        if (session.authenticated) await loadDashboard();
       } finally {
         if (active) setChecking(false);
       }
@@ -126,8 +126,7 @@ function AdminPage() {
               try {
                 setLoading(true);
                 await verifyPassword({ data: { password } });
-                const session = await readSession();
-                setAuthenticated(Boolean(session.authenticated));
+                setAuthenticated(true);
                 setPassword("");
                 await loadDashboard();
               } catch {
