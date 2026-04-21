@@ -1,18 +1,35 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { createCheckoutSession } from "@/lib/access.functions";
 
 import { pricingOptions } from "./data";
 
 export function Pricing() {
   const [billing, setBilling] = useState<"mensal" | "anual">("anual");
+  const [loadingCheckout, setLoadingCheckout] = useState(false);
+  const startCheckout = useServerFn(createCheckoutSession);
 
   const selectedPlan = useMemo(
     () => pricingOptions.find((option) => option.billing === billing) ?? pricingOptions[0],
     [billing],
   );
+
+  async function handleCheckout() {
+    try {
+      setLoadingCheckout(true);
+      const result = await startCheckout({ data: { planCode: billing, email: "" } });
+      window.location.href = result.url;
+    } catch {
+      toast.error("Não foi possível iniciar o checkout agora.");
+    } finally {
+      setLoadingCheckout(false);
+    }
+  }
 
   return (
     <section id="precos" className="border-b border-border/60 scroll-mt-24">
@@ -71,8 +88,8 @@ export function Pricing() {
           </div>
 
           <div className="flex flex-col gap-3 border-t border-border/70 pt-6">
-            <Button asChild size="lg" className="w-full md:w-fit">
-              <a href={selectedPlan.checkoutHref}>{"Assinar Agora"}</a>
+            <Button size="lg" className="w-full md:w-fit" onClick={handleCheckout} disabled={loadingCheckout}>
+              {loadingCheckout ? "Abrindo checkout..." : "Assinar Agora"}
             </Button>
             <p className="text-sm text-muted-foreground">
               Garantia de 7 dias. Cancele quando quiser. Acesso imediato após confirmação.
