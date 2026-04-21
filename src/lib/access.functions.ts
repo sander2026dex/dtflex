@@ -23,12 +23,16 @@ const accessCodeSchema = z.object({
 });
 
 const checkoutSchema = z.object({
-  email: z.string().trim().email().max(255),
+  email: z.string().trim().email().max(255).optional().or(z.literal("")),
   planCode: z.enum(["mensal", "anual"]),
 });
 
 const revokeSchema = z.object({
   accessId: z.string().uuid(),
+});
+
+const manualAccessSchema = z.object({
+  email: z.string().trim().email().max(255),
 });
 
 interface AdminSessionData {
@@ -96,6 +100,54 @@ function safeEqual(input: string, expected: string) {
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
+}
+
+function generateAccessCode() {
+  return Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(2, 10);
+}
+
+async function sendAccessEmail({
+  email,
+  accessCode,
+  expiresAt,
+}: {
+  email: string;
+  accessCode: string;
+  expiresAt: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("missing_resend_key");
+  }
+
+  const baseUrl = process.env.APP_URL ?? process.env.URL ?? new URL(getRequestUrl()).origin;
+  const accessUrl = `${baseUrl}/login?email=${encodeURIComponent(email)}&code=${encodeURIComponent(accessCode)}`;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "DTFLEXPRO <onboarding@resend.dev>",
+      to: [email],
+      subject: "🔓 Seu acesso à plataforma está liberado!",
+      html: `
+        <div style="background:#ffffff;padding:32px;font-family:Arial,sans-serif;color:#111827">
+          <div style="max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;padding:32px">
+            <p style="font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:#6b7280;margin:0 0 12px">DTFLEXPRO</p>
+            <h1 style="font-size:28px;line-height:1.2;margin:0 0 16px">Seu acesso à plataforma está liberado</h1>
+            <p style="font-size:15px;line-height:1.7;color:#4b5563;margin:0 0 16px">Seu código de acesso já está ativo.</p>
+            <div style="margin:24px 0;padding:20px;border-radius:10px;background:#111827;color:#f9fafb;text-align:center;font-family:monospace;font-size:30px;letter-spacing:.18em">${accessCode}</div>
+            <p style="font-size:14px;line-height:1.7;color:#4b5563;margin:0 0 20px">Use esse código com o e-mail da compra para entrar na plataforma.</p>
+            <a href="${accessUrl}" style="display:inline-block;background:#f2c94c;color:#111827;text-decoration:none;padding:14px 20px;border-radius:10px;font-weight:700">Acessar Plataforma</a>
+            <p style="font-size:13px;line-height:1.7;color:#6b7280;margin:24px 0 0">Validade até: ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(expiresAt))}</p>
+          </div>
+        </div>
+      `,
+    }),
+  });
 }
 
 async function logSecurity(eventType: string, success: boolean) {
@@ -179,7 +231,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       throw new Error("Pagamento indisponível no momento");
     }
 
-    const email = normalizeEmail(data.email);
+    const email = data.email ? normalizeEmail(data.email) : "";
     const { data: plan } = await db
       .from("plans")
       .select("code, name, billing_period, price_cents, currency")
@@ -196,10 +248,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const params = new URLSearchParams();
 
     params.set("mode", mode);
-    params.set("customer_email", email);
-    params.set("success_url", `${origin}/login?email=${encodeURIComponent(email)}&checkout=success`);
+    if (email) {
+      params.set("customer_email", email);
+      params.set("metadata[email]", email);
+    }
+    params.set("success_url", `${origin}/login?checkout=success`);
     params.set("cancel_url", `${origin}/?checkout=cancelled`);
-    params.set("metadata[email]", email);
     params.set("metadata[plan_code]", plan.code);
     params.set("line_items[0][quantity]", "1");
     params.set("line_items[0][price_data][currency]", String(plan.currency).toLowerCase());
@@ -332,4 +386,35 @@ export const revokeAccess = createServerFn({ method: "POST" })
 
     await logSecurity("admin_revoke_access", true);
     return { ok: true };
+  });
+
+export const generateManualAccessCode = createServerFn({ method: "POST" })
+  .inputValidator(manualAccessSchema)
+  .handler(async ({ data }) => {
+    await requireAdminSession();
+    const db = getDb();
+    const email = normalizeEmail(data.email);
+    const accessCode = generateAccessCode();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    // Segurança crítica: somente sessão admin válida pode emitir código manual.
+    const { error } = await db.from("user_access").insert({
+      email,
+      access_code: accessCode,
+      status: "active",
+      expires_at: expiresAt,
+    });
+
+    if (error) {
+      throw new Error("Não foi possível gerar o código manual");
+    }
+
+    try {
+      await sendAccessEmail({ email, accessCode, expiresAt });
+    } catch {
+      await logSecurity("manual_access_email_error", false);
+    }
+
+    await logSecurity("manual_access_generated", true);
+    return { email, accessCode, expiresAt };
   });
