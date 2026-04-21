@@ -13,7 +13,7 @@ export function SocialProof() {
             {proofBadge}
           </div>
           <div className="max-w-3xl space-y-3">
-            <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">Prova social para quem precisa produzir com padrão profissional</h2>
+            <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">Clientes que já aceleram aprovação e produção com a DTFLEXPRO</h2>
             <p className="text-base leading-7 text-muted-foreground">
               A ferramenta foi pensada para acelerar aprovação, manter consistência e reduzir retrabalho em operações criativas.
             </p>
