@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import beforeImage from "@/assets/tubarrao-demo.png";
-import afterImage from "@/assets/landing-demo.jpg";
+import afterImage from "@/assets/halftone-after-demo.png";
 import { Button } from "@/components/ui/button";
 
 const heroBullets = [
@@ -93,6 +93,23 @@ function ShowcaseCard({
   alt: string;
   downloadName?: string;
 }) {
+  async function handleDownload() {
+    try {
+      const response = await fetch(src);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = downloadName ?? "dtflexpro.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(src, "_blank");
+    }
+  }
+
   return (
     <article className="rounded-md border border-border/70 bg-background/80 p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -102,13 +119,13 @@ function ShowcaseCard({
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">Preview real</span>
-          <a
-            href={src}
-            download={downloadName}
+          <button
+            type="button"
+            onClick={handleDownload}
             className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-foreground transition-colors hover:border-brand/60 hover:text-brand"
           >
             Download
-          </a>
+          </button>
         </div>
       </div>
       <div className="aspect-[4/5] overflow-hidden rounded-md border border-border/60 bg-card">

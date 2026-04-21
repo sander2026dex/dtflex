@@ -92,9 +92,9 @@ export const pricingOptions: PricingOption[] = [
   {
     billing: "anual",
     label: "Plano Pro",
-    price: "R$ 479,00",
+    price: "R$ 168,09",
     cadence: "/ano",
-    badge: "Economize 20%",
+    badge: "Melhor custo anual",
     summary: "Melhor escolha para estúdios e operações contínuas que precisam de economia, prioridade e previsibilidade ao longo do ano.",
     checkoutHref: "/checkout/anual",
     benefits: [
