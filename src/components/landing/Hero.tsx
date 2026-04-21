@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import beforeImage from "@/assets/tubarrao-demo.png";
-import afterImage from "@/assets/landing-demo.jpg";
+import afterImage from "@/assets/halftone-after-demo.png";
 import { Button } from "@/components/ui/button";
 
 const heroBullets = [
