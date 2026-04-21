@@ -3,7 +3,7 @@ import { ArrowRight, CheckCircle2, LockKeyhole, MailCheck, Shield, Sparkles } fr
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import beforeImage from "@/assets/tubarrao.png";
+import beforeImage from "@/assets/shark-before.jpg";
 import afterImage from "@/assets/landing-demo.jpg";
 import { createCheckoutSession } from "@/lib/access.functions";
 import { Button } from "@/components/ui/button";
@@ -16,22 +16,45 @@ const plans = [
     name: "Plano Mensal",
     price: "R$ 47",
     cadence: "/mês",
-    detail: "Assinatura recorrente para acesso contínuo.",
+    detail: "Acesso imediato para entrar na ferramenta, testar a demonstração e gerar o arquivo final com rapidez.",
+    items: [
+      "Checkout direto para pagamento do plano mensal",
+      "Acesso privado à ferramenta apenas para clientes pagantes",
+      "Processamento pensado para entregar o arquivo em aproximadamente 10 segundos",
+    ],
   },
   {
     code: "anual" as const,
     name: "Plano Anual",
     price: "R$ 168,90",
     cadence: "/ano",
-    detail: "Melhor custo para operar em escala com margem maior.",
+    detail: "Mais economia para operar o ano todo com acesso contínuo, melhor margem e ritmo de produção constante.",
+    items: [
+      "Melhor custo-benefício comparado ao plano mensal",
+      "Perfeito para quem usa a ferramenta com frequência e maior volume",
+      "Mesma liberação rápida com retorno do checkout e acesso exclusivo ao cliente",
+    ],
     featured: true,
   },
 ];
 
 const socialProof = [
-  "Usado por operações de DTF que precisam entregar prova visual forte antes da venda.",
-  "Fluxo desenhado para liberar acesso rápido após o pagamento confirmado.",
-  "Painel administrativo centralizado para acompanhar códigos, pagamentos e segurança.",
+  "Mostre o antes e depois da arte com mais impacto e aumente a confiança do cliente na compra.",
+  "Automatize checkout, envio de acesso e entrada na plataforma sem precisar liberar manualmente.",
+  "Tenha uma operação mais profissional com painel, segurança, pagamentos e acessos centralizados.",
+];
+
+const productHighlights = [
+  "Demonstração visual com comparação entre imagem original e resultado final",
+  "Fluxo rápido para transformar a arte e preparar o arquivo em segundos",
+  "Login do cliente por código de acesso após a compra confirmada",
+  "Ferramenta protegida para uso exclusivo de quem comprou",
+];
+
+const quickSteps = [
+  "Suba a arte original",
+  "A ferramenta processa e monta o resultado",
+  "Baixe o arquivo pronto em cerca de 10 segundos",
 ];
 
 export function LandingPage() {
@@ -75,10 +98,10 @@ export function LandingPage() {
             </div>
             <div className="space-y-4">
               <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">
-                Venda acesso à sua plataforma com checkout, código e liberação automática.
+                Venda melhor o seu produto com uma demonstração forte de antes e depois.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-                Landing pública, painel do dono, pagamento com Stripe e validação segura por código para liberar o uso da ferramenta somente para clientes autorizados.
+                A DTFLEXPRO mostra a transformação da arte, leva o cliente direto para o checkout do plano mensal ou anual, devolve ele para o login de acesso e libera a ferramenta só para quem comprou.
               </p>
             </div>
             <div className="grid max-w-xl gap-3 sm:grid-cols-[1fr_auto]">
@@ -90,9 +113,17 @@ export function LandingPage() {
                 aria-label="Seu melhor e-mail"
               />
               <Button size="lg" onClick={() => handleSubscribe("mensal")} disabled={loadingPlan !== null}>
-                {loadingPlan ? "Abrindo checkout..." : "Assinar agora"}
+                {loadingPlan ? "Abrindo checkout..." : "Comprar agora"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
+            </div>
+            <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+              {quickSteps.map((step, index) => (
+                <div key={step} className="rounded-lg border border-border bg-card/40 p-3">
+                  <div className="mb-2 text-xs uppercase tracking-[0.2em] text-primary">0{index + 1}</div>
+                  <p className="leading-6">{step}</p>
+                </div>
+              ))}
             </div>
             <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
               <Link
@@ -101,11 +132,11 @@ export function LandingPage() {
                 className="inline-flex items-center gap-2 text-foreground hover:text-primary"
               >
                 <MailCheck className="h-4 w-4" />
-                Já tenho código de acesso
+                Login de acesso do cliente
               </Link>
               <span className="inline-flex items-center gap-2">
                 <Shield className="h-4 w-4 text-primary" />
-                Liberação controlada no backend
+                Pagou, volta do checkout e entra na área privada
               </span>
             </div>
           </div>
@@ -116,8 +147,8 @@ export function LandingPage() {
               <span>Antes e depois</span>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <DemoImage title="Antes" src={beforeImage} alt="Arte original do tubarão usada na demonstração" />
-              <DemoImage title="Depois" src={afterImage} alt="Visual de demonstração aplicado na apresentação da plataforma" />
+              <DemoImage title="Antes" src={beforeImage} alt="Imagem original enviada pelo usuário para demonstração do antes" />
+              <DemoImage title="Depois" src={afterImage} alt="Resultado final processado pela ferramenta DTFLEXPRO" />
             </div>
           </div>
         </div>
@@ -128,19 +159,40 @@ export function LandingPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <BenefitCard
               icon={LockKeyhole}
-              title="Acesso fechado"
-              description="A ferramenta fica restrita em /app e só abre para quem recebeu código válido após a confirmação do pagamento."
+              title="Ferramenta exclusiva"
+              description="A área da ferramenta fica protegida e só é liberada para quem conclui a compra e valida o código recebido."
             />
             <BenefitCard
               icon={MailCheck}
-              title="Entrega automática"
-              description="Após a compra confirmada, o cliente recebe o código por e-mail com link direto para validar e entrar."
+              title="Compra e acesso rápidos"
+              description="O cliente clica em comprar, vai direto para o checkout do plano escolhido e recebe o acesso para entrar na plataforma."
             />
             <BenefitCard
               icon={Shield}
-              title="Controle administrativo"
-              description="O dono acompanha pagamentos, códigos ativos, revoga acessos e monitora eventos de segurança em um único painel."
+              title="Controle total"
+              description="Administração com acompanhamento de pagamentos, códigos ativos, revogação de acesso e monitoramento de segurança."
             />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-border/60">
+        <div className="mx-auto max-w-7xl px-6 py-10">
+          <div className="mb-6 max-w-3xl">
+            <h2 className="text-3xl font-semibold tracking-tight">O que a ferramenta oferece</h2>
+            <p className="mt-2 text-muted-foreground">
+              Tudo o que o cliente precisa para visualizar a transformação, ganhar velocidade e receber acesso somente após o pagamento confirmado.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {productHighlights.map((item) => (
+              <Card key={item} className="rounded-lg bg-card/50 p-5">
+                <div className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>{item}</span>
+                </div>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
@@ -150,7 +202,7 @@ export function LandingPage() {
           <div className="mb-6 max-w-2xl">
             <h2 className="text-3xl font-semibold tracking-tight">Prova social</h2>
             <p className="mt-2 text-muted-foreground">
-              Posicionamento comercial para aumentar confiança na compra e mostrar operação profissional desde o primeiro contato.
+              Posicionamento comercial para gerar confiança, acelerar a compra e apresentar a DTFLEXPRO como uma solução profissional.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
@@ -171,7 +223,7 @@ export function LandingPage() {
           <div className="mb-6 max-w-2xl">
             <h2 className="text-3xl font-semibold tracking-tight">Planos</h2>
             <p className="mt-2 text-muted-foreground">
-              Escolha o formato da assinatura e direcione o cliente para o checkout com o mesmo e-mail que receberá o código.
+              Escolha o plano mensal ou anual, siga direto para o checkout e receba o acesso no mesmo e-mail usado na compra.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -191,8 +243,16 @@ export function LandingPage() {
                   <span className="ml-2 text-muted-foreground">{plan.cadence}</span>
                 </div>
                 <p className="mb-6 text-sm text-muted-foreground">{plan.detail}</p>
+                <div className="mb-6 space-y-3">
+                  {plan.items.map((item) => (
+                    <div key={item} className="flex items-start gap-3 text-sm text-muted-foreground">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
                 <Button className="w-full" onClick={() => handleSubscribe(plan.code)} disabled={loadingPlan !== null}>
-                  {loadingPlan === plan.code ? "Abrindo checkout..." : "Assinar agora"}
+                  {loadingPlan === plan.code ? "Abrindo checkout..." : `Comprar ${plan.name}`}
                 </Button>
               </Card>
             ))}
