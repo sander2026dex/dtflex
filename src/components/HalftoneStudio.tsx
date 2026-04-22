@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, Clock3, Download, ImageIcon, Layers3, Loader2, Settings2, ShieldCheck, Sparkles, Upload } from "lucide-react";
-import demoImage from "@/assets/landing-demo.jpg";
+import { Download, ImageIcon, Loader2, Settings2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -22,65 +21,25 @@ interface ProcessedResult {
   sizeKB: number;
 }
 
-const demoDefaults: HalftoneOptions = {
-  ...DEFAULT_OPTIONS,
-  halftoneType: "rosette_cmyk",
-  lpi: 35,
-  bgTolerance: 28,
-  featherPx: 8,
-};
-
 export function HalftoneStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourcePreview, setSourcePreview] = useState<string | null>(null);
   const [previewResult, setPreviewResult] = useState<ProcessedResult | null>(null);
   const [fullResult, setFullResult] = useState<ProcessedResult | null>(null);
-  const [demoProcessedUrl, setDemoProcessedUrl] = useState<string | null>(null);
-  const [demoLoading, setDemoLoading] = useState(true);
   const [stage, setStage] = useState("");
   const [pct, setPct] = useState(0);
   const [busy, setBusy] = useState(false);
   const [opts, setOpts] = useState<HalftoneOptions>({
     ...DEFAULT_OPTIONS,
     halftoneType: "circular",
+    lpi: 55,
+    unsharpAmount: 0.9,
   });
   const [livePreview, setLivePreview] = useState(false);
-  const studioRef = useRef<HTMLElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cachedImg = useRef<HTMLImageElement | null>(null);
   const previewTimer = useRef<number | null>(null);
   const previewRunId = useRef(0);
-
-  useEffect(() => {
-    let active = true;
-    let demoUrl: string | null = null;
-
-    async function buildDemo() {
-      try {
-        const response = await fetch(demoImage);
-        const blob = await response.blob();
-        const file = new File([blob], "demo.jpg", { type: blob.type || "image/jpeg" });
-        const image = await loadImage(file);
-        const processed = await processImage(image, demoDefaults, undefined, 900);
-        if (!active) return;
-        demoUrl = URL.createObjectURL(processed);
-        setDemoProcessedUrl(demoUrl);
-      } finally {
-        if (active) setDemoLoading(false);
-      }
-    }
-
-    buildDemo();
-
-    return () => {
-      active = false;
-      if (demoUrl) URL.revokeObjectURL(demoUrl);
-    };
-  }, []);
-
-  const scrollToStudio = useCallback(() => {
-    studioRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
 
   const runPreview = useCallback(async (file: File, options: HalftoneOptions) => {
     const runId = ++previewRunId.current;
@@ -189,90 +148,7 @@ export function HalftoneStudio() {
       />
 
       <main className="relative z-10">
-        <section className="border-b border-border/60">
-          <div className="mx-auto grid max-w-7xl gap-10 px-6 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-16">
-            <div className="space-y-7">
-              <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 text-xs uppercase tracking-[0.25em] text-muted-foreground backdrop-blur">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                Halftone CMYK profissional
-              </div>
-
-              <div className="space-y-4">
-                <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground md:text-6xl">
-                  Plataforma profissional para gerar retícula real com fundo vazado.
-                </h1>
-                <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-                  Circular e Rosette CMYK com ângulos clássicos 15° · 75° · 0° · 45°, PNG 300 DPI, preto vazado e pontos reais prontos para venda em escala.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Button size="lg" onClick={scrollToStudio} className="shadow-[var(--shadow-glow)]">
-                  Testar a ferramenta
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <a href="#planos">Ver planos</a>
-                </Button>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                {[
-                  "Preto sólido vira transparência",
-                  "Rosette CMYK real de pré-impressão",
-                  "Exportação pronta em PNG 300 DPI",
-                ].map((item) => (
-                  <div key={item} className="rounded-lg border border-border bg-card/50 px-4 py-3 text-sm text-foreground backdrop-blur">
-                    <div className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-4 w-4 text-primary" />
-                      <span>{item}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border bg-card/60 p-4 shadow-[var(--shadow-panel)] backdrop-blur">
-              <div className="mb-3 flex items-center justify-between text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                <span>Antes e depois</span>
-                <span>Demo real</span>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <ShowcaseImage title="Original" src={demoImage} alt="Imagem original de demonstração da plataforma" loading="eager" />
-                <ShowcaseImage
-                  title="Rosette CMYK"
-                  src={demoProcessedUrl}
-                  alt="Exemplo processado em retícula Rosette CMYK"
-                  busy={demoLoading}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-b border-border/60">
-          <div className="mx-auto max-w-7xl px-6 py-10">
-            <div className="grid gap-4 md:grid-cols-3">
-              <FeatureBand
-                icon={Layers3}
-                title="Retícula de verdade"
-                copy="A saída usa células reais de impressão, com pontos sólidos e separação profissional por chapa."
-              />
-              <FeatureBand
-                icon={Clock3}
-                title="Fluxo otimizado"
-                copy="Preview sob demanda e pipeline mais leve para reduzir o tempo de processamento do usuário final."
-              />
-              <FeatureBand
-                icon={ShieldCheck}
-                title="Pronto para SaaS"
-                copy="Landing comercial, posicionamento premium e base pronta para sua operação vender a plataforma."
-              />
-            </div>
-          </div>
-        </section>
-
-        <section ref={studioRef} id="studio" className="mx-auto max-w-7xl px-6 py-10">
+        <section className="mx-auto max-w-7xl px-6 py-10">
           <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
               <div className="mb-2 flex items-center gap-3">
@@ -287,7 +163,7 @@ export function HalftoneStudio() {
                 Gerador de retícula profissional
               </h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
-                Escolha Circular ou Rosette CMYK, envie a arte e exporte com transparência real entre os pontos.
+                Envie a arte e exporte em halftone circular com transparência real entre os pontos.
               </p>
             </div>
             <div className="rounded-md border border-border bg-card/50 px-4 py-2 text-sm backdrop-blur">
@@ -398,51 +274,22 @@ export function HalftoneStudio() {
 
               <Separator />
 
-              <div>
-                <Label className="mb-2 block text-sm text-foreground">Tipo de retícula</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={opts.halftoneType === "circular" ? "default" : "outline"}
-                    onClick={() => setOpts((o) => ({ ...o, halftoneType: "circular" }))}
-                  >
-                    Circular
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={opts.halftoneType === "rosette_cmyk" ? "default" : "outline"}
-                    onClick={() => setOpts((o) => ({ ...o, halftoneType: "rosette_cmyk" }))}
-                  >
-                    Rosette CMYK
-                  </Button>
-                </div>
-                <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-                  {opts.halftoneType === "rosette_cmyk"
-                    ? "Separação real C/M/Y/K com ângulos 15° · 75° · 0° · 45° e fundo vazado."
-                    : "Retícula AM circular com pontos sólidos da cor original e preto vazado."}
-                </p>
-              </div>
-
               <SliderRow
                 label="LPI (frequência)"
-                value={opts.lpi ?? 35}
+                value={opts.lpi ?? 55}
                 min={20}
-                max={80}
+                max={85}
                 step={1}
                 onChange={(v) => setOpts((o) => ({ ...o, lpi: v }))}
               />
-              {opts.halftoneType === "circular" && (
-                <SliderRow
-                  label="Ângulo da malha (°)"
-                  value={opts.angleDeg ?? 22}
-                  min={0}
-                  max={90}
-                  step={1}
-                  onChange={(v) => setOpts((o) => ({ ...o, angleDeg: v }))}
-                />
-              )}
+              <SliderRow
+                label="Ângulo da malha (°)"
+                value={opts.angleDeg ?? 22}
+                min={0}
+                max={90}
+                step={1}
+                onChange={(v) => setOpts((o) => ({ ...o, angleDeg: v }))}
+              />
               <SliderRow
                 label="Tolerância de fundo"
                 value={opts.bgTolerance ?? 32}
@@ -478,7 +325,7 @@ export function HalftoneStudio() {
               />
               <SliderRow
                 label="Unsharp"
-                value={opts.unsharpAmount ?? 0.6}
+                value={opts.unsharpAmount ?? 0.9}
                 min={0}
                 max={2}
                 step={0.1}
@@ -501,142 +348,17 @@ export function HalftoneStudio() {
                 variant="ghost"
                 size="sm"
                 className="w-full"
-                onClick={() => setOpts({ ...DEFAULT_OPTIONS, halftoneType: "circular" })}
+                onClick={() =>
+                  setOpts({ ...DEFAULT_OPTIONS, halftoneType: "circular", lpi: 55, unsharpAmount: 0.9 })
+                }
               >
                 Resetar parâmetros
               </Button>
             </Card>
           </div>
         </section>
-
-        <section id="planos" className="border-t border-border/60">
-          <div className="mx-auto max-w-7xl px-6 py-10">
-            <div className="mb-6 max-w-2xl">
-              <h2 className="text-3xl font-semibold tracking-tight text-foreground">Planos para vender sua operação</h2>
-              <p className="mt-2 text-muted-foreground">
-                Estrutura comercial pronta para assinatura SaaS com foco em volume, qualidade de saída e posicionamento premium.
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <PricingCard
-                title="Mensal"
-                price="R$ 47"
-                cadence="/mês"
-                items={[
-                  "Circular + Rosette CMYK",
-                  "PNG 300 DPI com transparência",
-                  "Preview e exportação profissional",
-                ]}
-              />
-              <PricingCard
-                title="Anual"
-                price="R$ 168,90"
-                cadence="/ano"
-                featured
-                items={[
-                  "Melhor custo para escala",
-                  "Mesma engine profissional",
-                  "Base pronta para automação comercial",
-                ]}
-              />
-            </div>
-          </div>
-        </section>
       </main>
     </div>
-  );
-}
-
-function FeatureBand({
-  icon: Icon,
-  title,
-  copy,
-}: {
-  icon: typeof Sparkles;
-  title: string;
-  copy: string;
-}) {
-  return (
-    <Card className="rounded-lg bg-card/50 p-5 backdrop-blur">
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-secondary text-foreground">
-        <Icon className="h-5 w-5 text-primary" />
-      </div>
-      <h3 className="text-lg font-medium text-foreground">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{copy}</p>
-    </Card>
-  );
-}
-
-function ShowcaseImage({
-  title,
-  src,
-  alt,
-  busy,
-  loading = "lazy",
-}: {
-  title: string;
-  src: string | null;
-  alt: string;
-  busy?: boolean;
-  loading?: "lazy" | "eager";
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-background/70 p-3">
-      <div className="mb-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">{title}</div>
-      <div className="aspect-[4/5] overflow-hidden rounded-md border border-border bg-card">
-        {busy ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : src ? (
-          <img
-            src={src}
-            alt={alt}
-            loading={loading}
-            width={1080}
-            height={1350}
-            className="h-full w-full object-cover object-center"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Carregando preview</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PricingCard({
-  title,
-  price,
-  cadence,
-  items,
-  featured,
-}: {
-  title: string;
-  price: string;
-  cadence: string;
-  items: string[];
-  featured?: boolean;
-}) {
-  return (
-    <Card className={`rounded-lg p-6 ${featured ? "border-primary shadow-[var(--shadow-glow)]" : "bg-card/50"}`}>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-xl font-medium text-foreground">{title}</h3>
-        {featured && <span className="rounded-md bg-secondary px-3 py-1 text-xs text-foreground">Mais vantajoso</span>}
-      </div>
-      <div className="mb-5">
-        <span className="text-4xl font-semibold text-foreground">{price}</span>
-        <span className="ml-2 text-muted-foreground">{cadence}</span>
-      </div>
-      <div className="space-y-3">
-        {items.map((item) => (
-          <div key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
-            <Check className="mt-0.5 h-4 w-4 text-primary" />
-            <span>{item}</span>
-          </div>
-        ))}
-      </div>
-    </Card>
   );
 }
 
