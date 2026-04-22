@@ -307,26 +307,38 @@ export type Database = {
       user_access: {
         Row: {
           access_code: string
+          active_session_started_at: string | null
+          active_session_token: string | null
           created_at: string
+          device_limit: number
           email: string
           expires_at: string
           id: string
+          plan_code: string | null
           status: string
         }
         Insert: {
           access_code: string
+          active_session_started_at?: string | null
+          active_session_token?: string | null
           created_at?: string
+          device_limit?: number
           email: string
           expires_at: string
           id?: string
+          plan_code?: string | null
           status?: string
         }
         Update: {
           access_code?: string
+          active_session_started_at?: string | null
+          active_session_token?: string | null
           created_at?: string
+          device_limit?: number
           email?: string
           expires_at?: string
           id?: string
+          plan_code?: string | null
           status?: string
         }
         Relationships: []
