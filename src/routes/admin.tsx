@@ -8,13 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
+  deleteAccess,
   generateManualAccessCode,
   getAdminDashboardData,
   getAdminSession,
   logoutAdminSession,
+  resetActiveSession,
   revokeAccess,
+  updateDeviceLimit,
   verifyAdminPassword,
 } from "@/lib/access.functions";
+
+interface MonthlyMetric {
+  month: string;
+  mensal: number;
+  anual: number;
+  total: number;
+}
 
 interface DashboardPayload {
   codes: Array<{
@@ -24,6 +34,10 @@ interface DashboardPayload {
     status: string;
     expires_at: string;
     created_at: string;
+    plan_code: string | null;
+    device_limit: number | null;
+    active_session_token: string | null;
+    active_session_started_at: string | null;
   }>;
   payments: Array<{
     id: string;
@@ -41,7 +55,20 @@ interface DashboardPayload {
     success: boolean;
     created_at: string;
   }>;
+  metrics: {
+    totalCodes: number;
+    activeCodes: number;
+    uniqueClients: number;
+    monthly: MonthlyMetric[];
+  };
 }
+
+const EMPTY: DashboardPayload = {
+  codes: [],
+  payments: [],
+  logs: [],
+  metrics: { totalCodes: 0, activeCodes: 0, uniqueClients: 0, monthly: [] },
+};
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -58,16 +85,21 @@ function AdminPage() {
   const readSession = useServerFn(getAdminSession);
   const readDashboard = useServerFn(getAdminDashboardData);
   const revoke = useServerFn(revokeAccess);
+  const removeAccount = useServerFn(deleteAccess);
+  const setDevices = useServerFn(updateDeviceLimit);
+  const resetSession = useServerFn(resetActiveSession);
   const generateManualCode = useServerFn(generateManualAccessCode);
   const logout = useServerFn(logoutAdminSession);
 
   const [password, setPassword] = useState("");
   const [manualEmail, setManualEmail] = useState("");
+  const [manualPlan, setManualPlan] = useState<"mensal" | "anual">("mensal");
+  const [manualDays, setManualDays] = useState<string>("");
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
-  const [dashboard, setDashboard] = useState<DashboardPayload>({ codes: [], payments: [], logs: [] });
+  const [dashboard, setDashboard] = useState<DashboardPayload>(EMPTY);
 
   async function loadDashboard() {
     try {
@@ -97,9 +129,9 @@ function AdminPage() {
     };
   }, []);
 
-  const activeCodesCount = useMemo(
-    () => dashboard.codes.filter((item) => item.status === "active").length,
-    [dashboard.codes],
+  const maxMonthly = useMemo(
+    () => Math.max(1, ...dashboard.metrics.monthly.map((m) => m.total)),
+    [dashboard.metrics.monthly],
   );
 
   if (checking) {
@@ -184,22 +216,54 @@ function AdminPage() {
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <StatCard title="Códigos ativos" value={String(activeCodesCount)} />
-          <StatCard title="Pagamentos registrados" value={String(dashboard.payments.length)} />
+        <section className="grid gap-4 md:grid-cols-4">
+          <StatCard title="Clientes únicos" value={String(dashboard.metrics.uniqueClients)} />
+          <StatCard title="Códigos ativos" value={String(dashboard.metrics.activeCodes)} />
+          <StatCard title="Códigos emitidos" value={String(dashboard.metrics.totalCodes)} />
           <StatCard title="Eventos de segurança" value={String(dashboard.logs.length)} />
         </section>
 
-        <DataCard title="Gerar código manual">
+        <DataCard title="Vendas por mês (últimos 12 meses)">
+          <div className="flex items-end gap-2 overflow-x-auto pb-2">
+            {dashboard.metrics.monthly.map((m) => {
+              const heightPct = (m.total / maxMonthly) * 100;
+              return (
+                <div key={m.month} className="flex min-w-[44px] flex-col items-center gap-1">
+                  <div className="flex h-32 w-full items-end justify-center">
+                    <div
+                      className="w-6 rounded-t bg-primary/80"
+                      style={{ height: `${Math.max(4, heightPct)}%` }}
+                      title={`${m.total} (${m.mensal} mensal · ${m.anual} anual)`}
+                    />
+                  </div>
+                  <span className="font-mono text-[10px] text-muted-foreground">{m.month.slice(5)}</span>
+                  <span className="font-mono text-[10px] text-foreground">{m.total}</span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Total de códigos liberados (vendas) por mês — passe o mouse para ver mensal vs anual.
+          </p>
+        </DataCard>
+
+        <DataCard title="Gerar código manual após pagamento">
           <form
-            className="flex flex-col gap-3 md:flex-row md:items-end"
+            className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.8fr_auto] md:items-end"
             onSubmit={async (event) => {
               event.preventDefault();
               try {
                 setManualLoading(true);
-                const result = await generateManualCode({ data: { email: manualEmail } });
+                const result = await generateManualCode({
+                  data: {
+                    email: manualEmail,
+                    planCode: manualPlan,
+                    durationDays: manualDays ? Number(manualDays) : undefined,
+                  },
+                });
                 toast.success(`Código ${result.accessCode} enviado para ${result.email}.`);
                 setManualEmail("");
+                setManualDays("");
                 await loadDashboard();
               } catch {
                 toast.error("Não foi possível gerar o código manual.");
@@ -208,7 +272,7 @@ function AdminPage() {
               }
             }}
           >
-            <div className="w-full space-y-2 md:max-w-sm">
+            <div className="space-y-2">
               <Label htmlFor="manual-email">E-mail do cliente</Label>
               <Input
                 id="manual-email"
@@ -218,102 +282,169 @@ function AdminPage() {
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-plan">Plano</Label>
+              <select
+                id="manual-plan"
+                value={manualPlan}
+                onChange={(e) => setManualPlan(e.target.value as "mensal" | "anual")}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="mensal">Mensal (R$ 47 · 30 dias)</option>
+                <option value="anual">Anual (R$ 147 · 365 dias)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-days">Dias (opcional)</Label>
+              <Input
+                id="manual-days"
+                type="number"
+                min={1}
+                placeholder="Auto"
+                value={manualDays}
+                onChange={(event) => setManualDays(event.target.value)}
+              />
+            </div>
             <Button type="submit" disabled={manualLoading}>
-              {manualLoading ? "Gerando..." : "Gerar e enviar código"}
+              {manualLoading ? "Gerando..." : "Gerar e enviar"}
             </Button>
           </form>
         </DataCard>
 
-        <section className="grid gap-6 xl:grid-cols-2">
-          <DataCard title="Usuários e códigos ativos">
+        <DataCard title="Contas e códigos">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Código</TableHead>
+                  <TableHead>Plano</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Expira</TableHead>
-                  <TableHead className="text-right">Ação</TableHead>
+                  <TableHead>Disp.</TableHead>
+                  <TableHead>Sessão</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {dashboard.codes.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell>{item.email}</TableCell>
+                    <TableCell className="max-w-[180px] truncate">{item.email}</TableCell>
                     <TableCell className="font-mono">{item.access_code}</TableCell>
+                    <TableCell>{item.plan_code ?? "-"}</TableCell>
                     <TableCell>{item.status}</TableCell>
                     <TableCell>{formatDate(item.expires_at)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={item.status === "revoked"}
-                        onClick={async () => {
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={20}
+                        defaultValue={item.device_limit ?? 1}
+                        className="h-8 w-16"
+                        onBlur={async (e) => {
+                          const v = Number(e.target.value);
+                          if (!v || v === (item.device_limit ?? 1)) return;
                           try {
-                            await revoke({ data: { accessId: item.id } });
-                            toast.success("Acesso revogado.");
+                            await setDevices({ data: { accessId: item.id, deviceLimit: v } });
+                            toast.success("Limite de dispositivos atualizado.");
                             await loadDashboard();
                           } catch {
-                            toast.error("Não foi possível revogar o acesso.");
+                            toast.error("Falha ao atualizar limite.");
                           }
                         }}
-                      >
-                        Revogar acesso
-                      </Button>
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {item.active_session_token ? (
+                        <span className="text-xs text-amber-500">em uso</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">livre</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!item.active_session_token}
+                          onClick={async () => {
+                            try {
+                              await resetSession({ data: { accessId: item.id } });
+                              toast.success("Sessão liberada.");
+                              await loadDashboard();
+                            } catch {
+                              toast.error("Falha ao liberar sessão.");
+                            }
+                          }}
+                        >
+                          Liberar sessão
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={item.status === "revoked"}
+                          onClick={async () => {
+                            try {
+                              await revoke({ data: { accessId: item.id } });
+                              toast.success("Acesso revogado.");
+                              await loadDashboard();
+                            } catch {
+                              toast.error("Falha ao revogar.");
+                            }
+                          }}
+                        >
+                          Revogar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={async () => {
+                            if (!confirm(`Excluir conta ${item.email}? Essa ação é permanente.`)) return;
+                            try {
+                              await removeAccount({ data: { accessId: item.id } });
+                              toast.success("Conta excluída.");
+                              await loadDashboard();
+                            } catch {
+                              toast.error("Falha ao excluir.");
+                            }
+                          }}
+                        >
+                          Excluir
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </DataCard>
+          </div>
+        </DataCard>
 
-          <DataCard title="Status de pagamentos">
+        <DataCard title="Últimos 50 registros de segurança">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Data</TableHead>
+                  <TableHead>Evento</TableHead>
+                  <TableHead>IP</TableHead>
+                  <TableHead>Dispositivo</TableHead>
+                  <TableHead>Resultado</TableHead>
+                  <TableHead>Quando</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dashboard.payments.map((item) => (
+                {dashboard.logs.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell>{item.email}</TableCell>
-                    <TableCell>R$ {Number(item.amount ?? 0).toFixed(2)}</TableCell>
-                    <TableCell>{item.status}</TableCell>
+                    <TableCell>{item.event_type}</TableCell>
+                    <TableCell>{item.ip ?? "-"}</TableCell>
+                    <TableCell className="max-w-[280px] truncate">{item.user_agent ?? "-"}</TableCell>
+                    <TableCell>{item.success ? "Sucesso" : "Falha"}</TableCell>
                     <TableCell>{formatDate(item.created_at)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </DataCard>
-        </section>
-
-        <DataCard title="Últimos 50 registros de segurança">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Evento</TableHead>
-                <TableHead>IP</TableHead>
-                <TableHead>Dispositivo</TableHead>
-                <TableHead>Resultado</TableHead>
-                <TableHead>Quando</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dashboard.logs.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>{item.event_type}</TableCell>
-                  <TableCell>{item.ip ?? "-"}</TableCell>
-                  <TableCell className="max-w-[280px] truncate">{item.user_agent ?? "-"}</TableCell>
-                  <TableCell>{item.success ? "Sucesso" : "Falha"}</TableCell>
-                  <TableCell>{formatDate(item.created_at)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          </div>
         </DataCard>
       </div>
     </main>

@@ -1,35 +1,30 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
-import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
+import { CheckCircle2, MessageCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { createCheckoutSession } from "@/lib/access.functions";
 
 import { pricingOptions } from "./data";
 
+const WHATSAPP_NUMBER = "5511943152441";
+
 export function Pricing() {
   const [billing, setBilling] = useState<"mensal" | "anual">("anual");
-  const [loadingCheckout, setLoadingCheckout] = useState(false);
-  const startCheckout = useServerFn(createCheckoutSession);
 
   const selectedPlan = useMemo(
     () => pricingOptions.find((option) => option.billing === billing) ?? pricingOptions[0],
     [billing],
   );
 
-  async function handleCheckout() {
-    try {
-      setLoadingCheckout(true);
-      const result = await startCheckout({ data: { planCode: billing, email: "" } });
-      window.location.href = result.url;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Não foi possível iniciar o checkout agora.";
-      toast.error(message);
-    } finally {
-      setLoadingCheckout(false);
-    }
+  function handleCheckout() {
+    window.open(selectedPlan.checkoutHref, "_blank", "noopener,noreferrer");
+  }
+
+  function handleSendReceipt() {
+    const message = encodeURIComponent(
+      `Olá! Acabei de pagar o ${selectedPlan.label} (${selectedPlan.price}) da DTFLEXPRO. Segue o comprovante.`,
+    );
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -39,7 +34,7 @@ export function Pricing() {
           <p className="text-sm uppercase tracking-[0.24em] text-brand">Planos</p>
           <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">Escolha a assinatura que combina com o seu ritmo de produção</h2>
           <p className="text-base leading-7 text-muted-foreground">
-            A cobrança e a liberação de acesso acontecem pelo backend existente, com retorno direto para o fluxo do cliente.
+            Pagamento via InfinitePay (Pix, cartão ou boleto). Após o pagamento, envie o comprovante pelo WhatsApp para liberarmos seu acesso.
           </p>
         </div>
 
@@ -89,13 +84,24 @@ export function Pricing() {
           </div>
 
           <div className="flex flex-col gap-3 border-t border-border/70 pt-6">
-            <Button size="lg" className="w-full md:w-fit" onClick={handleCheckout} disabled={loadingCheckout}>
-              {loadingCheckout ? "Abrindo checkout..." : "Assinar Agora"}
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button size="lg" className="w-full sm:w-auto" onClick={handleCheckout}>
+                Pagar com InfinitePay ({selectedPlan.price})
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={handleSendReceipt}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Enviar comprovante no WhatsApp
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground">
-              Garantia de 7 dias. Cancele quando quiser. Acesso imediato após confirmação.
+              Após o pagamento, envie o comprovante pelo WhatsApp e libere seu acesso em minutos.
+              Acesso vinculado a 1 dispositivo por conta.
             </p>
-            <p className="text-xs text-muted-foreground">{/* TODO: Inserir link real do Stripe */}</p>
           </div>
         </Card>
       </div>
