@@ -604,9 +604,9 @@ function applyHalftoneCircular(
       let coverage = (COVER_MIN + (COVER_MAX - COVER_MIN) * density) * cellMask;
       if (coverage <= 0.02) continue;
 
-      // AURA: encolhe pontos perto da borda
-      coverage *= cellEdge * cellEdge;
-      if (coverage <= 0.01) continue;
+      // AURA: encolhe SUAVEMENTE pontos perto da borda (linear, não quadrático — mantém detalhe)
+      coverage *= cellEdge;
+      if (coverage <= 0.005) continue;
 
       // Raio efetivo do ponto (área = coverage * cellArea)
       const baseR = Math.sqrt((coverage * cellArea) / Math.PI);
