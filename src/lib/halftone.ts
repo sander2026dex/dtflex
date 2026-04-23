@@ -1028,9 +1028,9 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   halftoneType: "circular",
   bgTolerance: 38,
   featherPx: 4,
-  grungeErosion: 0.45,
-  grungeAuraPx: 110,
-  grungeNoiseScale: 0.010,
+  grungeErosion: 0.10,
+  grungeAuraPx: 35,
+  grungeNoiseScale: 0.014,
   grungeSeed: 1337,
 };
 
