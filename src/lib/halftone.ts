@@ -289,6 +289,141 @@ function getPaperAlpha(_maskValue: number) {
 }
 
 // ---------------------------------------------------------------------------
+// VALUE NOISE 2D (Perlin-like, sem dependências) — gera ruído fractal contínuo
+// Usado para erodir bordas da máscara de forma orgânica/jagged ("grunge")
+// ---------------------------------------------------------------------------
+function makeValueNoise(seed = 1337) {
+  // hash determinístico simples
+  const hash = (x: number, y: number) => {
+    let h = (x * 374761393 + y * 668265263 + seed * 982451653) | 0;
+    h = (h ^ (h >>> 13)) * 1274126177;
+    h = h ^ (h >>> 16);
+    return ((h >>> 0) % 10000) / 10000;
+  };
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  const noise2d = (x: number, y: number) => {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const v00 = hash(xi, yi);
+    const v10 = hash(xi + 1, yi);
+    const v01 = hash(xi, yi + 1);
+    const v11 = hash(xi + 1, yi + 1);
+    const u = smooth(xf), v = smooth(yf);
+    return v00 * (1 - u) * (1 - v) + v10 * u * (1 - v) + v01 * (1 - u) * v + v11 * u * v;
+  };
+  // fBm — soma de oitavas
+  return (x: number, y: number, octaves = 4, lacunarity = 2.1, gain = 0.55) => {
+    let amp = 1, freq = 1, sum = 0, norm = 0;
+    for (let o = 0; o < octaves; o++) {
+      sum += amp * noise2d(x * freq, y * freq);
+      norm += amp;
+      amp *= gain;
+      freq *= lacunarity;
+    }
+    return sum / norm;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// GRUNGE EROSION: erosiona bordas da máscara com fBm + cria zona de "aura"
+// Retorna { mask, edgeFactor } onde:
+//   mask: 0..1 (1 = sólido sujeito, 0 = fora)
+//   edgeFactor: 0..1 (1 = núcleo do sujeito, 0 = borda dissipando — usado para encolher pontos)
+// ---------------------------------------------------------------------------
+function applyGrungeErosion(
+  baseMask: Float32Array,
+  w: number,
+  h: number,
+  opts: { noiseScale?: number; erosion?: number; auraWidthPx?: number; seed?: number } = {},
+): { mask: Float32Array; edgeFactor: Float32Array } {
+  const noiseScale = opts.noiseScale ?? 0.012; // freq do ruído
+  const erosion = opts.erosion ?? 0.35;        // quanto come da borda
+  const auraWidth = opts.auraWidthPx ?? 70;    // largura da zona de dissipação
+  const seed = opts.seed ?? 1337;
+  const noise = makeValueNoise(seed);
+
+  // 1) Distance transform aproximado: para cada pixel, distância até a borda do sujeito
+  // (dois passes Chamfer 3-4)
+  const total = w * h;
+  const INF = 1e9;
+  const dist = new Float32Array(total);
+  for (let i = 0; i < total; i++) dist[i] = baseMask[i] > 0.5 ? INF : 0;
+  // forward
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (dist[i] === 0) continue;
+      let m = dist[i];
+      if (x > 0) m = Math.min(m, dist[i - 1] + 3);
+      if (y > 0) m = Math.min(m, dist[i - w] + 3);
+      if (x > 0 && y > 0) m = Math.min(m, dist[i - w - 1] + 4);
+      if (x < w - 1 && y > 0) m = Math.min(m, dist[i - w + 1] + 4);
+      dist[i] = m;
+    }
+  }
+  // backward
+  for (let y = h - 1; y >= 0; y--) {
+    for (let x = w - 1; x >= 0; x--) {
+      const i = y * w + x;
+      if (dist[i] === 0) continue;
+      let m = dist[i];
+      if (x < w - 1) m = Math.min(m, dist[i + 1] + 3);
+      if (y < h - 1) m = Math.min(m, dist[i + w] + 3);
+      if (x < w - 1 && y < h - 1) m = Math.min(m, dist[i + w + 1] + 4);
+      if (x > 0 && y < h - 1) m = Math.min(m, dist[i + w - 1] + 4);
+      dist[i] = m;
+    }
+  }
+  // distância em px (Chamfer 3-4 → divide por 3)
+  for (let i = 0; i < total; i++) dist[i] /= 3;
+
+  // 2) Para cada pixel, calcula:
+  //    - threshold de noise local que define se pixel sobrevive (erosão jagged)
+  //    - edgeFactor = como dentro está do sujeito (suavizado p/ "aura")
+  const outMask = new Float32Array(total);
+  const edge = new Float32Array(total);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (baseMask[i] <= 0.05) {
+        outMask[i] = 0;
+        edge[i] = 0;
+        continue;
+      }
+      const d = dist[i];
+
+      // Ruído fBm — usado para erodir a borda de forma orgânica
+      const n = noise(x * noiseScale, y * noiseScale, 4, 2.1, 0.55);
+
+      // Erosion: na zona de aura (d < auraWidth), pixel só sobrevive se ruído > threshold
+      // que cresce conforme se afasta do núcleo (mais perto da borda → mais erodido)
+      const auraT = Math.min(1, d / auraWidth); // 0 na borda, 1 no núcleo
+      // threshold: alto na borda (erode muito), baixo perto do núcleo
+      const threshold = (1 - auraT) * (1 - erosion) + erosion * 0.15;
+
+      if (auraT >= 1) {
+        // núcleo sólido
+        outMask[i] = 1;
+        edge[i] = 1;
+      } else {
+        // zona de aura/borda — splatter
+        if (n < threshold) {
+          outMask[i] = 0;
+          edge[i] = 0;
+        } else {
+          // dentro do splatter, fator de borda controla tamanho dos pontos
+          // smooth para dissipar progressivamente
+          const t = auraT;
+          edge[i] = t * t * (3 - 2 * t); // smoothstep
+          outMask[i] = 1;
+        }
+      }
+    }
+  }
+  return { mask: outMask, edgeFactor: edge };
+}
+
+// ---------------------------------------------------------------------------
 // FLOOD FILL a partir dos 4 cantos — preserva brancos internos do personagem
 // ---------------------------------------------------------------------------
 function floodFillBackgroundMask(
@@ -404,32 +539,42 @@ function applyMaskToRGBA(img: ImageData, mask: Float32Array): ImageData {
 }
 
 // ---------------------------------------------------------------------------
-// HALFTONE AM CIRCULAR — RETÍCULA REAL DE PRÉ-IMPRESSÃO
-// • Pontos sólidos da cor original onde há tinta
-// • TRANSPARENTE entre os pontos (papel = vazado)
-// • PRETO/sombras = SEM TINTA = TRANSPARENTE (vazado)
-// • Cobertura proporcional à luminância (claro = ponto grande, escuro = vazado)
+// HALFTONE AM ELLIPTICAL — GRUNGE SPLATTER VERSION
+// • Pontos ELÍPTICOS sólidos da cor original (preserva alta saturação)
+// • Fundo BRANCO entre os pontos (não transparente)
+// • Pontos encolhem perto da borda da máscara (dissipação "aura splatter")
+// • PRETO/sombras = SEM TINTA = fundo branco
+// • Color sampling acontece ANTES da erosão (cores vibrantes preservadas)
 // ---------------------------------------------------------------------------
 function applyHalftoneCircular(
   img: ImageData,
   dpi = 300,
   lpi = 35,
   angleDeg = 22,
-  mask?: Float32Array
+  mask?: Float32Array,
+  edgeFactor?: Float32Array,
 ): ImageData {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
+  // Preenche fundo BRANCO (não transparente)
+  const od = out.data;
+  for (let i = 0; i < od.length; i += 4) {
+    od[i] = 255; od[i + 1] = 255; od[i + 2] = 255; od[i + 3] = 255;
+  }
   const cellPx = dpi / lpi;
   const angle = (angleDeg * Math.PI) / 180;
   const cos = Math.cos(angle), sin = Math.sin(angle);
   const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
   const cellArea = cellPx * cellPx;
+  // Elipse: razão de aspecto (a/b)
+  const ellipseAspect = 1.35;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
-      const pixelMask = mask ? mask[y * w + x] : 1;
-      if (pixelMask <= 0.01) continue; // fora do sujeito → transparente
+      const pi = y * w + x;
+      const pixelMask = mask ? mask[pi] : 1;
+      if (pixelMask <= 0.01) continue; // fora do sujeito → fundo branco
 
       // posição rotacionada → célula da retícula
       const xr = x * cosI - y * sinI;
@@ -438,7 +583,6 @@ function applyHalftoneCircular(
       const cyr = (Math.floor(yr / cellPx) + 0.5) * cellPx;
       const dxr = xr - cxr;
       const dyr = yr - cyr;
-      const dist = Math.sqrt(dxr * dxr + dyr * dyr);
 
       // amostra cor no centro da célula (rotação inversa)
       const cx = Math.round(cxr * cos - cyr * sin);
@@ -448,23 +592,35 @@ function applyHalftoneCircular(
       const si = (syi * w + sxi) * 4;
       const r = data[si], g = data[si + 1], b = data[si + 2];
       const luma = rgbToLuma(r, g, b) / 255;
-      const cellMask = mask ? mask[syi * w + sxi] : 1;
+      const cellPi = syi * w + sxi;
+      const cellMask = mask ? mask[cellPi] : 1;
+      const cellEdge = edgeFactor ? edgeFactor[cellPi] : 1;
 
-      // RETÍCULA PRO: cobertura proporcional ao brilho do pixel
-      // PRETO (luma=0) → ponto zero → 100% VAZADO/TRANSPARENTE
-      // BRANCO/CLARO (luma=1) → ponto grande
-      const coverage = luma * cellMask * pixelMask;
-      if (coverage <= 0.02) continue; // preto/sombra = vazado
+      // Cobertura base pela luminância
+      let coverage = luma * cellMask;
+      if (coverage <= 0.02) continue;
 
-      // Raio do ponto proporcional à cobertura desejada
-      const dotRadius = Math.sqrt((coverage * cellArea) / Math.PI);
-      if (dist > dotRadius) continue; // entre pontos = transparente
+      // AURA: encolhe pontos perto da borda (cellEdge < 1)
+      // edgeFactor = 1 no núcleo → tamanho cheio
+      // edgeFactor → 0 na borda → ponto encolhe e fica esparso
+      coverage *= cellEdge * cellEdge; // quadrático = decay rápido na borda
+      if (coverage <= 0.015) continue;
 
-      // Dentro do ponto: tinta sólida da cor original do pixel
-      out.data[i]     = r;
-      out.data[i + 1] = g;
-      out.data[i + 2] = b;
-      out.data[i + 3] = 255;
+      // Raio efetivo do ponto (área = coverage * cellArea)
+      const baseR = Math.sqrt((coverage * cellArea) / Math.PI);
+      // Elipse: a = baseR * sqrt(aspect), b = baseR / sqrt(aspect)
+      const ra = baseR * Math.sqrt(ellipseAspect);
+      const rb = baseR / Math.sqrt(ellipseAspect);
+      // Teste elíptico: (dx/ra)^2 + (dy/rb)^2 <= 1
+      const ex = dxr / ra;
+      const ey = dyr / rb;
+      if (ex * ex + ey * ey > 1) continue; // fora do ponto = fundo branco
+
+      // Dentro do ponto: tinta sólida da cor original (preserva saturação)
+      od[i]     = r;
+      od[i + 1] = g;
+      od[i + 2] = b;
+      od[i + 3] = 255;
     }
   }
   return out;
