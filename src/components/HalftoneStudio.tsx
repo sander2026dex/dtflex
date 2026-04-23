@@ -32,8 +32,6 @@ export function HalftoneStudio() {
   const [opts, setOpts] = useState<HalftoneOptions>({
     ...DEFAULT_OPTIONS,
     halftoneType: "circular",
-    lpi: 55,
-    unsharpAmount: 0.9,
   });
   const [livePreview, setLivePreview] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -168,7 +166,7 @@ export function HalftoneStudio() {
             </div>
             <div className="rounded-md border border-border bg-card/50 px-4 py-2 text-sm backdrop-blur">
               <span className="text-muted-foreground">Saída alvo </span>
-              <span className="font-mono text-primary">3307 × 4961 px · 300 DPI</span>
+              <span className="font-mono text-primary">3307 × 4930 px · 300 DPI</span>
             </div>
           </header>
 
@@ -205,7 +203,7 @@ export function HalftoneStudio() {
                       busy
                         ? "Processando…"
                         : fullResult
-                          ? `${fullResult.sizeKB} KB · 3307×4961`
+                          ? `${fullResult.sizeKB} KB · 3307×4930`
                           : previewResult
                             ? `${previewResult.sizeKB} KB · preview`
                             : "Aguardando render"
@@ -276,9 +274,9 @@ export function HalftoneStudio() {
 
               <SliderRow
                 label="LPI (frequência)"
-                value={opts.lpi ?? 55}
+                value={opts.lpi ?? 65}
                 min={20}
-                max={85}
+                max={120}
                 step={1}
                 onChange={(v) => setOpts((o) => ({ ...o, lpi: v }))}
               />
@@ -291,6 +289,23 @@ export function HalftoneStudio() {
                 onChange={(v) => setOpts((o) => ({ ...o, angleDeg: v }))}
               />
               <SliderRow
+                label="Grunge erosion"
+                value={opts.grungeErosion ?? 0.45}
+                min={0}
+                max={0.9}
+                step={0.05}
+                format={(v) => `${(v * 100).toFixed(0)}%`}
+                onChange={(v) => setOpts((o) => ({ ...o, grungeErosion: v }))}
+              />
+              <SliderRow
+                label="Aura splatter (px)"
+                value={opts.grungeAuraPx ?? 110}
+                min={0}
+                max={300}
+                step={5}
+                onChange={(v) => setOpts((o) => ({ ...o, grungeAuraPx: v }))}
+              />
+              <SliderRow
                 label="Tolerância de fundo"
                 value={opts.bgTolerance ?? 32}
                 min={5}
@@ -300,7 +315,7 @@ export function HalftoneStudio() {
               />
               <SliderRow
                 label="Feather da máscara (px)"
-                value={opts.featherPx ?? 3}
+                value={opts.featherPx ?? 4}
                 min={0}
                 max={10}
                 step={1}
@@ -349,7 +364,7 @@ export function HalftoneStudio() {
                 size="sm"
                 className="w-full"
                 onClick={() =>
-                  setOpts({ ...DEFAULT_OPTIONS, halftoneType: "circular", lpi: 55, unsharpAmount: 0.9 })
+                  setOpts({ ...DEFAULT_OPTIONS, halftoneType: "circular" })
                 }
               >
                 Resetar parâmetros
