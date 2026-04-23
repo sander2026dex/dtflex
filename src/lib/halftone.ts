@@ -567,10 +567,10 @@ function applyHalftoneCircular(
   // Elipse SUTIL — quase circular para preservar detalhes finos (aspect 1.08)
   const ellipseAspect = 1 / 0.92;
 
-  // Faixa de cobertura ALARGADA: 3% (highlights muito sutis) → 96% (shadows quase sólidas)
-  // Preserva o máximo de detalhes — pontos minúsculos nos highlights, quase sólido nas sombras
-  const COVER_MIN = 0.03;
-  const COVER_MAX = 0.96;
+  // Faixa de cobertura MÁXIMA: 1% (highlights sutilíssimos) → 99% (shadows quase sólidas)
+  // Captura TODA a faixa tonal — preserva detalhe fino em luzes E sombras
+  const COVER_MIN = 0.01;
+  const COVER_MAX = 0.99;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
