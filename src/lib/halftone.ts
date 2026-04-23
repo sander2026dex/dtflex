@@ -1009,14 +1009,17 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   dpi: 300,
   lpi: 65,
   angleDeg: 22,
-  blackPoint: 0,
-  whitePoint: 250,
+  // Shadows 2% (blackPoint = 5/255 ≈ 2%) | Highlights 85% (whitePoint ≈ 217)
+  blackPoint: 5,
+  whitePoint: 217,
   gammaLevels: 1.0,
-  midtoneGamma: 0.85,
+  // Midtones 1.3x → midtoneGamma = 1/1.3 ≈ 0.77
+  midtoneGamma: 0.77,
   unsharpAmount: 0.9,
-  vibrance: 0.35,
+  // Saturação +25%
+  vibrance: 0.25,
   warmth: 0.0,
-  highKeyLift: 0.05,
+  highKeyLift: 0.0,
   vignetteInner: 1.0,
   vignetteOuter: 1.2,
   halftoneType: "circular",
