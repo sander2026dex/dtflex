@@ -398,23 +398,23 @@ function applyGrungeErosion(
       // Erosion: na zona de aura (d < auraWidth), pixel só sobrevive se ruído > threshold
       // que cresce conforme se afasta do núcleo (mais perto da borda → mais erodido)
       const auraT = Math.min(1, d / auraWidth); // 0 na borda, 1 no núcleo
-      // threshold: alto na borda (erode muito), baixo perto do núcleo
-      const threshold = (1 - auraT) * (1 - erosion) + erosion * 0.15;
 
       if (auraT >= 1) {
-        // núcleo sólido
+        // núcleo sólido — preservado SEMPRE (sem erosão)
         outMask[i] = 1;
         edge[i] = 1;
       } else {
-        // zona de aura/borda — splatter
+        // zona de borda — erosão APENAS nos primeiros pixels da borda
+        // threshold cresce rapidamente perto da borda (auraT~0) e some no núcleo
+        const erodeT = 1 - auraT; // 1 na borda, 0 no núcleo
+        const threshold = erodeT * erosion; // só a borda recebe ruído
         if (n < threshold) {
           outMask[i] = 0;
           edge[i] = 0;
         } else {
-          // dentro do splatter, fator de borda controla tamanho dos pontos
-          // smooth para dissipar progressivamente
+          // suaviza tamanho dos pontos só na borda mais externa
           const t = auraT;
-          edge[i] = t * t * (3 - 2 * t); // smoothstep
+          edge[i] = Math.max(0.55, t * t * (3 - 2 * t)); // não deixa ponto sumir muito
           outMask[i] = 1;
         }
       }
