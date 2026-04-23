@@ -987,29 +987,38 @@ export interface HalftoneOptions {
   vignetteInner?: number;
   vignetteOuter?: number;
   halftoneType?: HalftoneType;
-  bgTolerance?: number;     // 0..80 — tolerância do flood fill
-  featherPx?: number;       // suavização da máscara em px
+  bgTolerance?: number;
+  featherPx?: number;
+  // Grunge splatter
+  grungeErosion?: number;   // 0..1 — quanto come da borda
+  grungeAuraPx?: number;    // largura da zona de dissipação (px @ saída)
+  grungeNoiseScale?: number;
+  grungeSeed?: number;
 }
 
 export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   targetW: 3307,
-  targetH: 4961,
+  targetH: 4930,
   dpi: 300,
-  lpi: 35,
+  lpi: 65,
   angleDeg: 22,
   blackPoint: 0,
   whitePoint: 250,
   gammaLevels: 1.0,
-  midtoneGamma: 0.9,
-  unsharpAmount: 0.6,
-  vibrance: 0.20,
-  warmth: 0.06,
-  highKeyLift: 0.10,
-  vignetteInner: 1.0,    // desligada por padrão — fade vem dos pontinhos
+  midtoneGamma: 0.85,
+  unsharpAmount: 0.9,
+  vibrance: 0.35,
+  warmth: 0.0,
+  highKeyLift: 0.05,
+  vignetteInner: 1.0,
   vignetteOuter: 1.2,
   halftoneType: "circular",
   bgTolerance: 38,
-  featherPx: 14,         // feather largo (10-20px) para borda dissolvida
+  featherPx: 4,
+  grungeErosion: 0.45,
+  grungeAuraPx: 110,
+  grungeNoiseScale: 0.010,
+  grungeSeed: 1337,
 };
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
@@ -1029,11 +1038,11 @@ export async function processImage(
     th = Math.round(th * ratio);
   }
 
-  onProgress?.("Resize Lanczos → 300 DPI", 5);
+  onProgress?.("Resize Lanczos", 5);
   await tick();
   const resized = resizeTo(source, tw, th);
 
-  onProgress?.("Lendo pixels (RGBA preservado)", 12);
+  onProgress?.("Lendo pixels", 12);
   await tick();
   const ctx = resized.getContext("2d")!;
   let data = ctx.getImageData(0, 0, tw, th);
@@ -1042,37 +1051,46 @@ export async function processImage(
   await tick();
   data = unsharpMask(data, o.unsharpAmount, 1);
 
-  onProgress?.("Segmentação por flood fill (preserva brancos internos)", 28);
+  onProgress?.("Detectando sujeito (flood fill)", 26);
   await tick();
-  const subjectMask = floodFillBackgroundMask(data, o.bgTolerance, o.featherPx);
-  data = applyMaskToRGBA(data, subjectMask);
+  const baseMask = floodFillBackgroundMask(data, o.bgTolerance, o.featherPx);
 
-  onProgress?.("Curva High-Key + warmth", 38);
+  onProgress?.("Erosão grunge + aura splatter", 36);
+  await tick();
+  const scale = tw / o.targetW;
+  const { mask: subjectMask, edgeFactor } = applyGrungeErosion(baseMask, tw, th, {
+    noiseScale: o.grungeNoiseScale / Math.max(0.01, scale),
+    erosion: o.grungeErosion,
+    auraWidthPx: o.grungeAuraPx * scale,
+    seed: o.grungeSeed,
+  });
+
+  // Color sampling acontece sobre data ORIGINAL (não mascarado) — cores vibrantes preservadas
+  onProgress?.("Curva High-Key", 44);
   await tick();
   data = applyHighKeyWarmCurve(data, o.warmth, o.highKeyLift);
 
-  onProgress?.("Black point dinâmico + níveis", 46);
+  onProgress?.("Black point + níveis", 50);
   await tick();
-  const autoLevels = analyzeMaskedLevels(data, subjectMask);
+  const autoLevels = analyzeMaskedLevels(data, baseMask);
   const effectiveBlackPoint = o.blackPoint > 0 ? o.blackPoint : autoLevels.blackPoint;
   const effectiveWhitePoint = Math.max(effectiveBlackPoint + 24, Math.min(255, o.whitePoint > 0 ? o.whitePoint : autoLevels.whitePoint));
   data = applyLevelsAndGamma(data, effectiveBlackPoint, effectiveWhitePoint, o.gammaLevels, o.midtoneGamma);
 
-  const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
-
-  if (o.halftoneType === "rosette_cmyk") {
-    onProgress?.("Halftone Rosette CMYK (15°/75°/0°/45°)", 60);
-    await tick();
-    data = applyHalftoneRosette(data, effectiveDpi, o.lpi, subjectMask);
-  } else {
-    onProgress?.("Halftone AM circular @ ângulo", 60);
-    await tick();
-    data = applyHalftoneCircular(data, effectiveDpi, o.lpi, o.angleDeg, subjectMask);
-  }
-
-  onProgress?.("Vibrance", 78);
+  // Boost saturação ANTES do halftone — cores chegam vivas aos pontos
+  onProgress?.("Vibrance pre-halftone", 56);
   await tick();
   data = applyVibrance(data, o.vibrance);
+
+  const effectiveDpi = previewMaxDim ? (o.dpi * tw) / o.targetW : o.dpi;
+
+  onProgress?.(`Halftone elíptico AM @ ${o.lpi} LPI`, 65);
+  await tick();
+  if (o.halftoneType === "rosette_cmyk") {
+    data = applyHalftoneRosette(data, effectiveDpi, o.lpi, subjectMask);
+  } else {
+    data = applyHalftoneCircular(data, effectiveDpi, o.lpi, o.angleDeg, subjectMask, edgeFactor);
+  }
 
   // Vignette opcional — só roda se inner < 1 (fade extra para "papel")
   if (o.vignetteInner < 1) {
