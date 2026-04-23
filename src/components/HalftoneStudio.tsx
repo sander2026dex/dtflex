@@ -203,7 +203,7 @@ export function HalftoneStudio() {
                       busy
                         ? "Processando…"
                         : fullResult
-                          ? `${fullResult.sizeKB} KB · 3307×4961`
+                          ? `${fullResult.sizeKB} KB · 3307×4930`
                           : previewResult
                             ? `${previewResult.sizeKB} KB · preview`
                             : "Aguardando render"
