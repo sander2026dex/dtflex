@@ -564,12 +564,13 @@ function applyHalftoneCircular(
   const cos = Math.cos(angle), sin = Math.sin(angle);
   const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
   const cellArea = cellPx * cellPx;
-  // Elipse: axis ratio 0.7 (b/a) → aspect a/b = 1/0.7 ≈ 1.4286
-  const ellipseAspect = 1 / 0.7;
+  // Elipse SUTIL — quase circular para preservar detalhes finos (aspect 1.08)
+  const ellipseAspect = 1 / 0.92;
 
-  // Faixa de cobertura: 10% (highlights/luma alta) → 90% (shadows/luma baixa)
-  const COVER_MIN = 0.10;
-  const COVER_MAX = 0.90;
+  // Faixa de cobertura ALARGADA: 3% (highlights muito sutis) → 96% (shadows quase sólidas)
+  // Preserva o máximo de detalhes — pontos minúsculos nos highlights, quase sólido nas sombras
+  const COVER_MIN = 0.03;
+  const COVER_MAX = 0.96;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -1007,17 +1008,19 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   targetW: 3307,
   targetH: 4930,
   dpi: 300,
-  lpi: 65,
+  // LPI ALTO = retícula fina como na referência (pontos pequenos, alta densidade)
+  lpi: 85,
   angleDeg: 22,
-  // Shadows 2% (blackPoint = 5/255 ≈ 2%) | Highlights 85% (whitePoint ≈ 217)
-  blackPoint: 5,
-  whitePoint: 217,
+  // Curva SUAVE — preserva range tonal completo (não esmaga shadows nem highlights)
+  blackPoint: 0,
+  whitePoint: 255,
   gammaLevels: 1.0,
-  // Midtones 1.3x → midtoneGamma = 1/1.3 ≈ 0.77
-  midtoneGamma: 0.77,
-  unsharpAmount: 0.9,
-  // Saturação +25%
-  vibrance: 0.25,
+  // Midtone leve para dar corpo sem perder detalhe (1.1x → 1/1.1 ≈ 0.91)
+  midtoneGamma: 0.91,
+  // Sharpen leve — realça detalhe sem criar artefato
+  unsharpAmount: 0.55,
+  // Saturação leve — cor natural, não saturada artificial
+  vibrance: 0.10,
   warmth: 0.0,
   highKeyLift: 0.0,
   vignetteInner: 1.0,
