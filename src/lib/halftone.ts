@@ -398,23 +398,23 @@ function applyGrungeErosion(
       // Erosion: na zona de aura (d < auraWidth), pixel só sobrevive se ruído > threshold
       // que cresce conforme se afasta do núcleo (mais perto da borda → mais erodido)
       const auraT = Math.min(1, d / auraWidth); // 0 na borda, 1 no núcleo
-      // threshold: alto na borda (erode muito), baixo perto do núcleo
-      const threshold = (1 - auraT) * (1 - erosion) + erosion * 0.15;
 
       if (auraT >= 1) {
-        // núcleo sólido
+        // núcleo sólido — preservado SEMPRE (sem erosão)
         outMask[i] = 1;
         edge[i] = 1;
       } else {
-        // zona de aura/borda — splatter
+        // zona de borda — erosão APENAS nos primeiros pixels da borda
+        // threshold cresce rapidamente perto da borda (auraT~0) e some no núcleo
+        const erodeT = 1 - auraT; // 1 na borda, 0 no núcleo
+        const threshold = erodeT * erosion; // só a borda recebe ruído
         if (n < threshold) {
           outMask[i] = 0;
           edge[i] = 0;
         } else {
-          // dentro do splatter, fator de borda controla tamanho dos pontos
-          // smooth para dissipar progressivamente
+          // suaviza tamanho dos pontos só na borda mais externa
           const t = auraT;
-          edge[i] = t * t * (3 - 2 * t); // smoothstep
+          edge[i] = Math.max(0.55, t * t * (3 - 2 * t)); // não deixa ponto sumir muito
           outMask[i] = 1;
         }
       }
@@ -567,10 +567,10 @@ function applyHalftoneCircular(
   // Elipse SUTIL — quase circular para preservar detalhes finos (aspect 1.08)
   const ellipseAspect = 1 / 0.92;
 
-  // Faixa de cobertura ALARGADA: 3% (highlights muito sutis) → 96% (shadows quase sólidas)
-  // Preserva o máximo de detalhes — pontos minúsculos nos highlights, quase sólido nas sombras
-  const COVER_MIN = 0.03;
-  const COVER_MAX = 0.96;
+  // Faixa de cobertura MÁXIMA: 1% (highlights sutilíssimos) → 99% (shadows quase sólidas)
+  // Captura TODA a faixa tonal — preserva detalhe fino em luzes E sombras
+  const COVER_MIN = 0.01;
+  const COVER_MAX = 0.99;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -604,9 +604,9 @@ function applyHalftoneCircular(
       let coverage = (COVER_MIN + (COVER_MAX - COVER_MIN) * density) * cellMask;
       if (coverage <= 0.02) continue;
 
-      // AURA: encolhe pontos perto da borda
-      coverage *= cellEdge * cellEdge;
-      if (coverage <= 0.01) continue;
+      // AURA: encolhe SUAVEMENTE pontos perto da borda (linear, não quadrático — mantém detalhe)
+      coverage *= cellEdge;
+      if (coverage <= 0.005) continue;
 
       // Raio efetivo do ponto (área = coverage * cellArea)
       const baseR = Math.sqrt((coverage * cellArea) / Math.PI);
@@ -1028,9 +1028,9 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   halftoneType: "circular",
   bgTolerance: 38,
   featherPx: 4,
-  grungeErosion: 0.45,
-  grungeAuraPx: 110,
-  grungeNoiseScale: 0.010,
+  grungeErosion: 0.10,
+  grungeAuraPx: 35,
+  grungeNoiseScale: 0.014,
   grungeSeed: 1337,
 };
 
