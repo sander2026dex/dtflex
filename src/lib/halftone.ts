@@ -539,12 +539,11 @@ function applyMaskToRGBA(img: ImageData, mask: Float32Array): ImageData {
 }
 
 // ---------------------------------------------------------------------------
-// HALFTONE AM ELLIPTICAL — GRUNGE SPLATTER VERSION
-// • Pontos ELÍPTICOS sólidos da cor original (preserva alta saturação)
-// • Fundo BRANCO entre os pontos (não transparente)
-// • Pontos encolhem perto da borda da máscara (dissipação "aura splatter")
-// • PRETO/sombras = SEM TINTA = fundo branco
-// • Color sampling acontece ANTES da erosão (cores vibrantes preservadas)
+// HALFTONE AM ELLIPTICAL — TRANSPARENT BG / HIGH INTENSITY
+// • Pontos ELÍPTICOS (axis ratio 0.7) com cor original (alta saturação)
+// • Fundo TRANSPARENTE (alpha=0) entre os pontos — PNG-24 com canal alpha
+// • Cobertura agressiva: 10% (highlights) → 90% (shadows)
+// • Aura splatter: alpha dos pontos próximos da borda fade gradualmente
 // ---------------------------------------------------------------------------
 function applyHalftoneCircular(
   img: ImageData,
@@ -556,25 +555,28 @@ function applyHalftoneCircular(
 ): ImageData {
   const { width: w, height: h, data } = img;
   const out = new ImageData(w, h);
-  // Preenche fundo BRANCO (não transparente)
+  // Fundo TRANSPARENTE (alpha = 0)
   const od = out.data;
-  for (let i = 0; i < od.length; i += 4) {
-    od[i] = 255; od[i + 1] = 255; od[i + 2] = 255; od[i + 3] = 255;
-  }
+  // ImageData já vem zerada — não preencher nada, alpha=0 por padrão.
+
   const cellPx = dpi / lpi;
   const angle = (angleDeg * Math.PI) / 180;
   const cos = Math.cos(angle), sin = Math.sin(angle);
   const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
   const cellArea = cellPx * cellPx;
-  // Elipse: razão de aspecto (a/b)
-  const ellipseAspect = 1.35;
+  // Elipse: axis ratio 0.7 (b/a) → aspect a/b = 1/0.7 ≈ 1.4286
+  const ellipseAspect = 1 / 0.7;
+
+  // Faixa de cobertura: 10% (highlights/luma alta) → 90% (shadows/luma baixa)
+  const COVER_MIN = 0.10;
+  const COVER_MAX = 0.90;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const pi = y * w + x;
       const pixelMask = mask ? mask[pi] : 1;
-      if (pixelMask <= 0.01) continue; // fora do sujeito → fundo branco
+      if (pixelMask <= 0.01) continue; // fora do sujeito → transparente
 
       // posição rotacionada → célula da retícula
       const xr = x * cosI - y * sinI;
@@ -596,31 +598,36 @@ function applyHalftoneCircular(
       const cellMask = mask ? mask[cellPi] : 1;
       const cellEdge = edgeFactor ? edgeFactor[cellPi] : 1;
 
-      // Cobertura base pela luminância
-      let coverage = luma * cellMask;
+      // Densidade INVERTIDA: shadows (luma baixa) = mais cobertura
+      const density = 1 - luma;
+      let coverage = (COVER_MIN + (COVER_MAX - COVER_MIN) * density) * cellMask;
       if (coverage <= 0.02) continue;
 
-      // AURA: encolhe pontos perto da borda (cellEdge < 1)
-      // edgeFactor = 1 no núcleo → tamanho cheio
-      // edgeFactor → 0 na borda → ponto encolhe e fica esparso
-      coverage *= cellEdge * cellEdge; // quadrático = decay rápido na borda
-      if (coverage <= 0.015) continue;
+      // AURA: encolhe pontos perto da borda
+      coverage *= cellEdge * cellEdge;
+      if (coverage <= 0.01) continue;
 
       // Raio efetivo do ponto (área = coverage * cellArea)
       const baseR = Math.sqrt((coverage * cellArea) / Math.PI);
-      // Elipse: a = baseR * sqrt(aspect), b = baseR / sqrt(aspect)
       const ra = baseR * Math.sqrt(ellipseAspect);
       const rb = baseR / Math.sqrt(ellipseAspect);
-      // Teste elíptico: (dx/ra)^2 + (dy/rb)^2 <= 1
       const ex = dxr / ra;
       const ey = dyr / rb;
-      if (ex * ex + ey * ey > 1) continue; // fora do ponto = fundo branco
+      const eDist = ex * ex + ey * ey;
+      if (eDist > 1) continue; // fora do ponto = transparente
 
-      // Dentro do ponto: tinta sólida da cor original (preserva saturação)
+      // Anti-aliasing nas bordas do ponto + alpha gradient pela aura
+      // edgeAlpha = quanto opaco o ponto está (1 no núcleo, < 1 perto da borda do sujeito)
+      const edgeAlpha = Math.min(1, cellEdge * 1.1);
+      // soft edge dentro do ponto (suaviza últimos 10%)
+      const softEdge = eDist > 0.81 ? Math.max(0, 1 - (eDist - 0.81) / 0.19) : 1;
+      const alpha = Math.round(255 * edgeAlpha * softEdge);
+      if (alpha <= 4) continue;
+
       od[i]     = r;
       od[i + 1] = g;
       od[i + 2] = b;
-      od[i + 3] = 255;
+      od[i + 3] = alpha;
     }
   }
   return out;
@@ -1002,14 +1009,17 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   dpi: 300,
   lpi: 65,
   angleDeg: 22,
-  blackPoint: 0,
-  whitePoint: 250,
+  // Shadows 2% (blackPoint = 5/255 ≈ 2%) | Highlights 85% (whitePoint ≈ 217)
+  blackPoint: 5,
+  whitePoint: 217,
   gammaLevels: 1.0,
-  midtoneGamma: 0.85,
+  // Midtones 1.3x → midtoneGamma = 1/1.3 ≈ 0.77
+  midtoneGamma: 0.77,
   unsharpAmount: 0.9,
-  vibrance: 0.35,
+  // Saturação +25%
+  vibrance: 0.25,
   warmth: 0.0,
-  highKeyLift: 0.05,
+  highKeyLift: 0.0,
   vignetteInner: 1.0,
   vignetteOuter: 1.2,
   halftoneType: "circular",
