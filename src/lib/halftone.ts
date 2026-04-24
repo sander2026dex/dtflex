@@ -576,6 +576,12 @@ function applyHalftoneCircular(
   // Dot Gain Compensation: reduz raio efetivo em 15%
   const DOT_GAIN_COMP = 0.85;
 
+  // Pré-computa cossenos/senos por ângulo
+  const angCos = SCREEN_ANGLES.map((a) => Math.cos(a));
+  const angSin = SCREEN_ANGLES.map((a) => Math.sin(a));
+  const angCosI = SCREEN_ANGLES.map((a) => Math.cos(-a));
+  const angSinI = SCREEN_ANGLES.map((a) => Math.sin(-a));
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
@@ -583,56 +589,51 @@ function applyHalftoneCircular(
       const pixelMask = mask ? mask[pi] : 1;
       if (pixelMask <= 0.01) continue; // fora do sujeito → transparente
 
-      // posição rotacionada → célula da retícula
-      const xr = x * cosI - y * sinI;
-      const yr = x * sinI + y * cosI;
-      const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
-      const cyr = (Math.floor(yr / cellPx) + 0.5) * cellPx;
-      const dxr = xr - cxr;
-      const dyr = yr - cyr;
+      const cellEdge = edgeFactor ? edgeFactor[pi] : 1;
 
-      // amostra cor no centro da célula (rotação inversa)
-      const cx = Math.round(cxr * cos - cyr * sin);
-      const cy = Math.round(cxr * sin + cyr * cos);
-      const sxi = Math.max(0, Math.min(w - 1, cx));
-      const syi = Math.max(0, Math.min(h - 1, cy));
-      const si = (syi * w + sxi) * 4;
-      const r = data[si], g = data[si + 1], b = data[si + 2];
-      const luma = rgbToLuma(r, g, b) / 255;
-      const cellPi = syi * w + sxi;
-      const cellMask = mask ? mask[cellPi] : 1;
-      const cellEdge = edgeFactor ? edgeFactor[cellPi] : 1;
-
-      // Densidade INVERTIDA: shadows (luma baixa) = mais cobertura
+      // Amostra cor diretamente do pixel atual — preserva fidelidade do detalhe
+      const rPix = data[i], gPix = data[i + 1], bPix = data[i + 2];
+      const luma = rgbToLuma(rPix, gPix, bPix) / 255;
       const density = 1 - luma;
-      let coverage = (COVER_MIN + (COVER_MAX - COVER_MIN) * density) * cellMask;
-      if (coverage <= 0.02) continue;
-
-      // AURA: encolhe SUAVEMENTE pontos perto da borda (linear, não quadrático — mantém detalhe)
+      let coverage = (COVER_MIN + (COVER_MAX - COVER_MIN) * density) * pixelMask;
+      if (coverage <= 0.015) continue;
       coverage *= cellEdge;
       if (coverage <= 0.005) continue;
 
-      // Raio efetivo do ponto (área = coverage * cellArea)
-      const baseR = Math.sqrt((coverage * cellArea) / Math.PI);
+      // Dot Gain Compensation: reduz o raio em 15%
+      const baseR = Math.sqrt((coverage * cellArea) / Math.PI) * DOT_GAIN_COMP;
       const ra = baseR * Math.sqrt(ellipseAspect);
       const rb = baseR / Math.sqrt(ellipseAspect);
-      const ex = dxr / ra;
-      const ey = dyr / rb;
-      const eDist = ex * ex + ey * ey;
-      if (eDist > 1) continue; // fora do ponto = transparente
 
-      // Anti-aliasing nas bordas do ponto + alpha gradient pela aura
-      // edgeAlpha = quanto opaco o ponto está (1 no núcleo, < 1 perto da borda do sujeito)
+      // Testa as 4 retículas em ângulos CMYK — pixel é "tinta" se cair em qualquer ponto
+      let bestSoft = 0;
+      for (let s = 0; s < 4; s++) {
+        const xr = x * angCosI[s] - y * angSinI[s];
+        const yr = x * angSinI[s] + y * angCosI[s];
+        const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
+        const cyr = (Math.floor(yr / cellPx) + 0.5) * cellPx;
+        const dxr = xr - cxr;
+        const dyr = yr - cyr;
+        const ex = dxr / ra;
+        const ey = dyr / rb;
+        const eDist = ex * ex + ey * ey;
+        if (eDist > 1) continue;
+        const softEdge = eDist > 0.81 ? Math.max(0, 1 - (eDist - 0.81) / 0.19) : 1;
+        if (softEdge > bestSoft) bestSoft = softEdge;
+        if (bestSoft >= 0.999) break;
+      }
+      if (bestSoft <= 0.02) continue;
+
       const edgeAlpha = Math.min(1, cellEdge * 1.1);
-      // soft edge dentro do ponto (suaviza últimos 10%)
-      const softEdge = eDist > 0.81 ? Math.max(0, 1 - (eDist - 0.81) / 0.19) : 1;
-      const alpha = Math.round(255 * edgeAlpha * softEdge);
+      const alpha = Math.round(255 * edgeAlpha * bestSoft);
       if (alpha <= 4) continue;
 
-      od[i]     = r;
-      od[i + 1] = g;
-      od[i + 2] = b;
+      od[i]     = rPix;
+      od[i + 1] = gPix;
+      od[i + 2] = bPix;
       od[i + 3] = alpha;
+      // Suprime warning de variáveis não usadas mantidas para compat de assinatura
+      void angCos; void angSin;
     }
   }
   return out;
