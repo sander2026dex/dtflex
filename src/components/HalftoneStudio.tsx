@@ -261,101 +261,90 @@ export function HalftoneStudio() {
             <Card className="h-fit space-y-5 bg-card/70 p-5 backdrop-blur lg:sticky lg:top-6">
               <div>
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Parâmetros
+                  RIP Engine
                 </h3>
-                <div className="mb-4 flex items-center justify-between">
-                  <Label htmlFor="live-preview" className="text-sm text-foreground">
-                    Preview ao vivo
-                  </Label>
-                  <Switch id="live-preview" checked={livePreview} onCheckedChange={setLivePreview} />
+                <div className="space-y-2 rounded-md border border-border/60 bg-background/40 p-3 text-xs">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Frequência</span><span className="font-mono text-primary">65 LPI</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Dot shape</span><span className="font-mono text-primary">Elíptico 0.7</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Ângulos CMYK</span><span className="font-mono text-primary">15° / 75° / 0° / 45°</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Dot gain comp.</span><span className="font-mono text-primary">−15%</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Saída</span><span className="font-mono text-primary">3307×4930 · 300 DPI</span></div>
                 </div>
               </div>
 
               <Separator />
 
+              <div className="flex items-center justify-between">
+                <Label htmlFor="live-preview" className="text-sm text-foreground">
+                  Preview ao vivo
+                </Label>
+                <Switch id="live-preview" checked={livePreview} onCheckedChange={setLivePreview} />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="grunge-mask" className="text-sm text-foreground">
+                    Apply Grunge Mask
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">Bordas erodidas com splatter</p>
+                </div>
+                <Switch
+                  id="grunge-mask"
+                  checked={(opts.grungeErosion ?? 0) > 0}
+                  onCheckedChange={(on) =>
+                    setOpts((o) => ({
+                      ...o,
+                      grungeErosion: on ? 0.45 : 0,
+                      grungeAuraPx: on ? 80 : 0,
+                    }))
+                  }
+                />
+              </div>
+
+              <Separator />
+
               <SliderRow
-                label="LPI (frequência)"
-                value={opts.lpi ?? 65}
-                min={20}
-                max={120}
-                step={1}
-                onChange={(v) => setOpts((o) => ({ ...o, lpi: v }))}
-              />
-              <SliderRow
-                label="Ângulo da malha (°)"
-                value={opts.angleDeg ?? 22}
+                label="Vibrance (boost cor)"
+                value={opts.vibrance ?? 0.2}
                 min={0}
-                max={90}
-                step={1}
-                onChange={(v) => setOpts((o) => ({ ...o, angleDeg: v }))}
-              />
-              <SliderRow
-                label="Grunge erosion"
-                value={opts.grungeErosion ?? 0.45}
-                min={0}
-                max={0.9}
+                max={0.5}
                 step={0.05}
-                format={(v) => `${(v * 100).toFixed(0)}%`}
-                onChange={(v) => setOpts((o) => ({ ...o, grungeErosion: v }))}
+                format={(v) => `+${(v * 100).toFixed(0)}%`}
+                onChange={(v) => setOpts((o) => ({ ...o, vibrance: v }))}
               />
               <SliderRow
-                label="Aura splatter (px)"
-                value={opts.grungeAuraPx ?? 110}
+                label="Profundidade do preto"
+                value={opts.blackPoint ?? 18}
                 min={0}
-                max={300}
-                step={5}
-                onChange={(v) => setOpts((o) => ({ ...o, grungeAuraPx: v }))}
-              />
-              <SliderRow
-                label="Tolerância de fundo"
-                value={opts.bgTolerance ?? 32}
-                min={5}
-                max={80}
-                step={1}
-                onChange={(v) => setOpts((o) => ({ ...o, bgTolerance: v }))}
-              />
-              <SliderRow
-                label="Feather da máscara (px)"
-                value={opts.featherPx ?? 4}
-                min={0}
-                max={10}
-                step={1}
-                onChange={(v) => setOpts((o) => ({ ...o, featherPx: v }))}
-              />
-              <SliderRow
-                label="Black point"
-                value={opts.blackPoint ?? 80}
-                min={0}
-                max={150}
+                max={60}
                 step={1}
                 onChange={(v) => setOpts((o) => ({ ...o, blackPoint: v }))}
               />
               <SliderRow
                 label="Midtone gamma"
-                value={opts.midtoneGamma ?? 0.9}
-                min={0.3}
-                max={1.5}
+                value={opts.midtoneGamma ?? 0.87}
+                min={0.5}
+                max={1.3}
                 step={0.05}
                 format={(v) => v.toFixed(2)}
                 onChange={(v) => setOpts((o) => ({ ...o, midtoneGamma: v }))}
               />
               <SliderRow
                 label="Unsharp"
-                value={opts.unsharpAmount ?? 0.9}
+                value={opts.unsharpAmount ?? 0.7}
                 min={0}
-                max={2}
+                max={1.5}
                 step={0.1}
                 format={(v) => v.toFixed(1)}
                 onChange={(v) => setOpts((o) => ({ ...o, unsharpAmount: v }))}
               />
               <SliderRow
-                label="Vibrance"
-                value={opts.vibrance ?? 0.2}
-                min={-0.3}
-                max={0.6}
-                step={0.05}
-                format={(v) => `${(v * 100).toFixed(0)}%`}
-                onChange={(v) => setOpts((o) => ({ ...o, vibrance: v }))}
+                label="Tolerância de fundo"
+                value={opts.bgTolerance ?? 38}
+                min={5}
+                max={80}
+                step={1}
+                onChange={(v) => setOpts((o) => ({ ...o, bgTolerance: v }))}
               />
 
               <Separator />
