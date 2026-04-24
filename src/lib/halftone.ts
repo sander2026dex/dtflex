@@ -539,17 +539,18 @@ function applyMaskToRGBA(img: ImageData, mask: Float32Array): ImageData {
 }
 
 // ---------------------------------------------------------------------------
-// HALFTONE AM ELLIPTICAL — TRANSPARENT BG / HIGH INTENSITY
-// • Pontos ELÍPTICOS (axis ratio 0.7) com cor original (alta saturação)
-// • Fundo TRANSPARENTE (alpha=0) entre os pontos — PNG-24 com canal alpha
-// • Cobertura agressiva: 10% (highlights) → 90% (shadows)
-// • Aura splatter: alpha dos pontos próximos da borda fade gradualmente
+// HALFTONE AM ELLIPTICAL — DTF/SILK PRINT-READY
+// • Pontos ELÍPTICOS (axis ratio 0.7) — anti-bleeding em malha
+// • 4 retículas combinadas em ângulos CMYK (15°/75°/0°/45°) — sem moiré
+// • Dot Gain Compensation: -15% (compensa espalhamento da tinta no filme/tecido)
+// • Fundo TRANSPARENTE (alpha=0) entre os pontos — PNG-32 com canal alpha
+// • Faixa tonal: 2% (highlights) → 98% (shadows)
 // ---------------------------------------------------------------------------
 function applyHalftoneCircular(
   img: ImageData,
   dpi = 300,
-  lpi = 35,
-  angleDeg = 22,
+  lpi = 65,
+  _angleDeg = 22,
   mask?: Float32Array,
   edgeFactor?: Float32Array,
 ): ImageData {
@@ -557,20 +558,29 @@ function applyHalftoneCircular(
   const out = new ImageData(w, h);
   // Fundo TRANSPARENTE (alpha = 0)
   const od = out.data;
-  // ImageData já vem zerada — não preencher nada, alpha=0 por padrão.
 
   const cellPx = dpi / lpi;
-  const angle = (angleDeg * Math.PI) / 180;
-  const cos = Math.cos(angle), sin = Math.sin(angle);
-  const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
   const cellArea = cellPx * cellPx;
-  // Elipse SUTIL — quase circular para preservar detalhes finos (aspect 1.08)
-  const ellipseAspect = 1 / 0.92;
 
-  // Faixa de cobertura MÁXIMA: 1% (highlights sutilíssimos) → 99% (shadows quase sólidas)
-  // Captura TODA a faixa tonal — preserva detalhe fino em luzes E sombras
-  const COVER_MIN = 0.01;
-  const COVER_MAX = 0.99;
+  // Axis ratio 0.7 (eixo curto / eixo longo) → aspect = 1/0.7 ≈ 1.428
+  // Elíptico clássico de pré-impressão para malha — evita ink bleeding
+  const ellipseAspect = 1 / 0.7;
+
+  // Ângulos CMYK clássicos (4 chapas), em radianos
+  // C 15°, M 75°, Y 0°, K 45° — padrão ISO offset/silk
+  const SCREEN_ANGLES = [15, 75, 0, 45].map((d) => (d * Math.PI) / 180);
+
+  // Faixa tonal: 2% → 98% (preserva luzes sutis e sombras profundas)
+  const COVER_MIN = 0.02;
+  const COVER_MAX = 0.98;
+  // Dot Gain Compensation: reduz raio efetivo em 15%
+  const DOT_GAIN_COMP = 0.85;
+
+  // Pré-computa cossenos/senos por ângulo
+  const angCos = SCREEN_ANGLES.map((a) => Math.cos(a));
+  const angSin = SCREEN_ANGLES.map((a) => Math.sin(a));
+  const angCosI = SCREEN_ANGLES.map((a) => Math.cos(-a));
+  const angSinI = SCREEN_ANGLES.map((a) => Math.sin(-a));
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -579,56 +589,51 @@ function applyHalftoneCircular(
       const pixelMask = mask ? mask[pi] : 1;
       if (pixelMask <= 0.01) continue; // fora do sujeito → transparente
 
-      // posição rotacionada → célula da retícula
-      const xr = x * cosI - y * sinI;
-      const yr = x * sinI + y * cosI;
-      const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
-      const cyr = (Math.floor(yr / cellPx) + 0.5) * cellPx;
-      const dxr = xr - cxr;
-      const dyr = yr - cyr;
+      const cellEdge = edgeFactor ? edgeFactor[pi] : 1;
 
-      // amostra cor no centro da célula (rotação inversa)
-      const cx = Math.round(cxr * cos - cyr * sin);
-      const cy = Math.round(cxr * sin + cyr * cos);
-      const sxi = Math.max(0, Math.min(w - 1, cx));
-      const syi = Math.max(0, Math.min(h - 1, cy));
-      const si = (syi * w + sxi) * 4;
-      const r = data[si], g = data[si + 1], b = data[si + 2];
-      const luma = rgbToLuma(r, g, b) / 255;
-      const cellPi = syi * w + sxi;
-      const cellMask = mask ? mask[cellPi] : 1;
-      const cellEdge = edgeFactor ? edgeFactor[cellPi] : 1;
-
-      // Densidade INVERTIDA: shadows (luma baixa) = mais cobertura
+      // Amostra cor diretamente do pixel atual — preserva fidelidade do detalhe
+      const rPix = data[i], gPix = data[i + 1], bPix = data[i + 2];
+      const luma = rgbToLuma(rPix, gPix, bPix) / 255;
       const density = 1 - luma;
-      let coverage = (COVER_MIN + (COVER_MAX - COVER_MIN) * density) * cellMask;
-      if (coverage <= 0.02) continue;
-
-      // AURA: encolhe SUAVEMENTE pontos perto da borda (linear, não quadrático — mantém detalhe)
+      let coverage = (COVER_MIN + (COVER_MAX - COVER_MIN) * density) * pixelMask;
+      if (coverage <= 0.015) continue;
       coverage *= cellEdge;
       if (coverage <= 0.005) continue;
 
-      // Raio efetivo do ponto (área = coverage * cellArea)
-      const baseR = Math.sqrt((coverage * cellArea) / Math.PI);
+      // Dot Gain Compensation: reduz o raio em 15%
+      const baseR = Math.sqrt((coverage * cellArea) / Math.PI) * DOT_GAIN_COMP;
       const ra = baseR * Math.sqrt(ellipseAspect);
       const rb = baseR / Math.sqrt(ellipseAspect);
-      const ex = dxr / ra;
-      const ey = dyr / rb;
-      const eDist = ex * ex + ey * ey;
-      if (eDist > 1) continue; // fora do ponto = transparente
 
-      // Anti-aliasing nas bordas do ponto + alpha gradient pela aura
-      // edgeAlpha = quanto opaco o ponto está (1 no núcleo, < 1 perto da borda do sujeito)
+      // Testa as 4 retículas em ângulos CMYK — pixel é "tinta" se cair em qualquer ponto
+      let bestSoft = 0;
+      for (let s = 0; s < 4; s++) {
+        const xr = x * angCosI[s] - y * angSinI[s];
+        const yr = x * angSinI[s] + y * angCosI[s];
+        const cxr = (Math.floor(xr / cellPx) + 0.5) * cellPx;
+        const cyr = (Math.floor(yr / cellPx) + 0.5) * cellPx;
+        const dxr = xr - cxr;
+        const dyr = yr - cyr;
+        const ex = dxr / ra;
+        const ey = dyr / rb;
+        const eDist = ex * ex + ey * ey;
+        if (eDist > 1) continue;
+        const softEdge = eDist > 0.81 ? Math.max(0, 1 - (eDist - 0.81) / 0.19) : 1;
+        if (softEdge > bestSoft) bestSoft = softEdge;
+        if (bestSoft >= 0.999) break;
+      }
+      if (bestSoft <= 0.02) continue;
+
       const edgeAlpha = Math.min(1, cellEdge * 1.1);
-      // soft edge dentro do ponto (suaviza últimos 10%)
-      const softEdge = eDist > 0.81 ? Math.max(0, 1 - (eDist - 0.81) / 0.19) : 1;
-      const alpha = Math.round(255 * edgeAlpha * softEdge);
+      const alpha = Math.round(255 * edgeAlpha * bestSoft);
       if (alpha <= 4) continue;
 
-      od[i]     = r;
-      od[i + 1] = g;
-      od[i + 2] = b;
+      od[i]     = rPix;
+      od[i + 1] = gPix;
+      od[i + 2] = bPix;
       od[i + 3] = alpha;
+      // Suprime warning de variáveis não usadas mantidas para compat de assinatura
+      void angCos; void angSin;
     }
   }
   return out;
@@ -1008,19 +1013,19 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   targetW: 3307,
   targetH: 4930,
   dpi: 300,
-  // LPI ALTO = retícula fina como na referência (pontos pequenos, alta densidade)
-  lpi: 85,
-  angleDeg: 22,
-  // Curva SUAVE — preserva range tonal completo (não esmaga shadows nem highlights)
-  blackPoint: 0,
-  whitePoint: 255,
+  // 65 LPI hardcoded — padrão profissional textil DTF/Silk
+  lpi: 65,
+  angleDeg: 22, // ignorado — pipeline usa ângulos CMYK fixos (15/75/0/45)
+  // Curva para tecido preto: deepening de blacks + range completo
+  blackPoint: 18,
+  whitePoint: 252,
   gammaLevels: 1.0,
-  // Midtone leve para dar corpo sem perder detalhe (1.1x → 1/1.1 ≈ 0.91)
-  midtoneGamma: 0.91,
-  // Sharpen leve — realça detalhe sem criar artefato
-  unsharpAmount: 0.55,
-  // Saturação leve — cor natural, não saturada artificial
-  vibrance: 0.10,
+  // Midtone gamma: 1.15x para dar corpo nas sombras (compensa absorção da tinta)
+  midtoneGamma: 0.87,
+  // Sharpen para malha — realça detalhe que a retícula tende a suavizar
+  unsharpAmount: 0.7,
+  // Saturação +20% — compensa absorção de cor pela tinta no tecido
+  vibrance: 0.20,
   warmth: 0.0,
   highKeyLift: 0.0,
   vignetteInner: 1.0,
@@ -1028,8 +1033,9 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   halftoneType: "circular",
   bgTolerance: 38,
   featherPx: 4,
-  grungeErosion: 0.10,
-  grungeAuraPx: 35,
+  // Grunge desligado por padrão — usuário ativa via toggle
+  grungeErosion: 0.0,
+  grungeAuraPx: 0,
   grungeNoiseScale: 0.014,
   grungeSeed: 1337,
 };
