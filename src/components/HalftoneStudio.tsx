@@ -232,13 +232,13 @@ export function HalftoneStudio() {
                 <div className="flex flex-wrap items-center gap-3">
                   <Button size="lg" onClick={runFullExport} disabled={busy} className="shadow-[var(--shadow-glow)]">
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
-                    Renderizar em 300 DPI
+                    Gerar arquivo print-ready
                   </Button>
                   {fullResult && (
                     <Button asChild size="lg" variant="secondary">
                       <a href={fullResult.url} download={fullResult.filename}>
                         <Download className="h-4 w-4" />
-                        Baixar PNG ({fullResult.sizeKB} KB)
+                        Download Print-Ready File ({fullResult.sizeKB} KB)
                       </a>
                     </Button>
                   )}
