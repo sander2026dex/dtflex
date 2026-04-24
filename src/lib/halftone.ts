@@ -539,17 +539,18 @@ function applyMaskToRGBA(img: ImageData, mask: Float32Array): ImageData {
 }
 
 // ---------------------------------------------------------------------------
-// HALFTONE AM ELLIPTICAL — TRANSPARENT BG / HIGH INTENSITY
-// • Pontos ELÍPTICOS (axis ratio 0.7) com cor original (alta saturação)
-// • Fundo TRANSPARENTE (alpha=0) entre os pontos — PNG-24 com canal alpha
-// • Cobertura agressiva: 10% (highlights) → 90% (shadows)
-// • Aura splatter: alpha dos pontos próximos da borda fade gradualmente
+// HALFTONE AM ELLIPTICAL — DTF/SILK PRINT-READY
+// • Pontos ELÍPTICOS (axis ratio 0.7) — anti-bleeding em malha
+// • 4 retículas combinadas em ângulos CMYK (15°/75°/0°/45°) — sem moiré
+// • Dot Gain Compensation: -15% (compensa espalhamento da tinta no filme/tecido)
+// • Fundo TRANSPARENTE (alpha=0) entre os pontos — PNG-32 com canal alpha
+// • Faixa tonal: 2% (highlights) → 98% (shadows)
 // ---------------------------------------------------------------------------
 function applyHalftoneCircular(
   img: ImageData,
   dpi = 300,
-  lpi = 35,
-  angleDeg = 22,
+  lpi = 65,
+  _angleDeg = 22,
   mask?: Float32Array,
   edgeFactor?: Float32Array,
 ): ImageData {
@@ -557,20 +558,23 @@ function applyHalftoneCircular(
   const out = new ImageData(w, h);
   // Fundo TRANSPARENTE (alpha = 0)
   const od = out.data;
-  // ImageData já vem zerada — não preencher nada, alpha=0 por padrão.
 
   const cellPx = dpi / lpi;
-  const angle = (angleDeg * Math.PI) / 180;
-  const cos = Math.cos(angle), sin = Math.sin(angle);
-  const cosI = Math.cos(-angle), sinI = Math.sin(-angle);
   const cellArea = cellPx * cellPx;
-  // Elipse SUTIL — quase circular para preservar detalhes finos (aspect 1.08)
-  const ellipseAspect = 1 / 0.92;
 
-  // Faixa de cobertura MÁXIMA: 1% (highlights sutilíssimos) → 99% (shadows quase sólidas)
-  // Captura TODA a faixa tonal — preserva detalhe fino em luzes E sombras
-  const COVER_MIN = 0.01;
-  const COVER_MAX = 0.99;
+  // Axis ratio 0.7 (eixo curto / eixo longo) → aspect = 1/0.7 ≈ 1.428
+  // Elíptico clássico de pré-impressão para malha — evita ink bleeding
+  const ellipseAspect = 1 / 0.7;
+
+  // Ângulos CMYK clássicos (4 chapas), em radianos
+  // C 15°, M 75°, Y 0°, K 45° — padrão ISO offset/silk
+  const SCREEN_ANGLES = [15, 75, 0, 45].map((d) => (d * Math.PI) / 180);
+
+  // Faixa tonal: 2% → 98% (preserva luzes sutis e sombras profundas)
+  const COVER_MIN = 0.02;
+  const COVER_MAX = 0.98;
+  // Dot Gain Compensation: reduz raio efetivo em 15%
+  const DOT_GAIN_COMP = 0.85;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
