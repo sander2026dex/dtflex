@@ -1013,19 +1013,19 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   targetW: 3307,
   targetH: 4930,
   dpi: 300,
-  // LPI ALTO = retícula fina como na referência (pontos pequenos, alta densidade)
-  lpi: 85,
-  angleDeg: 22,
-  // Curva SUAVE — preserva range tonal completo (não esmaga shadows nem highlights)
-  blackPoint: 0,
-  whitePoint: 255,
+  // 65 LPI hardcoded — padrão profissional textil DTF/Silk
+  lpi: 65,
+  angleDeg: 22, // ignorado — pipeline usa ângulos CMYK fixos (15/75/0/45)
+  // Curva para tecido preto: deepening de blacks + range completo
+  blackPoint: 18,
+  whitePoint: 252,
   gammaLevels: 1.0,
-  // Midtone leve para dar corpo sem perder detalhe (1.1x → 1/1.1 ≈ 0.91)
-  midtoneGamma: 0.91,
-  // Sharpen leve — realça detalhe sem criar artefato
-  unsharpAmount: 0.55,
-  // Saturação leve — cor natural, não saturada artificial
-  vibrance: 0.10,
+  // Midtone gamma: 1.15x para dar corpo nas sombras (compensa absorção da tinta)
+  midtoneGamma: 0.87,
+  // Sharpen para malha — realça detalhe que a retícula tende a suavizar
+  unsharpAmount: 0.7,
+  // Saturação +20% — compensa absorção de cor pela tinta no tecido
+  vibrance: 0.20,
   warmth: 0.0,
   highKeyLift: 0.0,
   vignetteInner: 1.0,
@@ -1033,8 +1033,9 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   halftoneType: "circular",
   bgTolerance: 38,
   featherPx: 4,
-  grungeErosion: 0.10,
-  grungeAuraPx: 35,
+  // Grunge desligado por padrão — usuário ativa via toggle
+  grungeErosion: 0.0,
+  grungeAuraPx: 0,
   grungeNoiseScale: 0.014,
   grungeSeed: 1337,
 };
