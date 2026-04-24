@@ -154,18 +154,19 @@ export function HalftoneStudio() {
                   <ImageIcon className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Ferramenta DTFLEX Pro
+                  DTF / Silk · File Prep Tool
                 </span>
               </div>
               <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-                Gerador de retícula profissional
+                RIP profissional · 65 LPI · Elíptico CMYK
               </h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
-                Envie a arte e exporte em halftone circular com transparência real entre os pontos.
+                Reconstrução real por pontos, ângulos CMYK (15° / 75° / 0° / 45°) sem moiré, dot gain
+                −15% para tinta em tecido preto. Saída PNG transparente A2 @ 300 DPI.
               </p>
             </div>
             <div className="rounded-md border border-border bg-card/50 px-4 py-2 text-sm backdrop-blur">
-              <span className="text-muted-foreground">Saída alvo </span>
+              <span className="text-muted-foreground">Saída print-ready </span>
               <span className="font-mono text-primary">3307 × 4930 px · 300 DPI</span>
             </div>
           </header>
