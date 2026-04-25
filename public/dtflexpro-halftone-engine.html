@@ -374,39 +374,45 @@ $('processBtn').addEventListener('click', async () => {
   else { dw = OUT_W; dh = OUT_W / ir; dx = 0; dy = (OUT_H-dh)/2; }
   sctx.drawImage(sourceImage, dx, dy, dw, dh);
 
-  setProgress(0.14, 'Corrigindo contraste RGB sem inverter cores...');
+  setProgress(0.10, 'Removendo fundo automaticamente...');
   await nextFrame();
 
   const imgData = sctx.getImageData(0,0,OUT_W,OUT_H);
   const data = imgData.data;
+
+  if ($('removeBg').checked) {
+    const tol = parseInt($('bgTol').value, 10);
+    removeBackground(data, OUT_W, OUT_H, tol);
+  }
+
+  setProgress(0.18, 'Corrigindo contraste RGB...');
+  await nextFrame();
+
   const cBoost = parseInt($('contrast').value, 10)/100;
   const f = 1 + cBoost;
   for (let i=0;i<data.length;i+=4){
+    if (data[i+3] === 0) continue;
     data[i]   = clamp((data[i]  -128)*f + 128);
     data[i+1] = clamp((data[i+1]-128)*f + 128);
     data[i+2] = clamp((data[i+2]-128)*f + 128);
   }
 
-  setProgress(0.26, 'Separando preto transparente e branco sólido...');
+  setProgress(0.28, 'Separando preto sólido e brancos com reflexo...');
   await nextFrame();
 
-  const mask = new Uint8Array(OUT_W * OUT_H);
-  const whiteMask = new Uint8Array(OUT_W * OUT_H);
-  let alphaCount = 0;
-  for (let i=3; i<data.length; i+=4) if (data[i] < 250) alphaCount++;
-  const useAlpha = alphaCount > 5000;
+  const mask = new Uint8Array(OUT_W * OUT_H);          // pixel imprimível (recebe halftone)
+  const blackMask = new Uint8Array(OUT_W * OUT_H);     // preto absoluto sólido
+  const highlightMask = new Uint8Array(OUT_W * OUT_H); // branco com reflexo: poucas retículas
 
   for (let i=0,p=0; p<mask.length; i+=4, p++){
-    if (useAlpha && data[i+3] <= 30) {
-      data[i+3] = 0;
-      continue;
-    }
+    if (data[i+3] <= 30) continue; // fundo transparente
     if (isBlackPixel(data, i)) {
-      data[i+3] = 0;
+      blackMask[p] = 1;
+      mask[p] = 1; // conta como área da figura para a aura
       continue;
     }
     mask[p] = 1;
-    if (isProtectedWhite(data, i)) whiteMask[p] = 1;
+    if (isHighlightWhite(data, i)) highlightMask[p] = 1;
   }
 
   setProgress(0.42, 'Calculando área da aura...');
@@ -415,7 +421,7 @@ $('processBtn').addEventListener('click', async () => {
   const auraPx = parseInt($('aura').value, 10);
   const dist = computeDistanceOutside(mask, OUT_W, OUT_H);
 
-  setProgress(0.58, 'Renderizando ROUND CLEAN em alta definição...');
+  setProgress(0.55, 'Renderizando halftone em alta definição...');
   await nextFrame();
 
   const out = document.createElement('canvas');
@@ -428,8 +434,11 @@ $('processBtn').addEventListener('click', async () => {
   const cell = Math.max(7, Math.round(dpi / lpi));
   const angle = parseInt($('angle').value, 10);
 
-  await renderRoundCleanRGB(octx, data, mask, whiteMask, dist, OUT_W, OUT_H, cell, angle, auraPx);
-  restoreProtectedWhites(octx, data, whiteMask, OUT_W, OUT_H);
+  // 1) Preto absoluto sólido — pinta primeiro como #000000
+  paintSolidBlack(octx, blackMask, OUT_W, OUT_H);
+
+  // 2) Halftone RGB nas demais áreas
+  await renderRoundCleanRGB(octx, data, mask, blackMask, highlightMask, dist, OUT_W, OUT_H, cell, angle, auraPx);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
@@ -451,8 +460,7 @@ $('processBtn').addEventListener('click', async () => {
     pctx.clearRect(0,0,maxW,maxH);
     pctx.drawImage(out, 0, 0, maxW, maxH);
 
-    const started = triggerDownload(blob);
-    setProgress(1, started ? '✅ Pronto! Download automático iniciado.' : '✅ Pronto! Clique em Baixar Novamente.');
+    setProgress(1, '✅ Pronto! Clique em "Baixar PNG" para salvar.');
   }, 'image/png');
 });
 
