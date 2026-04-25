@@ -162,20 +162,6 @@
     </div>
 
     <div class="control-group">
-      <label>
-        <input type="checkbox" id="removeBg" checked style="vertical-align:middle;margin-right:6px;accent-color:#ff3366;" />
-        Remover Fundo Automaticamente
-      </label>
-      <p class="info-text" style="margin-top:4px;">Detecta fundo uniforme nas bordas e torna transparente.</p>
-    </div>
-
-    <div class="control-group">
-      <label>Tolerância Fundo</label>
-      <input type="range" id="bgTol" min="10" max="80" value="32" />
-      <div class="value" id="bgTolVal">32</div>
-    </div>
-
-    <div class="control-group">
       <label>LPI (linhas/polegada)</label>
       <input type="range" id="lpi" min="26" max="42" value="34" />
       <div class="value" id="lpiVal">34 LPI</div>
@@ -227,7 +213,7 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','aura','contrast','bgTol'].forEach(id => {
+['lpi','angle','aura','contrast'].forEach(id => {
   const el = $(id);
   el.addEventListener('input', () => {
     const suffix = id === 'lpi' ? ' LPI' : id === 'angle' ? '°' : id === 'aura' ? ' px' : id === 'contrast' ? '%' : '';
@@ -386,10 +372,8 @@ $('processBtn').addEventListener('click', async () => {
   const imgData = sctx.getImageData(0,0,OUT_W,OUT_H);
   const data = imgData.data;
 
-  if ($('removeBg').checked) {
-    const tol = parseInt($('bgTol').value, 10);
-    removeBackground(data, OUT_W, OUT_H, tol);
-  }
+  // Remoção de fundo SEMPRE automática (tolerância fixa otimizada)
+  removeBackground(data, OUT_W, OUT_H, 32);
 
   setProgress(0.18, 'Corrigindo contraste RGB...');
   await nextFrame();
