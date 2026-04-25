@@ -614,7 +614,11 @@ export async function processImage(
   await tick();
   const stage = resizeTo(source, tw, th);
   const sctx = ctx2d(stage);
-  const data = sctx.getImageData(0, 0, tw, th);
+  const rawData = sctx.getImageData(0, 0, tw, th);
+
+  onProgress?.("Heavy Ink curves · contrast + saturation", 18);
+  await tick();
+  const data = preprocessHeavyInk(rawData);
 
   let outCanvas: AnyCanvas;
   if (o.mode === "rosette_cmyk") {
