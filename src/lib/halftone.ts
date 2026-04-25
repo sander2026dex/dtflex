@@ -437,11 +437,12 @@ function renderRosette(
   const step = Math.max(3, (300 / opts.lpi) * workScale);
   const baseDeg = opts.baseAngleDeg;
 
-  // Standard offset angles (industry-standard CMYK screen angles).
-  const channels: Array<{ name: "C" | "M" | "Y" | "K"; deg: number; hex: string }> = [
+  // CMY only — Black (K) channel is intentionally REMOVED so dark areas remain
+  // "vazado" (empty/transparent reticle). On dark fabric the absence of K
+  // shows the garment color through the dot pattern, matching pro DTF spec.
+  const channels: Array<{ name: "C" | "M" | "Y"; deg: number; hex: string }> = [
     { name: "Y", deg: baseDeg + 0,  hex: "#ffe600" },
     { name: "C", deg: baseDeg + 15, hex: "#00aeef" },
-    { name: "K", deg: baseDeg + 45, hex: "#000000" },
     { name: "M", deg: baseDeg + 75, hex: "#ec008c" },
   ];
 
