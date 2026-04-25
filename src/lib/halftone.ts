@@ -434,7 +434,7 @@ async function renderRosette(
   wctx.globalCompositeOperation = "source-over";
 
   // Blit work → final canvas. If transparent BG requested, convert near-white
-  // pixels to alpha=0 so only the inked area survives (DTF requirement).
+  // pixels to alpha=0 so only the inked area survives (DTF "preto vazado").
   if (whiteBackground) {
     ctx.drawImage(work as CanvasImageSource, 0, 0);
   } else {
@@ -442,15 +442,16 @@ async function renderRosette(
     const d = id.data;
     for (let i = 0; i < d.length; i += 4) {
       const r = d[i], g = d[i + 1], b = d[i + 2];
-      // Distance from white (0..255). Pure white → alpha 0. Otherwise fade in.
+      // distFromWhite = how far from pure white this pixel is (0..255).
+      // Pure / near-white background → alpha 0 (fully transparent).
       const distFromWhite = 255 - Math.min(r, g, b);
-      if (distFromWhite < 6) {
-        d[i + 3] = 0; // fully transparent
-      } else if (distFromWhite < 24) {
-        // Soft edge: avoid harsh white halos around dots.
-        d[i + 3] = Math.round((distFromWhite - 6) * (255 / 18));
+      if (distFromWhite < 8) {
+        d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0;
+      } else if (distFromWhite < 22) {
+        // Soft anti-alias edge so dot rims aren't harsh.
+        d[i + 3] = Math.round((distFromWhite - 8) * (255 / 14));
       }
-      // else keep alpha 255
+      // else keep alpha 255 — real ink pixel.
     }
     ctx.putImageData(id, 0, 0);
   }
