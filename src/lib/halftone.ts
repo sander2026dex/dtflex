@@ -182,6 +182,54 @@ function subjectMaskFromCorners(img: ImageData, tolerance = 32): Uint8Array {
   return subj;
 }
 
+// Erode: keeps only pixels where ALL neighbors within radius r are also "on".
+// Used to find LARGE contiguous regions (small specks vanish).
+function erode(mask: Uint8Array, w: number, h: number, r: number): Uint8Array {
+  if (r <= 0) return mask.slice();
+  const tmp = new Uint8Array(mask.length);
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 1;
+      for (let dx = -r; dx <= r; dx++) {
+        const xx = x + dx;
+        if (xx < 0 || xx >= w) { v = 0; break; }
+        if (!mask[y * w + xx]) { v = 0; break; }
+      }
+      tmp[y * w + x] = v;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 1;
+      for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) { v = 0; break; }
+        if (!tmp[yy * w + x]) { v = 0; break; }
+      }
+      out[y * w + x] = v;
+    }
+  }
+  return out;
+}
+
+// Builds a "large white area" mask: pixels that are near-white AND belong to a
+// big contiguous white region (small white specks inside the subject are NOT
+// flagged, so detail is preserved). Used to skip halftone entirely in those
+// areas → clean transparent ("vazado") whites without speckled "holes".
+function largeWhiteMask(img: ImageData, erodeRadius = 6): Uint8Array {
+  const { width: w, height: h, data } = img;
+  const total = w * h;
+  const white = new Uint8Array(total);
+  for (let i = 0, di = 0; i < total; i++, di += 4) {
+    const r = data[di], g = data[di + 1], b = data[di + 2];
+    // Near-white threshold (post-curve): RGB all > 235
+    if (r > 235 && g > 235 && b > 235) white[i] = 1;
+  }
+  // Erosion isolates only LARGE white regions (radius ~ small dot footprint).
+  return erode(white, w, h, erodeRadius);
+}
+
 function dilate(subj: Uint8Array, w: number, h: number, r: number): Uint8Array {
   if (r <= 0) return subj.slice();
   const tmp = new Uint8Array(subj.length);
@@ -274,6 +322,9 @@ async function renderRosette(
   const { width: w, height: h, data } = src;
   const cellSize = dpi / lpi;
 
+  // Detect LARGE white regions → skip halftone entirely (no "holes/speckles").
+  const whiteMask = largeWhiteMask(src, Math.max(4, Math.round(cellSize * 0.6)));
+
   // FINAL canvas — fully transparent (Golden Rule #1).
   const canvas = makeCanvas(w, h);
   const ctx = ctx2d(canvas);
@@ -323,6 +374,10 @@ async function renderRosette(
         const py = cy + gx * sin + gy * cos;
         const xi = Math.round(px), yi = Math.round(py);
         if (xi < 0 || xi >= w || yi < 0 || yi >= h) continue;
+
+        // SKIP large white regions entirely → clean transparent areas.
+        if (whiteMask[yi * w + xi]) continue;
+
         const di = (yi * w + xi) * 4;
         const R = data[di], G = data[di + 1], B = data[di + 2];
         const lum = luma01(R, G, B);
@@ -330,16 +385,10 @@ async function renderRosette(
         // GOLDEN RULE #2 — pure black knockout (handled later via composite).
         if (lum < LUM_BLACK_KNOCKOUT) continue;
 
-        // GOLDEN RULE #3 — highlight protection: tiny K-only structural dot.
-        if (lum > LUM_WHITE_PROTECT) {
-          if (s.channel !== 3) continue;
-          lctx.globalAlpha = HIGHLIGHT_OPACITY;
-          lctx.beginPath();
-          lctx.arc(px, py, MIN_DOT_RADIUS, 0, Math.PI * 2);
-          lctx.fill();
-          lctx.globalAlpha = 1;
-          continue;
-        }
+        // GOLDEN RULE #3 — highlight protection: skip dot in true highlights
+        // (large white regions already skipped above; remaining highlights are
+        // small/edge → leave clean instead of speckling).
+        if (lum > LUM_WHITE_PROTECT) continue;
 
         // GOLDEN RULE #4 — midtone scaling by TRUE CMYK channel coverage.
         const cmyk = rgbToCmyk(R, G, B);
@@ -397,6 +446,8 @@ async function renderCircular(
   onProgress?.("Circular · subject mask", Math.round(progressBase + 0.1 * progressSpan));
   const subjRaw = subjectMaskFromCorners(src, bgTolerance);
   const subj = dilate(subjRaw, w, h, 1);
+  // Detect LARGE white regions inside subject → skip halftone (no speckles).
+  const whiteMask = largeWhiteMask(src, Math.max(4, Math.round(cellSize * 0.6)));
   onProgress?.("Circular · distance transform", Math.round(progressBase + 0.3 * progressSpan));
   const { dist, nx, ny } = distanceFromSubjectWithNearest(subj, w, h);
 
@@ -419,6 +470,9 @@ async function renderCircular(
       const insideSubject = subj[p] === 1;
 
       if (insideSubject) {
+        // SKIP large white regions entirely → clean transparent areas.
+        if (whiteMask[p]) continue;
+
         const di = (yi * w + xi) * 4;
         const R = data[di], G = data[di + 1], B = data[di + 2];
         const lum = luma01(R, G, B);
@@ -426,14 +480,9 @@ async function renderCircular(
         // GOLDEN RULE #2 — pure-black knockout.
         if (lum < LUM_BLACK_KNOCKOUT) continue;
 
-        // GOLDEN RULE #3 — highlight protection: 1.5px @ 40%.
-        if (lum > LUM_WHITE_PROTECT) {
-          ctx.fillStyle = `rgba(${R},${G},${B},${HIGHLIGHT_OPACITY})`;
-          ctx.beginPath();
-          ctx.arc(px, py, MIN_DOT_RADIUS, 0, Math.PI * 2);
-          ctx.fill();
-          continue;
-        }
+        // GOLDEN RULE #3 — true highlight: skip dot (large whites already
+        // skipped above; remaining are tiny edges → leave clean).
+        if (lum > LUM_WHITE_PROTECT) continue;
 
         // GOLDEN RULE #4 — midtone radius from inverted luminance.
         const inv = 1 - lum;
