@@ -344,9 +344,42 @@ export function HalftoneStudio() {
 
               <Separator />
 
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-sm text-foreground">
+                    Rosette Intensity {mode !== "hybrid" ? "(somente Hybrid)" : ""}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={rosetteIntensity}
+                    min={0}
+                    max={100}
+                    step={1}
+                    disabled={busy || mode !== "hybrid"}
+                    onChange={(e) => setRosetteIntensity(parseInt(e.target.value, 10))}
+                    className="h-7 w-20 text-right font-mono text-xs"
+                  />
+                </div>
+                <Slider
+                  value={[rosetteIntensity]}
+                  min={0}
+                  max={100}
+                  step={1}
+                  disabled={busy || mode !== "hybrid"}
+                  onValueChange={([v]) => setRosetteIntensity(v)}
+                />
+                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                  <span>0% circular</span>
+                  <span>50% mix</span>
+                  <span>100% rosette</span>
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                <strong className="text-foreground">Regra DTF:</strong> dot mínimo 1.5px (~0.5mm).
-                Sem buracos brancos no sujeito. Fundo 100% alpha 0.
+                <strong className="text-foreground">Regras DTF:</strong> preto puro (lum&lt;5%) é vazado.
+                Branco puro (lum&gt;95%) imprime ponto 1.5px @ 40% opacidade. Fundo 100% alpha 0.
               </div>
 
               <Button
