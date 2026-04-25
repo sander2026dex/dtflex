@@ -80,6 +80,7 @@ interface Prepared {
   rgba: Uint8ClampedArray; // levels-corrected RGBA
   lum: Uint8Array;       // per-pixel luminance 0..255
   alpha: Uint8Array;     // original alpha 0..255 (transparency aware)
+  workScale: number;     // working pixel size relative to final 300 DPI placement
 }
 
 /* ============================================================================
@@ -91,6 +92,7 @@ export async function processImage(
   onProgress?: Progress,
 ): Promise<Blob> {
   const progress = onProgress ?? (() => {});
+  dotCache.clear(); // fresh cache per run keeps memory bounded across uploads
   progress("Pre-process · Levels 80/255 + Gamma 0.88", 5);
 
   // 1. Fit source into output canvas (preserve aspect, center).
@@ -98,11 +100,21 @@ export async function processImage(
   const octx = out.getContext("2d", { alpha: true })!;
   octx.clearRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT); // background fully transparent
 
-  const scale = Math.min(OUTPUT_WIDTH / img.naturalWidth, OUTPUT_HEIGHT / img.naturalHeight);
-  const dw = Math.round(img.naturalWidth * scale);
-  const dh = Math.round(img.naturalHeight * scale);
-  const dx = Math.round((OUTPUT_WIDTH - dw) / 2);
-  const dy = Math.round((OUTPUT_HEIGHT - dh) / 2);
+  // Final placement size on the 300 DPI canvas (preserves aspect, centered).
+  const finalScale = Math.min(OUTPUT_WIDTH / img.naturalWidth, OUTPUT_HEIGHT / img.naturalHeight);
+  const finalW = Math.round(img.naturalWidth * finalScale);
+  const finalH = Math.round(img.naturalHeight * finalScale);
+  const dx = Math.round((OUTPUT_WIDTH - finalW) / 2);
+  const dy = Math.round((OUTPUT_HEIGHT - finalH) / 2);
+
+  // PERFORMANCE CAP — the halftone is rendered at a smaller working resolution
+  // (≤ MAX_WORK_EDGE px on the long edge), then upscaled with high-quality
+  // smoothing into the 3307×4930 output. This keeps total dot count bounded
+  // (~250k max) so the whole pipeline finishes well under 10s.
+  const MAX_WORK_EDGE = 1600;
+  const workScale = Math.min(1, MAX_WORK_EDGE / Math.max(finalW, finalH));
+  const dw = Math.max(1, Math.round(finalW * workScale));
+  const dh = Math.max(1, Math.round(finalH * workScale));
 
   // 2. Sample pixels into a working buffer the same size as the placed art.
   const work = new OffscreenCanvas(dw, dh);
@@ -112,7 +124,7 @@ export async function processImage(
   const imgData = wctx.getImageData(0, 0, dw, dh);
 
   // 3. Apply pre-processing LUT + build luminance + alpha maps in one pass.
-  const prep = preProcessLevels(imgData);
+  const prep = preProcessLevels(imgData, finalW > 0 ? dw / finalW : 1);
   progress("Building luminance map", 18);
 
   // 4. Resolve mode (legacy aliases route to the two real engines).
@@ -134,9 +146,13 @@ export async function processImage(
     renderClean(hctx, prep, opts, progress);
   }
 
-  // 6. Composite halftone onto the centered output canvas.
+  // 6. Composite halftone onto the centered output canvas, upscaling from the
+  // working resolution to the actual placement size with smoothing on so dots
+  // stay crisp circles at 300 DPI without re-rasterizing each one.
   progress("Composing 300 DPI canvas", 90);
-  octx.drawImage(halftone, dx, dy);
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.drawImage(halftone, 0, 0, dw, dh, dx, dy, finalW, finalH);
 
   // 7. Export PNG-32 preserving alpha channel.
   progress("Exporting PNG-32", 96);
@@ -148,13 +164,12 @@ export async function processImage(
 /* ============================================================================
  * STEP 0  —  PRE-PROCESS:  Levels 80/1.0/255  +  Gamma 0.88  +  Luminance Map
  * ========================================================================== */
-function preProcessLevels(src: ImageData): Prepared {
+function preProcessLevels(src: ImageData, workScale: number): Prepared {
   const { width: w, height: h, data } = src;
   const len = w * h;
   const lum = new Uint8Array(len);
   const alpha = new Uint8Array(len);
 
-  // Apply LUT in-place to R,G,B; keep A; compute luminance L = 0.299R+0.587G+0.114B
   for (let i = 0, p = 0; i < len; i++, p += 4) {
     const r = TONE_LUT[data[p]];
     const g = TONE_LUT[data[p + 1]];
@@ -163,11 +178,10 @@ function preProcessLevels(src: ImageData): Prepared {
     data[p + 1] = g;
     data[p + 2] = b;
     alpha[i] = data[p + 3];
-    // Rec.601 luma — matches print luminance perception.
     lum[i] = (r * 299 + g * 587 + b * 114 + 500) / 1000 | 0;
   }
 
-  return { w, h, rgba: data, lum, alpha };
+  return { w, h, rgba: data, lum, alpha, workScale };
 }
 
 /* ============================================================================
@@ -177,9 +191,11 @@ function preProcessLevels(src: ImageData): Prepared {
  * ========================================================================== */
 const dotCache = new Map<string, OffscreenCanvas>();
 function getDot(radius: number, hex: string, alpha: number): OffscreenCanvas {
-  const r = Math.max(1, Math.round(radius * 2)) / 2; // half-pixel granularity
-  const a = Math.max(0, Math.min(1, alpha));
-  const key = `${r}|${hex}|${a.toFixed(2)}`;
+  // Quantize radius to 0.5 px and alpha to 0.1 buckets — keeps the cache to a
+  // few hundred entries even when called millions of times.
+  const r = Math.max(1, Math.round(radius * 2)) / 2;
+  const a = Math.max(0.1, Math.min(1, Math.round(alpha * 10) / 10));
+  const key = `${r}|${hex}|${a}`;
   const cached = dotCache.get(key);
   if (cached) return cached;
   const size = Math.ceil(r * 2) + 2;
@@ -209,10 +225,14 @@ function renderClean(
   opts: HalftoneOptions,
   progress: Progress,
 ) {
-  const { w, h, rgba, lum, alpha } = prep;
-  const step = 300 / opts.lpi;
+  const { w, h, rgba, lum, alpha, workScale } = prep;
+  // LPI is defined relative to the final 300 DPI output. Multiply the output
+  // step (300 / LPI) by workScale (≤1) to convert into working pixels so the
+  // dot pitch survives the final upscale and matches the requested LPI.
+  // Floor of 3 working px keeps the grid bounded for huge images.
+  const step = Math.max(3, (300 / opts.lpi) * workScale);
   const angle = (opts.baseAngleDeg * Math.PI) / 180;
-  const auraWidth = Math.max(0, opts.auraWidth);
+  const auraWidth = Math.max(0, opts.auraWidth) * workScale;
 
   // ---------- Subject binary mask (L > 20 OR alpha > 32) -------------------
   // Used both for skip-no-subject decisions and for aura distance computation.
@@ -330,7 +350,11 @@ function sampleNearestSubject(
       const idx = sy * w + sx;
       if (mask[idx]) {
         const p = idx * 4;
-        const R = rgba[p], G = rgba[p + 1], B = rgba[p + 2];
+        // Quantize each channel to 5 bits (32 levels) so the dotCache stays small
+        // even when sampling thousands of slightly different aura colors.
+        const R = rgba[p] & 0xf8;
+        const G = rgba[p + 1] & 0xf8;
+        const B = rgba[p + 2] & 0xf8;
         const hex = "#" + ((R << 16) | (G << 8) | B).toString(16).padStart(6, "0");
         const L = (R * 299 + G * 587 + B * 114 + 500) / 1000 | 0;
         return { hex, l: L };
@@ -394,8 +418,9 @@ function renderRosette(
   opts: HalftoneOptions,
   progress: Progress,
 ) {
-  const { w, h, rgba, lum, alpha } = prep;
-  const step = 300 / opts.lpi;
+  const { w, h, rgba, lum, alpha, workScale } = prep;
+  // Step in working pixels (see renderClean for derivation).
+  const step = Math.max(3, (300 / opts.lpi) * workScale);
   const baseDeg = opts.baseAngleDeg;
 
   // Standard offset angles (industry-standard CMYK screen angles).
