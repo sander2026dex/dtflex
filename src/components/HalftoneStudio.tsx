@@ -348,72 +348,39 @@ export function HalftoneStudio() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <Label className="text-sm text-foreground">
-                    White Threshold {mode !== "spot_white_cmyk" ? "(somente Spot White)" : ""}
+                    Aura Width {mode !== "clean_organic" ? "(somente Clean Organic)" : ""}
                   </Label>
                   <Input
                     type="number"
-                    value={whiteThreshold}
-                    min={0}
-                    max={100}
+                    value={aura}
+                    min={AURA_MIN}
+                    max={AURA_MAX}
                     step={1}
-                    disabled={busy || mode !== "spot_white_cmyk"}
-                    onChange={(e) => setWhiteThreshold(parseInt(e.target.value, 10))}
+                    disabled={busy || mode !== "clean_organic"}
+                    onChange={(e) => setAura(parseInt(e.target.value, 10))}
                     className="h-7 w-20 text-right font-mono text-xs"
                   />
                 </div>
                 <Slider
-                  value={[whiteThreshold]}
-                  min={0}
-                  max={100}
+                  value={[aura]}
+                  min={AURA_MIN}
+                  max={AURA_MAX}
                   step={1}
-                  disabled={busy || mode !== "spot_white_cmyk"}
-                  onValueChange={([v]) => setWhiteThreshold(v)}
+                  disabled={busy || mode !== "clean_organic"}
+                  onValueChange={([v]) => setAura(v)}
                 />
                 <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
-                  <span>0% (mais branca)</span>
-                  <span>40% default</span>
-                  <span>100% (sem branca)</span>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <Label className="text-sm text-foreground">
-                    Rosette Intensity {mode !== "hybrid" ? "(somente Hybrid)" : ""}
-                  </Label>
-                  <Input
-                    type="number"
-                    value={rosetteIntensity}
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={busy || mode !== "hybrid"}
-                    onChange={(e) => setRosetteIntensity(parseInt(e.target.value, 10))}
-                    className="h-7 w-20 text-right font-mono text-xs"
-                  />
-                </div>
-                <Slider
-                  value={[rosetteIntensity]}
-                  min={0}
-                  max={100}
-                  step={1}
-                  disabled={busy || mode !== "hybrid"}
-                  onValueChange={([v]) => setRosetteIntensity(v)}
-                />
-                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
-                  <span>0% circular</span>
-                  <span>50% mix</span>
-                  <span>100% rosette</span>
+                  <span>{AURA_MIN}px</span>
+                  <span>default {AURA_DEFAULT}px</span>
+                  <span>{AURA_MAX}px</span>
                 </div>
               </div>
 
               <Separator />
 
               <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                <strong className="text-foreground">Regras DTF:</strong> preto puro (lum&lt;5%) é vazado.
-                Spot White desenha base branca onde lum&gt;{whiteThreshold}% e CMYK por cima. Fundo 100% alpha 0.
+                <strong className="text-foreground">Regras DTF:</strong> preto puro (L&lt;12) é vazado, highlights (L&gt;242) viram micro-dots @40%.
+                Pré-processo Levels 80/255 + Gamma 0.88 antes do halftone. Fundo 100% alpha 0.
               </div>
 
               <Button
