@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DTFLEXPRO Halftone Engine</title>
+<style>
+  /* ============================================================
+     DTFLEXPRO Halftone Engine — Dark Pro UI
+     ============================================================ */
+  :root {
+    --bg-0: #0a0c10;
+    --bg-1: #11141b;
+    --bg-2: #161a23;
+    --line: #232938;
+    --text: #e7ecf3;
+    --muted: #8892a6;
+    --accent: #00e0ff;
+    --accent-2: #7c5cff;
+    --danger: #ff4d6d;
+    --ok: #2bd576;
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(124,92,255,0.18), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(0,224,255,0.12), transparent 60%),
+      var(--bg-0);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(8px);
+  }
+  header .brand {
+    display:flex; align-items:center; gap:12px;
+  }
+  header .logo {
+    width: 36px; height: 36px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 24px rgba(124,92,255,0.45);
+  }
+  header h1 {
+    font-size: 18px; margin: 0; letter-spacing: 0.5px;
+    font-weight: 700;
+  }
+  header .tag {
+    font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase;
+  }
+  main {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 24px;
+    padding: 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .panel h2 {
+    font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 14px;
+  }
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; color: var(--muted); margin-bottom: 8px;
+  }
+  .field label b { color: var(--text); font-weight: 600; }
+
+  /* Botões */
+  .btn {
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--bg-2);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    transition: transform 0.08s ease, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .btn:hover { background: #1c2230; border-color: #2c3346; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #0b0d12;
+    border-color: transparent;
+    box-shadow: 0 8px 24px rgba(124,92,255,0.35);
+  }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.ghost { background: transparent; }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+  /* Toggle modo */
+  .toggle {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    background: var(--bg-0); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; padding: 4px;
+  }
+  .toggle button {
+    padding: 10px 12px;
+    border: none; background: transparent; color: var(--muted);
+    font-weight: 600; font-size: 12px; letter-spacing: 1.5px;
+    cursor: pointer; border-radius: 8px;
+    transition: background 0.2s, color 0.2s;
+  }
+  .toggle button.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #0b0d12;
+  }
+
+  /* Slider */
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none; appearance: none;
+    background: transparent;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: white; margin-top: -6px;
+    border: 3px solid var(--accent-2);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    cursor: pointer;
+  }
+  input[type=range]::-moz-range-track {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: white; border: 3px solid var(--accent-2);
+    cursor: pointer;
+  }
+
+  /* Status */
+  .status {
+    font-size: 12px; color: var(--muted);
+    padding: 10px 12px; border-radius: 8px;
+    background: var(--bg-0); border: 1px solid var(--line);
+    min-height: 38px; display: flex; align-items: center;
+  }
+  .status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted); margin-right: 10px;
+  }
+  .status.ok .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .status.busy .dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 1.2s infinite; }
+  .status.err .dot { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
+
+  /* Preview area */
+  .preview-wrap {
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .preview {
+    position: relative;
+    background:
+      conic-gradient(#1b1f2a 25%, #161a23 0 50%, #1b1f2a 0 75%, #161a23 0) 0 0/24px 24px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    min-height: 480px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .preview canvas {
+    max-width: 100%; max-height: 78vh;
+    display: block;
+    image-rendering: -webkit-optimize-contrast;
+  }
+  .preview .empty {
+    color: var(--muted); font-size: 14px; text-align: center; padding: 40px;
+  }
+  .toolbar {
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .toolbar .btn { width: auto; padding: 12px 18px; }
+
+  .hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  input[type=file] { display: none; }
+
+  /* Mode label */
+  .mode-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--accent); padding: 4px 10px; border-radius: 999px;
+    border: 1px solid rgba(0,224,255,0.3); background: rgba(0,224,255,0.07);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo"></div>
+    <div>
+      <h1>DTFLEXPRO Halftone Engine</h1>
+      <div class="tag">Professional DTF Print Simulator · 300 DPI</div>
+    </div>
+  </div>
+  <span class="mode-pill" id="modePill">ROSETTE CMYK</span>
+</header>
+
+<main>
+  <!-- ===================== Painel de Controles ===================== -->
+  <section class="panel">
+    <h2>Controles</h2>
+
+    <div class="field">
+      <label>Imagem fonte</label>
+      <button class="btn" id="loadBtn">📁 Carregar Imagem</button>
+      <input type="file" id="fileInput" accept="image/*" />
+      <div class="hint" id="fileInfo">Nenhuma imagem carregada.</div>
+    </div>
+
+    <div class="field">
+      <label>Modo de Renderização</label>
+      <div class="toggle" id="modeToggle">
+        <button data-mode="rosette" class="active">ROSETTE CMYK</button>
+        <button data-mode="round">ROUND CLEAN</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>LPI <b><span id="lpiVal">35</span></b></label>
+      <input type="range" id="lpi" min="22" max="45" value="35" step="1" />
+      <div class="hint">Lines per inch — densidade da retícula. 35 LPI ≈ padrão DTF.</div>
+    </div>
+
+    <div class="field">
+      <button class="btn primary" id="generateBtn" disabled>⚡ Gerar Halftone</button>
+    </div>
+
+    <div class="field">
+      <button class="btn" id="downloadBtn" disabled>⬇ Baixar PNG 3307×4930</button>
+      <div class="hint">PNG-32 com fundo transparente, pronto para RIP.</div>
+    </div>
+
+    <div class="field" style="margin-bottom:0;">
+      <label>Status</label>
+      <div class="status" id="status"><span class="dot"></span><span id="statusText">Aguardando imagem…</span></div>
+    </div>
+  </section>
+
+  <!-- ===================== Preview ===================== -->
+  <section class="preview-wrap">
+    <div class="panel" style="padding:0; overflow:hidden;">
+      <div class="preview" id="preview">
+        <div class="empty" id="emptyHint">
+          <div style="font-size:42px; margin-bottom:12px;">🎨</div>
+          Carregue uma imagem para começar.<br/>
+          O preview aparecerá aqui em tempo real.
+        </div>
+        <canvas id="previewCanvas" style="display:none;"></canvas>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ============================================================================
+   DTFLEXPRO Halftone Engine — Vanilla JS
+   ============================================================================
+   Workflow:
+     init()        → liga eventos UI
+     loadImage()   → carrega imagem do <input type=file>
+     processRosetteCMYK(image, lpi) → modo CMYK (Husky reference)
+     processRoundClean(image, lpi)  → modo round + aura (Jack Sparrow)
+     exportPNG()   → 3307×4930 PNG transparente
+   Resolução final: 3307 × 4930 (300 DPI / A3 ratio)
+   ============================================================================ */
+
+const FINAL_W = 3307;
+const FINAL_H = 4930;
+const DPI     = 300;
+
+/* Trabalhamos numa resolução interna mais leve para ficar dentro de ~10s,
+   depois fazemos upscale suave para 3307×4930 ao exportar.            */
+const WORK_LONG_EDGE = 1700;
+
+const state = {
+  image: null,           // HTMLImageElement carregada
+  mode: 'rosette',       // 'rosette' | 'round'
+  lpi: 35,
+  lastCanvas: null,      // canvas em working resolution já processado
+};
+
+/* ============================================================================
+   INIT — UI
+   ============================================================================ */
+function init() {
+  const $ = (id) => document.getElementById(id);
+
+  $('loadBtn').addEventListener('click', () => $('fileInput').click());
+  $('fileInput').addEventListener('change', onFileChange);
+
+  $('modeToggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-mode]');
+    if (!btn) return;
+    state.mode = btn.dataset.mode;
+    document.querySelectorAll('#modeToggle button').forEach(b =>
+      b.classList.toggle('active', b === btn));
+    $('modePill').textContent = state.mode === 'rosette' ? 'ROSETTE CMYK' : 'ROUND CLEAN';
+  });
+
+  $('lpi').addEventListener('input', (e) => {
+    state.lpi = +e.target.value;
+    $('lpiVal').textContent = state.lpi;
+  });
+
+  $('generateBtn').addEventListener('click', generate);
+  $('downloadBtn').addEventListener('click', exportPNG);
+}
+
+function setStatus(text, kind = '') {
+  const s = document.getElementById('status');
+  s.className = 'status ' + kind;
+  document.getElementById('statusText').textContent = text;
+}
+
+/* ============================================================================
+   LOAD IMAGE
+   ============================================================================ */
+function onFileChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      state.image = img;
+      document.getElementById('fileInfo').textContent =
+        `${file.name} · ${img.width}×${img.height}px`;
+      document.getElementById('generateBtn').disabled = false;
+      setStatus('Imagem pronta — clique em Gerar Halftone.', 'ok');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ============================================================================
+   GENERATE — pipeline principal
+   ============================================================================ */
+async function generate() {
+  if (!state.image) return;
+  document.getElementById('generateBtn').disabled = true;
+  document.getElementById('downloadBtn').disabled = true;
+  setStatus('Processando…', 'busy');
+
+  // Yield para UI redesenhar antes do trabalho pesado
+  await new Promise(r => setTimeout(r, 30));
+
+  const t0 = performance.now();
+  try {
+    const out = state.mode === 'rosette'
+      ? processRosetteCMYK(state.image, state.lpi)
+      : processRoundClean(state.image, state.lpi);
+
+    state.lastCanvas = out;
+    showPreview(out);
+
+    const t1 = performance.now();
+    setStatus(`Pronto em ${((t1 - t0)/1000).toFixed(2)}s · ${out.width}×${out.height}px`, 'ok');
+    document.getElementById('downloadBtn').disabled = false;
+  } catch (err) {
+    console.error(err);
+    setStatus('Erro: ' + err.message, 'err');
+  } finally {
+    document.getElementById('generateBtn').disabled = false;
+  }
+}
+
+function showPreview(canvas) {
+  const target = document.getElementById('previewCanvas');
+  target.width = canvas.width;
+  target.height = canvas.height;
+  target.getContext('2d').drawImage(canvas, 0, 0);
+  target.style.display = 'block';
+  document.getElementById('emptyHint').style.display = 'none';
+}
+
+/* ============================================================================
+   HELPERS
+   ============================================================================ */
+
+/** Cria um canvas (Offscreen quando possível). */
+function makeCanvas(w, h) {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    try { return new OffscreenCanvas(w, h); } catch(_) {}
+  }
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+/** Calcula o canvas de trabalho mantendo a proporção 3307:4930.
+ *  A imagem-fonte é ajustada (cover) dentro desse canvas. */
+function buildWorkCanvas(image) {
+  const ratio = FINAL_W / FINAL_H; // largura/altura
+  // long edge = altura (pois 4930 > 3307)
+  const wh = WORK_LONG_EDGE;
+  const ww = Math.round(wh * ratio);
+
+  const c = makeCanvas(ww, wh);
+  const ctx = c.getContext('2d');
+  // fundo transparente — não preenchemos nada
+
+  // Cover-fit centralizado
+  const ir = image.width / image.height;
+  const cr = ww / wh;
+  let dw, dh, dx, dy;
+  if (ir > cr) { dh = wh; dw = wh * ir; dx = (ww - dw) / 2; dy = 0; }
+  else         { dw = ww; dh = ww / ir; dx = 0; dy = (wh - dh) / 2; }
+  ctx.drawImage(image, dx, dy, dw, dh);
+
+  return { canvas: c, ctx, w: ww, h: wh };
+}
+
+/** Pixel size em px para uma dada LPI, a 300 DPI.
+ *  pixel_size = (25.4 / lpi) * (DPI / 25.4) = DPI / lpi
+ *  Ajustamos pelo fator de escala da resolução de trabalho. */
+function pixelSizeFor(lpi, workW) {
+  const finalPx = DPI / lpi;          // tamanho do pixel da grade no output final
+  const scale = workW / FINAL_W;      // fator working/final
+  return Math.max(3, finalPx * scale);
+}
+
+/* ============================================================================
+   PRÉ-PROCESSAMENTO — Levels suave + Gamma para impressão DTF
+   ============================================================================ */
+function preprocess(imageData) {
+  const d = imageData.data;
+  const lo = 18, hi = 245;            // levels suaves (não derruba subject)
+  const gamma = 0.92;
+  const range = hi - lo;
+  // LUT
+  const lut = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i++) {
+    let v = (i - lo) / range;
+    if (v < 0) v = 0; else if (v > 1) v = 1;
+    v = Math.pow(v, gamma);
+    lut[i] = Math.round(v * 255);
+  }
+  for (let i = 0; i < d.length; i += 4) {
+    d[i]   = lut[d[i]];
+    d[i+1] = lut[d[i+1]];
+    d[i+2] = lut[d[i+2]];
+  }
+  return imageData;
+}
+
+/* ============================================================================
+   ROSETTE CMYK — separação real em 4 canais com ângulos clássicos
+   ============================================================================ */
+function processRosetteCMYK(image, lpi) {
+  const { canvas: src, ctx: srcCtx, w, h } = buildWorkCanvas(image);
+  const imgData = preprocess(srcCtx.getImageData(0, 0, w, h));
+  const data = imgData.data;
+
+  // Pixel size da grade
+  const step = pixelSizeFor(lpi, w);
+  const dotMax = step * 0.62;          // raio máximo (0.62*step ~ cobertura forte)
+
+  // Canvas final (transparente)
+  const out = makeCanvas(w, h);
+  const octx = out.getContext('2d');
+  // Para multiply funcionar sem fundo branco invisível, renderizamos cada
+  // canal num buffer próprio com fundo BRANCO, multiplicamos entre eles,
+  // depois removemos o branco -> alpha.
+
+  // Ângulos clássicos
+  const angles = {
+    C: 15  * Math.PI / 180,
+    M: 75  * Math.PI / 180,
+    Y: 0   * Math.PI / 180,
+    K: 45  * Math.PI / 180,
+  };
+  const colors = {
+    C: '#00B8E8',
+    M: '#E6007E',
+    Y: '#FFE600',
+    K: '#000000',
+  };
+
+  // --- Função: amostra a média do canal CMYK em (x,y) num raio de step/2
+  function sampleChannel(cx, cy, channel) {
+    // converte região para CMYK e devolve cobertura 0..1 do canal
+    const r0 = Math.max(0, Math.floor(cx - step/2));
+    const r1 = Math.min(w-1, Math.ceil(cx + step/2));
+    const c0 = Math.max(0, Math.floor(cy - step/2));
+    const c1 = Math.min(h-1, Math.ceil(cy + step/2));
+    let sum = 0, n = 0;
+    // Subsample (limita a 4x4 dentro da célula)
+    const sx = Math.max(1, Math.floor((r1 - r0) / 4));
+    const sy = Math.max(1, Math.floor((c1 - c0) / 4));
+    for (let y = c0; y <= c1; y += sy) {
+      for (let x = r0; x <= r1; x += sx) {
+        const i = (y * w + x) * 4;
+        const a = data[i+3] / 255;
+        if (a < 0.05) continue;
+        const r = data[i] / 255, g = data[i+1] / 255, b = data[i+2] / 255;
+        // Conversão RGB -> CMYK
+        const k = 1 - Math.max(r, g, b);
+        let c, m, yC;
+        if (k >= 0.999) { c = m = yC = 0; }
+        else {
+          c  = (1 - r - k) / (1 - k);
+          m  = (1 - g - k) / (1 - k);
+          yC = (1 - b - k) / (1 - k);
+        }
+        let v = 0;
+        if (channel === 'C') v = c;
+        else if (channel === 'M') v = m;
+        else if (channel === 'Y') v = yC;
+        else if (channel === 'K') v = k;
+        sum += v * a;
+        n++;
+      }
+    }
+    return n ? sum / n : 0;
+  }
+
+  // --- Renderiza um canal sobre buffer branco
+  function renderChannel(channel) {
+    const layer = makeCanvas(w, h);
+    const lctx = layer.getContext('2d');
+    lctx.fillStyle = '#ffffff';
+    lctx.fillRect(0, 0, w, h);
+    lctx.fillStyle = colors[channel];
+
+    const ang = angles[channel];
+    const cos = Math.cos(ang), sin = Math.sin(ang);
+    // diagonal para cobrir toda a área quando rotacionada
+    const diag = Math.ceil(Math.sqrt(w*w + h*h));
+    const half = diag / 2;
+    const cx = w / 2, cy = h / 2;
+
+    // Iteramos numa grade rotacionada
+    for (let v = -half; v < half; v += step) {
+      for (let u = -half; u < half; u += step) {
+        // Posição no canvas (rotação inversa em torno do centro)
+        const x = cx + u * cos - v * sin;
+        const y = cy + u * sin + v * cos;
+        if (x < -step || x > w + step || y < -step || y > h + step) continue;
+
+        const cov = sampleChannel(x, y, channel);
+        if (cov <= 0.02) continue;
+        const r = Math.sqrt(cov) * dotMax;
+        if (r < 0.4) continue;
+        lctx.beginPath();
+        lctx.arc(x, y, r, 0, Math.PI * 2);
+        lctx.fill();
+      }
+    }
+    return layer;
+  }
+
+  // --- Compõe os 4 canais com 'multiply' sobre branco
+  const composite = makeCanvas(w, h);
+  const cctx = composite.getContext('2d');
+  cctx.fillStyle = '#ffffff';
+  cctx.fillRect(0, 0, w, h);
+  cctx.globalCompositeOperation = 'multiply';
+  cctx.drawImage(renderChannel('Y'), 0, 0);
+  cctx.drawImage(renderChannel('C'), 0, 0);
+  cctx.drawImage(renderChannel('M'), 0, 0);
+  cctx.drawImage(renderChannel('K'), 0, 0);
+  cctx.globalCompositeOperation = 'source-over';
+
+  // --- Knockout do branco -> alpha (fundo transparente para DTF)
+  const cmp = cctx.getImageData(0, 0, w, h);
+  const cd = cmp.data;
+  for (let i = 0; i < cd.length; i += 4) {
+    const r = cd[i], g = cd[i+1], b = cd[i+2];
+    // Quanto mais perto do branco, menor o alpha
+    const minC = Math.min(r, g, b);   // 255 = branco puro
+    const a = 255 - minC;             // 0 onde é branco
+    if (a < 8) { cd[i+3] = 0; continue; }
+    cd[i+3] = Math.min(255, a + 40);  // boost suave
+  }
+  octx.putImageData(cmp, 0, 0);
+  return out;
+}
+
+/* ============================================================================
+   ROUND CLEAN — pontos redondos coloridos + aura splatter (edge noise)
+   ============================================================================ */
+function processRoundClean(image, lpi) {
+  const { canvas: src, ctx: srcCtx, w, h } = buildWorkCanvas(image);
+  const imgData = preprocess(srcCtx.getImageData(0, 0, w, h));
+  const data = imgData.data;
+
+  const step = pixelSizeFor(lpi, w);
+  const dotMax = step * 0.55;
+  const auraRange = step * 6;     // até onde a aura se estende além da borda
+
+  // ---------- 1) Mapa de "subject" (alpha + luminância)
+  const cols = Math.ceil(w / step);
+  const rows = Math.ceil(h / step);
+  const lumGrid = new Float32Array(cols * rows); // 0..1
+  const alphaGrid = new Float32Array(cols * rows);
+  const rGrid = new Uint8ClampedArray(cols * rows);
+  const gGrid = new Uint8ClampedArray(cols * rows);
+  const bGrid = new Uint8ClampedArray(cols * rows);
+
+  for (let gy = 0; gy < rows; gy++) {
+    for (let gx = 0; gx < cols; gx++) {
+      const cx = Math.min(w-1, Math.floor(gx * step + step/2));
+      const cy = Math.min(h-1, Math.floor(gy * step + step/2));
+      const i = (cy * w + cx) * 4;
+      const a = data[i+3] / 255;
+      const r = data[i], g = data[i+1], b = data[i+2];
+      const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+      const idx = gy * cols + gx;
+      alphaGrid[idx] = a;
+      lumGrid[idx]   = lum;
+      rGrid[idx] = r; gGrid[idx] = g; bGrid[idx] = b;
+    }
+  }
+
+  // ---------- 2) Distance Transform (chamfer) a partir das células "fora do sujeito"
+  // subject = alpha > 0.15 && lum > 0.05 (não é fundo nem preto puro)
+  const INF = 1e6;
+  const dist = new Float32Array(cols * rows);
+  for (let i = 0; i < dist.length; i++) {
+    const isSubject = alphaGrid[i] > 0.15 && lumGrid[i] > 0.04;
+    dist[i] = isSubject ? 0 : INF;
+  }
+  // Forward pass
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = y*cols + x;
+      let d = dist[i];
+      if (x > 0)             d = Math.min(d, dist[i-1] + 1);
+      if (y > 0)             d = Math.min(d, dist[i-cols] + 1);
+      if (x > 0 && y > 0)    d = Math.min(d, dist[i-cols-1] + 1.4);
+      if (x < cols-1 && y>0) d = Math.min(d, dist[i-cols+1] + 1.4);
+      dist[i] = d;
+    }
+  }
+  // Backward pass
+  for (let y = rows-1; y >= 0; y--) {
+    for (let x = cols-1; x >= 0; x--) {
+      const i = y*cols + x;
+      let d = dist[i];
+      if (x < cols-1)         d = Math.min(d, dist[i+1] + 1);
+      if (y < rows-1)         d = Math.min(d, dist[i+cols] + 1);
+      if (x<cols-1 && y<rows-1) d = Math.min(d, dist[i+cols+1] + 1.4);
+      if (x>0 && y<rows-1)    d = Math.min(d, dist[i+cols-1] + 1.4);
+      dist[i] = d;
+    }
+  }
+
+  // ---------- 3) Para cada célula fora do sujeito, encontrar a cor da borda mais próxima
+  // (varredura barata: amostra na direção do gradiente de distância)
+  function nearestSubject(gx, gy) {
+    // Faz um pequeno "step" em direção ao subject usando dist menor nos vizinhos
+    let cx = gx, cy = gy;
+    for (let k = 0; k < 12; k++) {
+      let bestD = dist[cy*cols + cx];
+      if (bestD === 0) break;
+      let nx = cx, ny = cy;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = cx + dx, yy = cy + dy;
+          if (xx<0||yy<0||xx>=cols||yy>=rows) continue;
+          const dd = dist[yy*cols + xx];
+          if (dd < bestD) { bestD = dd; nx = xx; ny = yy; }
+        }
+      }
+      if (nx === cx && ny === cy) break;
+      cx = nx; cy = ny;
+    }
+    return cy * cols + cx;
+  }
+
+  // ---------- 4) Pseudo-noise (rápido, determinístico)
+  function noise(x, y) {
+    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return n - Math.floor(n);  // 0..1
+  }
+
+  // ---------- 5) Render
+  const out = makeCanvas(w, h);
+  const octx = out.getContext('2d');
+  // fundo transparente
+
+  const auraCells = auraRange / step; // alcance em células
+
+  for (let gy = 0; gy < rows; gy++) {
+    for (let gx = 0; gx < cols; gx++) {
+      const idx = gy * cols + gx;
+      const d = dist[idx];
+
+      // Posição base + jitter orgânico
+      const jitter = (noise(gx, gy) - 0.5) * step * 0.25;
+      const jitter2 = (noise(gx+13.1, gy+7.3) - 0.5) * step * 0.25;
+      const x = gx * step + step/2 + jitter;
+      const y = gy * step + step/2 + jitter2;
+
+      let r, g, b, radius, alpha;
+
+      if (d === 0) {
+        // ---- DENTRO DO SUJEITO ----
+        const lum = lumGrid[idx];
+        // tom escuro -> ponto grande; tom claro -> ponto pequeno
+        radius = Math.max(1.5, dotMax * (1 - lum) + 0.6);
+        // Spot white para highlights (underbase DTF)
+        if (lum > 0.82) {
+          r = g = b = 255;
+          radius = Math.max(1.5, dotMax * 0.35);
+          alpha = 0.85;
+        } else {
+          r = rGrid[idx]; g = gGrid[idx]; b = bGrid[idx];
+          alpha = 1.0;
+        }
+      } else if (d <= auraCells) {
+        // ---- AURA / SPLATTER ----
+        // Probabilidade decresce com a distância (efeito rasgado)
+        const t = d / auraCells;                     // 0..1
+        const prob = Math.pow(1 - t, 1.8);
+        const n = noise(gx*1.7, gy*1.7);
+        if (n > prob * 0.95) continue;               // splatter: pula células
+
+        // Cor da borda mais próxima
+        const ni = nearestSubject(gx, gy);
+        r = rGrid[ni]; g = gGrid[ni]; b = bGrid[ni];
+
+        // Raio diminui com distância + ruído
+        radius = Math.max(0.8, dotMax * (1 - t) * (0.55 + noise(gx, gy)*0.5));
+        alpha = (1 - t) * 0.9;
+      } else {
+        continue; // fora da aura — transparente
+      }
+
+      octx.beginPath();
+      octx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha.toFixed(3)})`;
+      octx.arc(x, y, radius, 0, Math.PI * 2);
+      octx.fill();
+    }
+  }
+
+  return out;
+}
+
+/* ============================================================================
+   EXPORT — upscale para 3307×4930 e download PNG transparente
+   ============================================================================ */
+function exportPNG() {
+  if (!state.lastCanvas) return;
+  setStatus('Gerando PNG 3307×4930…', 'busy');
+
+  // Yield UI
+  setTimeout(() => {
+    const final = document.createElement('canvas');
+    final.width = FINAL_W;
+    final.height = FINAL_H;
+    const fctx = final.getContext('2d');
+    fctx.imageSmoothingEnabled = true;
+    fctx.imageSmoothingQuality = 'high';
+    fctx.clearRect(0, 0, FINAL_W, FINAL_H);
+    fctx.drawImage(state.lastCanvas, 0, 0, FINAL_W, FINAL_H);
+
+    final.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const tag = state.mode === 'rosette' ? 'rosette-cmyk' : 'round-clean';
+      a.href = url;
+      a.download = `dtflexpro-${tag}-${state.lpi}lpi-3307x4930.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      setStatus('PNG exportado com sucesso.', 'ok');
+    }, 'image/png');
+  }, 30);
+}
+
+/* ============================================================================
+   GO
+   ============================================================================ */
+init();
+</script>
+</body>
+</html>
