@@ -358,7 +358,7 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.3, 'Detectando máscara...');
   await new Promise(r => requestAnimationFrame(r));
 
-  // Build subject mask (alpha if available, else luminance threshold)
+  // Build print mask: alpha/subject minus all black areas. Black must stay transparent.
   const mask = new Uint8Array(OUT_W * OUT_H);
   let alphaCount = 0;
   for (let y=0,i=0,p=0; y<OUT_H; y++){
@@ -368,11 +368,16 @@ $('processBtn').addEventListener('click', async () => {
   }
   const useAlpha = alphaCount > 5000;
   for (let i=0,p=0; p<mask.length; i+=4, p++){
+    if (isBlackPixel(data, i)) {
+      data[i+3] = 0;
+      mask[p] = 0;
+      continue;
+    }
     if (useAlpha){
       mask[p] = data[i+3] > 30 ? 1 : 0;
     } else {
-      const L = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
-      mask[p] = L < 245 ? 1 : 0; // assume non-near-white = subject
+      const L = lumaAt(data, i);
+      mask[p] = L < 252 ? 1 : 0; // keep whites/text, only true background stays empty
     }
   }
 
@@ -408,7 +413,7 @@ $('processBtn').addEventListener('click', async () => {
 
   out.toBlob(blob => {
     outputBlob = blob;
-    setProgress(1, '✅ Pronto! Clique em Download.');
+    setProgress(1, '✅ Pronto! Download iniciado.');
     $('downloadBtn').disabled = false;
     $('processBtn').disabled = false;
 
@@ -419,6 +424,7 @@ $('processBtn').addEventListener('click', async () => {
     previewCanvas.height = maxH;
     pctx.clearRect(0,0,maxW,maxH);
     pctx.drawImage(out, 0, 0, maxW, maxH);
+    triggerDownload();
   }, 'image/png');
 });
 
