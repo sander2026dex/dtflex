@@ -414,12 +414,18 @@ async function renderRosette(
         if (!cmyk) continue;
         // Per-channel "brightness" = 1 - ink coverage. (Brightness 1 → no ink.)
         const inkCoverage = cmyk[s.channel]; // 0..1
-        const brightness = 1 - inkCoverage;
-        // GOLDEN RULE (linear, NOT sqrt): keeps highlights dotted, shadows solid.
-        let r = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
-        // For pure-white channel areas, skip Y/M/C noise dots so we don't smear.
-        // Black channel still keeps a tiny speck for texture.
-        if (inkCoverage < 0.04 && s.channel !== 3) continue;
+        // ----- HIGHLIGHT PROTECTION (faces / white art must stay clean) -----
+        // Pure white in this channel → SKIP. Don't dirty white skin/paper.
+        if (inkCoverage < 0.05) continue;
+        // Highlight band (>90% brightness on this channel) → minimum structural dot.
+        let r: number;
+        if (inkCoverage < 0.10) {
+          r = 1.0; // minimum 1px structural dot in highlights
+        } else {
+          // GOLDEN RULE (linear): r = (1 - brightness) * (MAX - MIN) + MIN
+          const brightness = 1 - inkCoverage;
+          r = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
+        }
         if (r < 0.45) continue;
         lctx.beginPath();
         lctx.arc(px, py, r, 0, Math.PI * 2);
