@@ -1,409 +1,563 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Reticula Studio — DTFLEXPRO</title>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;background:#0b0d12;color:#e8eaf0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif}
-  .app{display:grid;grid-template-columns:340px 1fr;height:100vh}
-  .side{background:#0f131b;border-right:1px solid #1d2330;padding:20px;overflow:auto}
-  .brand{font-weight:800;font-size:18px;letter-spacing:.5px;color:#7cf0ff;margin-bottom:4px}
-  .sub{font-size:12px;color:#8b94a7;margin-bottom:18px}
-  .group{margin-bottom:18px;padding:14px;background:#131825;border:1px solid #1d2330;border-radius:10px}
-  .label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#8b94a7;margin-bottom:8px;display:flex;justify-content:space-between}
-  .label b{color:#e8eaf0;font-weight:700}
-  input[type=range]{width:100%;accent-color:#7cf0ff}
-  .modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .mode{padding:10px;text-align:center;background:#0b0f18;border:1px solid #1d2330;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.5px}
-  .mode.on{background:linear-gradient(135deg,#0e3a4d,#0b6b7a);border-color:#7cf0ff;color:#bff7ff}
-  .file{display:block;width:100%;padding:14px;background:#0b0f18;border:1px dashed #2a3346;border-radius:10px;text-align:center;cursor:pointer;color:#a8b2c5}
-  .btn{display:block;width:100%;padding:14px;border:0;border-radius:10px;font-weight:800;letter-spacing:.5px;cursor:pointer;background:linear-gradient(135deg,#f5c451,#e89d2a);color:#1a1206;font-size:14px}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-  .tip{margin-top:10px;font-size:11px;color:#f5c451;line-height:1.4;padding:8px;background:#1a1206;border-radius:6px;border:1px solid #3a2a10}
-  .stage{display:flex;align-items:center;justify-content:center;background:
-    repeating-conic-gradient(#1a1f2c 0% 25%, #141826 0% 50%) 0 0/24px 24px;
-    overflow:auto;padding:24px}
-  canvas#preview{max-width:100%;max-height:100%;background:transparent;box-shadow:0 8px 40px rgba(0,0,0,.5);border-radius:6px}
-  .status{position:fixed;left:360px;bottom:18px;right:18px;background:#0f131b;border:1px solid #1d2330;padding:10px 14px;border-radius:10px;font-size:12px;color:#a8b2c5;display:flex;gap:14px;align-items:center}
-  .bar{flex:1;height:6px;background:#0b0f18;border-radius:99px;overflow:hidden}
-  .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7cf0ff,#f5c451);transition:width .15s}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0a0a0a;
+    color: #f5f5f5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: linear-gradient(135deg, #ff3366, #ff6b35);
+    padding: 16px 24px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(255,51,102,0.3);
+  }
+  header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+  header p { font-size: 12px; opacity: 0.9; margin-top: 4px; }
+  .container {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    flex: 1;
+    gap: 0;
+  }
+  @media (max-width: 768px) {
+    .container { grid-template-columns: 1fr; }
+  }
+  .sidebar {
+    background: #141414;
+    padding: 24px;
+    border-right: 1px solid #2a2a2a;
+    overflow-y: auto;
+  }
+  .preview-area {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    background: repeating-conic-gradient(#1a1a1a 0% 25%, #222 0% 50%) 50%/20px 20px;
+  }
+  .control-group { margin-bottom: 20px; }
+  .control-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    color: #ff6b35;
+  }
+  .control-group input[type="range"] {
+    width: 100%;
+    accent-color: #ff3366;
+  }
+  .control-group .value {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 4px;
+  }
+  .mode-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #2a2a2a;
+  }
+  .mode-toggle button {
+    flex: 1;
+    padding: 12px;
+    background: #1a1a1a;
+    color: #888;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .mode-toggle button.active {
+    background: linear-gradient(135deg, #ff3366, #ff6b35);
+    color: #fff;
+  }
+  .file-input {
+    margin-bottom: 20px;
+  }
+  .file-input label {
+    display: block;
+    padding: 12px;
+    background: #2a2a2a;
+    border: 2px dashed #444;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  .file-input label:hover {
+    border-color: #ff6b35;
+    background: #2f2f2f;
+  }
+  .file-input input { display: none; }
+  .btn-process, .btn-download {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 10px;
+  }
+  .btn-process {
+    background: linear-gradient(135deg, #ff3366, #ff6b35);
+    color: #fff;
+  }
+  .btn-process:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255,51,102,0.4);
+  }
+  .btn-process:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-download {
+    background: #00cc66;
+    color: #fff;
+  }
+  .btn-download:hover { background: #00e673; }
+  .btn-download:disabled { opacity: 0.4; cursor: not-allowed; }
+  .progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #2a2a2a;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 12px 0;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff3366, #ff6b35);
+    width: 0%;
+    transition: width 0.2s;
+  }
+  .status {
+    font-size: 11px;
+    color: #aaa;
+    text-align: center;
+    min-height: 14px;
+  }
+  #previewCanvas {
+    max-width: 100%;
+    max-height: 70vh;
+    background:
+      repeating-conic-gradient(#222 0% 25%, #2a2a2a 0% 50%) 50%/20px 20px;
+    border: 1px solid #333;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+  .info-text {
+    font-size: 11px;
+    color: #666;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
 </style>
 </head>
 <body>
-<div class="app">
-  <aside class="side">
-    <div class="brand">RETICULA STUDIO</div>
-    <div class="sub">DTFLEXPRO · Halftone DTF · 300 DPI</div>
+<header>
+  <h1>🎨 RETICULA STUDIO — DTFLEXPRO</h1>
+  <p>RGB Halftone Engine • 3307×4930px • PNG Transparente</p>
+</header>
 
-    <div class="group">
-      <div class="label">Modo</div>
-      <div class="modes">
-        <div class="mode on" data-mode="clean">CLEAN + AURA</div>
-        <div class="mode" data-mode="rosette">ROSETTE CMY</div>
-      </div>
+<div class="container">
+  <aside class="sidebar">
+    <div class="mode-toggle">
+      <button id="modeClean" class="active" data-mode="clean">CLEAN RGB</button>
+      <button id="modeRosette" data-mode="rosette">ROSETTE RGB</button>
     </div>
 
-    <div class="group">
-      <label class="file" for="file">📁 Carregar imagem</label>
-      <input id="file" type="file" accept="image/*" hidden />
-      <div class="tip">⚠ Use PNG <b>já recortado com fundo transparente</b> para aura precisa. JPG/imagem com fundo é aceito mas a detecção é aproximada.</div>
+    <div class="file-input">
+      <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
+      <input type="file" id="imageInput" accept="image/*" />
+      <p class="info-text">Recomendado: PNG sem fundo para melhor detecção da aura.</p>
     </div>
 
-    <div class="group">
-      <div class="label">LPI <b id="lpiV">32</b></div>
-      <input id="lpi" type="range" min="22" max="45" value="32" />
-      <div class="label" style="margin-top:12px">Ângulo grid <b id="angV">15°</b></div>
-      <input id="ang" type="range" min="0" max="90" value="15" />
-      <div class="label" style="margin-top:12px">Raio aura (px) <b id="auraV">600</b></div>
-      <input id="aura" type="range" min="0" max="900" value="600" />
-      <div class="label" style="margin-top:12px">Partículas <b id="partV">5000</b></div>
-      <input id="part" type="range" min="0" max="12000" step="500" value="5000" />
-      <div class="label" style="margin-top:12px">Contraste <b id="ctV">25</b>%</div>
-      <input id="ct" type="range" min="0" max="60" value="25" />
+    <div class="control-group">
+      <label>LPI (linhas/polegada)</label>
+      <input type="range" id="lpi" min="22" max="45" value="32" />
+      <div class="value" id="lpiVal">32 LPI</div>
     </div>
 
-    <button id="go" class="btn" disabled>GERAR PNG 3307×4930</button>
+    <div class="control-group">
+      <label>Ângulo Base</label>
+      <input type="range" id="angle" min="0" max="90" value="45" />
+      <div class="value" id="angleVal">45°</div>
+    </div>
+
+    <div class="control-group">
+      <label>Aura (px)</label>
+      <input type="range" id="aura" min="0" max="400" value="180" />
+      <div class="value" id="auraVal">180 px</div>
+    </div>
+
+    <div class="control-group">
+      <label>Contraste (+%)</label>
+      <input type="range" id="contrast" min="0" max="60" value="20" />
+      <div class="value" id="contrastVal">20%</div>
+    </div>
+
+    <button id="processBtn" class="btn-process" disabled>⚡ Processar</button>
+    <button id="downloadBtn" class="btn-download" disabled>⬇ Download PNG</button>
+
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="status" id="statusText">Aguardando imagem...</div>
   </aside>
 
-  <main class="stage">
-    <canvas id="preview" width="600" height="800"></canvas>
+  <main class="preview-area">
+    <canvas id="previewCanvas"></canvas>
   </main>
 </div>
 
-<div class="status">
-  <span id="msg">Pronto. Carregue uma imagem para começar.</span>
-  <div class="bar"><i id="prog"></i></div>
-</div>
-
 <script>
-const OUT_W = 3307, OUT_H = 4930; // 300 DPI A3 portrait
+const OUT_W = 3307, OUT_H = 4930;
+let sourceImage = null;
 let mode = 'clean';
-let img = null;
+let outputBlob = null;
 
 const $ = id => document.getElementById(id);
-const lpiEl = $('lpi'), angEl = $('ang'), auraEl = $('aura'), ctEl = $('ct'), partEl = $('part');
-const lpiV = $('lpiV'), angV = $('angV'), auraV = $('auraV'), ctV = $('ctV'), partV = $('partV');
-const msg = $('msg'), prog = $('prog');
-const preview = $('preview'), pctx = preview.getContext('2d');
+const previewCanvas = $('previewCanvas');
+const pctx = previewCanvas.getContext('2d');
 
-lpiEl.oninput = () => lpiV.textContent = lpiEl.value;
-angEl.oninput = () => angV.textContent = angEl.value + '°';
-auraEl.oninput = () => auraV.textContent = auraEl.value;
-ctEl.oninput  = () => ctV.textContent  = ctEl.value;
-partEl.oninput= () => partV.textContent= partEl.value;
-
-document.querySelectorAll('.mode').forEach(m=>{
-  m.onclick = () => {
-    document.querySelectorAll('.mode').forEach(x=>x.classList.remove('on'));
-    m.classList.add('on');
-    mode = m.dataset.mode;
-  };
+// === Sliders ===
+['lpi','angle','aura','contrast'].forEach(id => {
+  const el = $(id);
+  el.addEventListener('input', () => {
+    const suffix = id === 'lpi' ? ' LPI' : id === 'angle' ? '°' : id === 'aura' ? ' px' : '%';
+    $(id+'Val').textContent = el.value + suffix;
+  });
 });
 
-$('file').onchange = e => {
-  const f = e.target.files[0]; if(!f) return;
-  const r = new FileReader();
-  r.onload = ev => {
-    const im = new Image();
-    im.onload = () => { img = im; $('go').disabled = false; setMsg('Imagem carregada: '+im.width+'×'+im.height); drawSourcePreview(); };
-    im.src = ev.target.result;
+// === Mode toggle ===
+document.querySelectorAll('.mode-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+  });
+});
+
+// === File input ===
+$('imageInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    sourceImage = img;
+    $('processBtn').disabled = false;
+    $('statusText').textContent = `Imagem carregada: ${img.width}×${img.height}`;
+    drawPreviewSource(img);
   };
-  r.readAsDataURL(f);
-};
+  img.src = URL.createObjectURL(file);
+});
 
-function setMsg(t,p){ msg.textContent = t; if(p!=null) prog.style.width = (p*100)+'%'; }
-function yieldFrame(){ return new Promise(r=>setTimeout(r,0)); }
-
-function drawSourcePreview(){
-  const r = Math.min(preview.width/img.width, preview.height/img.height);
-  const w = img.width*r, h = img.height*r;
-  pctx.clearRect(0,0,preview.width,preview.height);
-  pctx.drawImage(img, (preview.width-w)/2, (preview.height-h)/2, w, h);
+function drawPreviewSource(img){
+  const ratio = OUT_W / OUT_H;
+  const maxW = 600, maxH = 600 / ratio;
+  previewCanvas.width = maxW;
+  previewCanvas.height = maxH;
+  pctx.clearRect(0,0,maxW,maxH);
+  // fit-cover
+  const ir = img.width / img.height;
+  let dw = maxW, dh = maxW / ir;
+  if (dh < maxH) { dh = maxH; dw = maxH * ir; }
+  pctx.drawImage(img, (maxW-dw)/2, (maxH-dh)/2, dw, dh);
 }
 
-$('go').onclick = run;
+function setProgress(p, msg){
+  $('progressFill').style.width = (p*100)+'%';
+  if (msg) $('statusText').textContent = msg;
+}
 
-async function run(){
-  if(!img) return;
-  $('go').disabled = true;
-  const t0 = performance.now();
-  try {
-    setMsg('Preparando canvas...', 0.05);
-    await yieldFrame();
+// === Process ===
+$('processBtn').addEventListener('click', async () => {
+  if (!sourceImage) return;
+  $('processBtn').disabled = true;
+  $('downloadBtn').disabled = true;
+  outputBlob = null;
 
-    // Fit image into OUT canvas
-    const src = document.createElement('canvas');
-    src.width = OUT_W; src.height = OUT_H;
-    const sctx = src.getContext('2d');
-    const r = Math.min(OUT_W/img.width, OUT_H/img.height);
-    const dw = img.width*r, dh = img.height*r;
-    const dx = (OUT_W-dw)/2, dy = (OUT_H-dh)/2;
-    sctx.drawImage(img, dx, dy, dw, dh);
+  setProgress(0.05, 'Preparando canvas...');
+  await new Promise(r => requestAnimationFrame(r));
 
-    setMsg('Aplicando contraste...', 0.10);
-    await yieldFrame();
-    applyContrast(sctx, OUT_W, OUT_H, parseInt(ctEl.value,10));
+  // Source canvas at output resolution
+  const src = document.createElement('canvas');
+  src.width = OUT_W; src.height = OUT_H;
+  const sctx = src.getContext('2d');
+  // Fit image cover
+  const ir = sourceImage.width / sourceImage.height;
+  const or = OUT_W / OUT_H;
+  let dw, dh, dx, dy;
+  if (ir > or) { dh = OUT_H; dw = OUT_H * ir; dx = (OUT_W-dw)/2; dy = 0; }
+  else { dw = OUT_W; dh = OUT_W / ir; dx = 0; dy = (OUT_H-dh)/2; }
+  sctx.drawImage(sourceImage, dx, dy, dw, dh);
 
-    setMsg('Detectando sujeito...', 0.18);
-    await yieldFrame();
-    const srcData = sctx.getImageData(0,0,OUT_W,OUT_H);
-    const mask = buildMask(srcData);
+  setProgress(0.15, 'Aplicando contraste...');
+  await new Promise(r => requestAnimationFrame(r));
 
-    setMsg('Calculando distância da borda...', 0.28);
-    await yieldFrame();
-    const dist = distanceTransform(mask, OUT_W, OUT_H);
+  const imgData = sctx.getImageData(0,0,OUT_W,OUT_H);
+  const data = imgData.data;
+  const cBoost = parseInt($('contrast').value)/100;
+  // Simple contrast boost around 128
+  const f = (1 + cBoost);
+  for (let i=0;i<data.length;i+=4){
+    data[i]   = Math.max(0, Math.min(255, (data[i]  -128)*f + 128));
+    data[i+1] = Math.max(0, Math.min(255, (data[i+1]-128)*f + 128));
+    data[i+2] = Math.max(0, Math.min(255, (data[i+2]-128)*f + 128));
+  }
+  sctx.putImageData(imgData, 0, 0);
 
-    // Output
-    const out = document.createElement('canvas');
-    out.width = OUT_W; out.height = OUT_H;
-    const octx = out.getContext('2d');
-    octx.clearRect(0,0,OUT_W,OUT_H);
+  setProgress(0.3, 'Detectando máscara...');
+  await new Promise(r => requestAnimationFrame(r));
 
-    const lpi    = parseInt(lpiEl.value,10);
-    const angle  = parseInt(angEl.value,10) * Math.PI/180;
-    const auraW  = parseInt(auraEl.value,10);
-    const nPart  = parseInt(partEl.value,10);
-    const cell   = Math.max(3, Math.round(300/lpi));
-    const maxR   = cell * 0.55;
-    const minR   = 1.5;
-
-    setMsg('Renderizando halftone...', 0.38);
-    await yieldFrame();
-
-    if(mode === 'clean'){
-      await renderClean(srcData, mask, octx, cell, angle, maxR, minR);
-      if(auraW > 0 && nPart > 0){
-        setMsg('Explodindo aura ('+nPart+' partículas)...', 0.72);
-        await yieldFrame();
-        renderAuraParticles(srcData, mask, dist, octx, auraW, nPart);
-      }
+  // Build subject mask (alpha if available, else luminance threshold)
+  const mask = new Uint8Array(OUT_W * OUT_H);
+  let alphaCount = 0;
+  for (let y=0,i=0,p=0; y<OUT_H; y++){
+    for (let x=0; x<OUT_W; x++, i+=4, p++){
+      if (data[i+3] < 250) alphaCount++;
+    }
+  }
+  const useAlpha = alphaCount > 5000;
+  for (let i=0,p=0; p<mask.length; i+=4, p++){
+    if (useAlpha){
+      mask[p] = data[i+3] > 30 ? 1 : 0;
     } else {
-      await renderRosetteCMY(srcData, mask, octx, cell, maxR, minR);
+      const L = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+      mask[p] = L < 245 ? 1 : 0; // assume non-near-white = subject
     }
-
-    setMsg('Gerando preview...', 0.92);
-    await yieldFrame();
-    const pr = Math.min(preview.width/OUT_W, preview.height/OUT_H);
-    pctx.clearRect(0,0,preview.width,preview.height);
-    pctx.drawImage(out, (preview.width-OUT_W*pr)/2, (preview.height-OUT_H*pr)/2, OUT_W*pr, OUT_H*pr);
-
-    setMsg('Exportando PNG...', 0.98);
-    await yieldFrame();
-    out.toBlob(b=>{
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(b);
-      a.download = 'dtflexpro-'+mode+'-'+Date.now()+'.png';
-      a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
-      const dt = ((performance.now()-t0)/1000).toFixed(1);
-      setMsg('✔ PNG 3307×4930 baixado em '+dt+'s', 1);
-      $('go').disabled = false;
-    }, 'image/png');
-  } catch(err){
-    console.error(err);
-    setMsg('Erro: '+err.message, 0);
-    $('go').disabled = false;
   }
-}
 
-function applyContrast(ctx, w, h, pct){
-  if(pct<=0) return;
-  const id = ctx.getImageData(0,0,w,h);
-  const d = id.data;
-  const f = (259*(pct+255))/(255*(259-pct));
-  for(let i=0;i<d.length;i+=4){
-    if(d[i+3]===0) continue;
-    d[i]   = clamp(f*(d[i]  -128)+128);
-    d[i+1] = clamp(f*(d[i+1]-128)+128);
-    d[i+2] = clamp(f*(d[i+2]-128)+128);
-  }
-  ctx.putImageData(id,0,0);
-}
-function clamp(v){ return v<0?0:v>255?255:v; }
+  setProgress(0.45, 'Calculando aura (distância)...');
+  await new Promise(r => requestAnimationFrame(r));
 
-// CORREÇÃO 2: prioriza alpha; cai para detecção de fundo claro só se não houver alpha
-function buildMask(imgData){
-  const {width:w, height:h, data:d} = imgData;
-  const mask = new Uint8Array(w*h);
-  let transparentPixels = 0;
-  for(let i=3;i<d.length;i+=4){ if(d[i]<200){ transparentPixels++; if(transparentPixels>500) break; } }
-  const hasAlpha = transparentPixels > 500;
-  if(hasAlpha){
-    for(let p=0,i=0;i<d.length;i+=4,p++) mask[p] = d[i+3]>40 ? 255 : 0;
+  const auraPx = parseInt($('aura').value);
+  // Distance transform: distance from each background pixel to nearest subject pixel (in px)
+  const dist = computeDistanceOutside(mask, OUT_W, OUT_H, auraPx);
+
+  setProgress(0.6, 'Renderizando reticula...');
+  await new Promise(r => requestAnimationFrame(r));
+
+  // Output canvas (transparent)
+  const out = document.createElement('canvas');
+  out.width = OUT_W; out.height = OUT_H;
+  const octx = out.getContext('2d');
+  octx.clearRect(0,0,OUT_W,OUT_H);
+
+  const lpi = parseInt($('lpi').value);
+  const dpi = 300;
+  const cell = Math.max(4, Math.round(dpi / lpi)); // cell size px
+  const baseAngle = parseInt($('angle').value);
+
+  if (mode === 'clean'){
+    await renderCleanRGB(octx, data, mask, dist, OUT_W, OUT_H, cell, baseAngle, auraPx);
   } else {
-    for(let p=0,i=0;i<d.length;i+=4,p++){
-      const r=d[i],g=d[i+1],b=d[i+2];
-      const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
-      const isBg = mx>240 && (mx-mn)<14;
-      mask[p] = isBg ? 0 : 255;
-    }
+    await renderRosetteRGB(octx, data, mask, dist, OUT_W, OUT_H, cell, baseAngle, auraPx);
   }
-  return mask;
-}
 
-// 2-pass chamfer distance transform
-function distanceTransform(mask, w, h){
+  setProgress(0.95, 'Gerando PNG...');
+  await new Promise(r => requestAnimationFrame(r));
+
+  out.toBlob(blob => {
+    outputBlob = blob;
+    setProgress(1, '✅ Pronto! Clique em Download.');
+    $('downloadBtn').disabled = false;
+    $('processBtn').disabled = false;
+
+    // Preview
+    const ratio = OUT_W / OUT_H;
+    const maxW = 600, maxH = 600/ratio;
+    previewCanvas.width = maxW;
+    previewCanvas.height = maxH;
+    pctx.clearRect(0,0,maxW,maxH);
+    pctx.drawImage(out, 0, 0, maxW, maxH);
+  }, 'image/png');
+});
+
+// === Distance transform (two-pass chamfer) — distance OUTSIDE subject only ===
+function computeDistanceOutside(mask, W, H, maxDist){
   const INF = 1e9;
-  const d = new Float32Array(w*h);
-  for(let i=0;i<d.length;i++) d[i] = mask[i] ? 0 : INF;
-  const a = 1, b = Math.SQRT2;
-  for(let y=0;y<h;y++){
-    for(let x=0;x<w;x++){
-      const i = y*w+x; let v = d[i];
-      if(x>0)         v = Math.min(v, d[i-1]+a);
-      if(y>0)         v = Math.min(v, d[i-w]+a);
-      if(x>0 && y>0)  v = Math.min(v, d[i-w-1]+b);
-      if(x<w-1 && y>0)v = Math.min(v, d[i-w+1]+b);
+  const d = new Float32Array(W*H);
+  for (let i=0;i<d.length;i++) d[i] = mask[i] ? 0 : INF;
+  // forward pass
+  for (let y=0; y<H; y++){
+    for (let x=0; x<W; x++){
+      const i = y*W+x;
+      if (d[i] === 0) continue;
+      let v = d[i];
+      if (x>0)   v = Math.min(v, d[i-1]+1);
+      if (y>0)   v = Math.min(v, d[i-W]+1);
+      if (x>0 && y>0) v = Math.min(v, d[i-W-1]+1.414);
+      if (x<W-1 && y>0) v = Math.min(v, d[i-W+1]+1.414);
       d[i] = v;
     }
   }
-  for(let y=h-1;y>=0;y--){
-    for(let x=w-1;x>=0;x--){
-      const i = y*w+x; let v = d[i];
-      if(x<w-1)         v = Math.min(v, d[i+1]+a);
-      if(y<h-1)         v = Math.min(v, d[i+w]+a);
-      if(x<w-1 && y<h-1)v = Math.min(v, d[i+w+1]+b);
-      if(x>0 && y<h-1)  v = Math.min(v, d[i+w-1]+b);
+  // backward pass
+  for (let y=H-1; y>=0; y--){
+    for (let x=W-1; x>=0; x--){
+      const i = y*W+x;
+      if (d[i] === 0) continue;
+      let v = d[i];
+      if (x<W-1) v = Math.min(v, d[i+1]+1);
+      if (y<H-1) v = Math.min(v, d[i+W]+1);
+      if (x<W-1 && y<H-1) v = Math.min(v, d[i+W+1]+1.414);
+      if (x>0 && y<H-1) v = Math.min(v, d[i+W-1]+1.414);
       d[i] = v;
     }
   }
   return d;
 }
 
-// CLEAN: halftone com cores RGB originais, só dentro do sujeito (fundo fica transparente).
-async function renderClean(srcData, mask, octx, cell, angle, maxR, minR){
-  const w = srcData.width, h = srcData.height, d = srcData.data;
-  const cosA = Math.cos(angle), sinA = Math.sin(angle);
-  const diag = Math.ceil(Math.hypot(w,h));
-  let row = 0;
-  const rows = Math.ceil((2*diag)/cell);
+// === CLEAN RGB: single rotated grid sampling colors ===
+async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraPx){
+  const rad = angleDeg * Math.PI / 180;
+  const cosA = Math.cos(rad), sinA = Math.sin(rad);
+  const maxR = cell * 0.55; // big dots for blacks
+  const minR = 1.5;
 
-  for(let v=-diag; v<diag; v+=cell){
-    for(let u=-diag; u<diag; u+=cell){
-      const x = Math.round(u*cosA - v*sinA + w/2);
-      const y = Math.round(u*sinA + v*cosA + h/2);
-      if(x<0||y<0||x>=w||y>=h) continue;
-      const idx = y*w + x;
-      if(!mask[idx]) continue;
-      const i = idx*4;
-      const r=d[i], g=d[i+1], b=d[i+2];
+  // iterate in rotated grid space
+  // get bounding box of rotated grid covering W×H
+  const diag = Math.ceil(Math.sqrt(W*W + H*H));
+  const half = diag / 2;
+  const cx = W/2, cy = H/2;
+
+  ctx.globalCompositeOperation = 'source-over';
+
+  for (let gy = -half; gy <= half; gy += cell){
+    for (let gx = -half; gx <= half; gx += cell){
+      // rotate (gx,gy) back to image coords
+      const ix = Math.round(cx + gx*cosA - gy*sinA);
+      const iy = Math.round(cy + gx*sinA + gy*cosA);
+      if (ix<0||iy<0||ix>=W||iy>=H) continue;
+
+      const p = iy*W + ix;
+      const inside = mask[p] === 1;
+      const distOut = dist[p]; // 0 if inside, else distance to subject
+
+      // skip pure background outside aura
+      if (!inside && distOut > auraPx) continue;
+
+      const di = p*4;
+      const r = data[di], g = data[di+1], b = data[di+2];
       const L = 0.299*r + 0.587*g + 0.114*b;
-      const t = 1 - (L/255);
-      const radius = minR + (maxR-minR)*t;
-      if(radius < 0.6) continue;
-      octx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
-      octx.beginPath();
-      octx.arc(x, y, radius, 0, Math.PI*2);
-      octx.fill();
+
+      // Black -> max radius, White -> min radius
+      const t = 1 - (L/255); // 0..1, 1 = black
+      let radius = minR + t * (maxR - minR);
+      let alpha = 1.0;
+
+      if (!inside){
+        // aura fade: linear shrink + alpha fade
+        const fade = 1 - (distOut / auraPx); // 1 at edge → 0 at end
+        radius *= fade;
+        alpha = fade;
+        if (radius < 0.5 || alpha < 0.05) continue;
+      }
+
+      ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(ix, iy, radius, 0, Math.PI*2);
+      ctx.fill();
     }
-    row++;
-    if((row & 31) === 0){
-      setMsg('Halftone... '+Math.round(100*row/rows)+'%', 0.38 + 0.32*row/rows);
-      await yieldFrame();
+    if (gy % (cell*40) === 0) {
+      const prog = 0.6 + 0.3 * ((gy+half)/diag);
+      setProgress(prog, 'Renderizando reticula...');
+      await new Promise(r => setTimeout(r, 0));
     }
   }
 }
 
-// CORREÇÃO 1: AURA EXPLOSIVA — partículas concretas, falloff EXPONENCIAL,
-// cor amostrada da imagem original na borda mais próxima, raio definido pelo slider.
-function renderAuraParticles(srcData, mask, dist, octx, auraW, nPart){
-  const w = srcData.width, h = srcData.height, d = srcData.data;
-  // 1) coletar pixels de borda do sujeito (onde mask=1 e pelo menos um vizinho=0)
-  const edges = [];
-  const step = 3; // amostra a cada 3px para velocidade
-  for(let y=1;y<h-1;y+=step){
-    for(let x=1;x<w-1;x+=step){
-      const idx = y*w+x;
-      if(!mask[idx]) continue;
-      if(!mask[idx-1] || !mask[idx+1] || !mask[idx-w] || !mask[idx+w]){
-        edges.push(idx);
+// === ROSETTE RGB: 3 channels at classic-ish angles, additive blend ===
+async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, auraPx){
+  const channels = [
+    { idx: 0, angle: 15, color: 'rgb(255,0,0)' },   // R
+    { idx: 1, angle: 75, color: 'rgb(0,255,0)' },   // G
+    { idx: 2, angle: 0,  color: 'rgb(0,0,255)' },   // B
+  ];
+
+  ctx.globalCompositeOperation = 'lighter'; // additive
+
+  for (let ch=0; ch<channels.length; ch++){
+    const { idx, angle, color } = channels[ch];
+    const rad = (angle + baseAngle - 45) * Math.PI/180;
+    const cosA = Math.cos(rad), sinA = Math.sin(rad);
+    const maxR = cell * 0.5;
+    const minR = 1.0;
+    const diag = Math.ceil(Math.sqrt(W*W + H*H));
+    const half = diag/2;
+    const cx = W/2, cy = H/2;
+
+    ctx.fillStyle = color;
+
+    for (let gy=-half; gy<=half; gy+=cell){
+      for (let gx=-half; gx<=half; gx+=cell){
+        const ix = Math.round(cx + gx*cosA - gy*sinA);
+        const iy = Math.round(cy + gx*sinA + gy*cosA);
+        if (ix<0||iy<0||ix>=W||iy>=H) continue;
+        const p = iy*W + ix;
+        const inside = mask[p] === 1;
+        const distOut = dist[p];
+        if (!inside && distOut > auraPx) continue;
+
+        const di = p*4;
+        const v = data[di + idx]; // channel value 0..255
+        // strong channel = big dot
+        const t = v / 255;
+        let radius = minR + t * (maxR - minR);
+        let alpha = 0.85;
+
+        if (!inside){
+          const fade = 1 - (distOut/auraPx);
+          radius *= fade;
+          alpha *= fade;
+          if (radius < 0.5 || alpha < 0.05) continue;
+        }
+
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(ix, iy, radius, 0, Math.PI*2);
+        ctx.fill();
+      }
+      if (gy % (cell*40) === 0){
+        const prog = 0.6 + 0.3 * ((ch + (gy+half)/diag)/channels.length);
+        setProgress(prog, `Renderizando canal ${'RGB'[ch]}...`);
+        await new Promise(r => setTimeout(r, 0));
       }
     }
   }
-  if(edges.length === 0) return;
-
-  // 2) emitir partículas a partir de pontos de borda aleatórios
-  octx.globalCompositeOperation = 'lighter'; // aditivo: aura brilha sobre fundo transparente
-  for(let p=0;p<nPart;p++){
-    const eidx = edges[(Math.random()*edges.length)|0];
-    const ex = eidx % w, ey = (eidx/w)|0;
-    const i = eidx*4;
-    const r = d[i], g = d[i+1], b = d[i+2];
-    // direção: para fora (gradiente da distância). Aproximação: vetor radial aleatório.
-    const ang = Math.random()*Math.PI*2;
-    // distância: bias exponencial — maioria perto, alguns longe (efeito explosivo)
-    const u = Math.random();
-    const distOut = auraW * Math.pow(u, 1.8); // exponencial: concentra perto da borda mas alcança longe
-    const px = ex + Math.cos(ang)*distOut;
-    const py = ey + Math.sin(ang)*distOut;
-    if(px<0||py<0||px>=w||py>=h) continue;
-    // não desenha sobre o sujeito
-    const pidx = ((py|0)*w + (px|0));
-    if(mask[pidx]) continue;
-    // tamanho: maior perto, menor longe (médio-grande para drama)
-    const fade = 1 - (distOut/auraW);
-    const size = 2 + Math.random()*8 * fade;
-    const alpha = 0.25 + 0.55*fade;
-    octx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
-    octx.beginPath();
-    octx.arc(px, py, size, 0, Math.PI*2);
-    octx.fill();
-  }
-  octx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
 }
 
-// CORREÇÃO 3: ROSETTE CMY (sem K, preto vazado) sobre fundo TRANSPARENTE.
-// Sobre transparente, multiply quebra (escurece para preto). Solução correta:
-// desenhar cada canal com cor pura CMY e alpha proporcional à TINTA daquele canal
-// (ink = 1 - channelValue). Áreas sem cor ficam vazadas. Sem composite especial.
-async function renderRosetteCMY(srcData, mask, octx, cell, maxR, minR){
-  const w = srcData.width, h = srcData.height, d = srcData.data;
-  const channels = [
-    { name:'C', color:'0,180,220', angle: 15*Math.PI/180, idx:0 }, // cyan da ausência de R
-    { name:'M', color:'230,30,140',angle: 75*Math.PI/180, idx:1 }, // magenta da ausência de G
-    { name:'Y', color:'250,210,0', angle:  0,             idx:2 }, // yellow da ausência de B
-  ];
-  // composite normal: as cores se sobrepõem traduzindo o efeito roseta visual
-  octx.globalCompositeOperation = 'source-over';
-  let n = 0;
-  for(const ch of channels){
-    await renderRosetteChannel(srcData, mask, octx, cell, ch, maxR, minR);
-    n++;
-    setMsg('Rosette '+ch.name+' ✔', 0.38 + 0.18*n);
-    await yieldFrame();
-  }
-}
-
-async function renderRosetteChannel(srcData, mask, octx, cell, ch, maxR, minR){
-  const w = srcData.width, h = srcData.height, d = srcData.data;
-  const cosA = Math.cos(ch.angle), sinA = Math.sin(ch.angle);
-  const diag = Math.ceil(Math.hypot(w,h));
-  let row = 0;
-  const rows = Math.ceil((2*diag)/cell);
-  for(let v=-diag; v<diag; v+=cell){
-    for(let u=-diag; u<diag; u+=cell){
-      const x = Math.round(u*cosA - v*sinA + w/2);
-      const y = Math.round(u*sinA + v*cosA + h/2);
-      if(x<0||y<0||x>=w||y>=h) continue;
-      const idx = y*w+x;
-      if(!mask[idx]) continue;
-      const i = idx*4;
-      // tinta CMY = 1 - canal RGB correspondente
-      const ink = 1 - (d[i+ch.idx]/255);
-      if(ink < 0.06) continue; // vazado: pouca tinta = sem ponto
-      const radius = minR + (maxR-minR)*ink;
-      if(radius < 0.6) continue;
-      octx.fillStyle = `rgba(${ch.color},${(0.85*ink).toFixed(3)})`;
-      octx.beginPath();
-      octx.arc(x,y,radius,0,Math.PI*2);
-      octx.fill();
-    }
-    row++;
-    if((row & 63) === 0) await yieldFrame();
-  }
-}
+// === Download ===
+$('downloadBtn').addEventListener('click', () => {
+  if (!outputBlob) return;
+  const url = URL.createObjectURL(outputBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dtflex-reticula-${mode}-${Date.now()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 </script>
 </body>
 </html>
