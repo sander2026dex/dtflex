@@ -573,6 +573,147 @@ async function renderHybrid(
 }
 
 // ============================================================================
+// ⚪ ENGINE — SPOT WHITE + CMYK (Professional DTF Underbase)
+// ----------------------------------------------------------------------------
+// Two visually-combined data layers:
+//   LAYER 1 — SPOT WHITE (Underbase): white dots wherever luminance > threshold
+//             (default 40%). Dense pattern → solid base for color on top.
+//   LAYER 2 — CMYK ROSETTE: colored dots at fixed angles, rendered ON TOP of
+//             the white base so colors stay vibrant and opaque.
+// Background stays 100% transparent. Pure black (lum<5%) is knocked out.
+// Pure-white pixels still get a dense white micro-dot pattern → no "ghost".
+// ============================================================================
+async function renderSpotWhiteCmyk(
+  src: ImageData,
+  dpi: number,
+  lpi: number,
+  whiteThreshold: number, // 0..1 — luminance above which Spot White triggers
+  angleOffsetDeg: number, // global rotation of all screens (0..360)
+  onProgress: ProgressFn | undefined,
+): Promise<AnyCanvas> {
+  const { width: w, height: h, data } = src;
+  const cellSize = dpi / lpi;
+
+  // Subject mask + erosion to find true background (no white-region knockout —
+  // even pure-white pixels INSIDE the subject must receive Spot White dots).
+  onProgress?.("Spot White · subject mask", 25);
+  const subjRaw = subjectMaskFromCorners(src, 38);
+  const subj = dilate(subjRaw, w, h, 1);
+
+  const canvas = makeCanvas(w, h);
+  const ctx = ctx2d(canvas);
+  ctx.clearRect(0, 0, w, h);
+
+  // ---------- LAYER 1 — SPOT WHITE UNDERBASE ----------
+  onProgress?.("Spot White · underbase", 35);
+  const whiteLayer = makeCanvas(w, h);
+  const wlctx = ctx2d(whiteLayer);
+  wlctx.clearRect(0, 0, w, h);
+  // Light grey-white so even dense areas read as bright white on dark fabric.
+  wlctx.fillStyle = "rgb(248,248,248)";
+
+  const SPOT_MAX = cellSize * 0.50;
+  const angRad = (angleOffsetDeg * Math.PI) / 180;
+  const cosA = Math.cos(angRad), sinA = Math.sin(angRad);
+  const cx = w / 2, cy = h / 2;
+  const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
+  const half = Math.ceil(diag / 2);
+
+  // White screen at angle 30° (relative to user's global angle).
+  const wAng = angRad + (30 * Math.PI) / 180;
+  const wcos = Math.cos(wAng), wsin = Math.sin(wAng);
+
+  for (let gy = -half; gy <= half; gy += cellSize) {
+    for (let gx = -half; gx <= half; gx += cellSize) {
+      const px = cx + gx * wcos - gy * wsin;
+      const py = cy + gx * wsin + gy * wcos;
+      const xi = Math.round(px), yi = Math.round(py);
+      if (xi < 0 || xi >= w || yi < 0 || yi >= h) continue;
+      const p = yi * w + xi;
+      if (!subj[p]) continue; // background → no underbase
+
+      const di = p * 4;
+      const R = data[di], G = data[di + 1], B = data[di + 2];
+      const lum = luma01(R, G, B);
+
+      // Pure black knockout — no underbase under solid black.
+      if (lum < LUM_BLACK_KNOCKOUT) continue;
+
+      // Underbase only triggers above the white threshold (mid → highlight).
+      if (lum < whiteThreshold) continue;
+
+      // Density formula: brighter pixel → larger white dot (more underbase).
+      // Map [threshold..1] → [0..1] then to [MIN..SPOT_MAX].
+      const norm = (lum - whiteThreshold) / Math.max(0.0001, 1 - whiteThreshold);
+      const r = MIN_DOT_RADIUS + norm * (SPOT_MAX - MIN_DOT_RADIUS);
+      wlctx.beginPath();
+      wlctx.arc(px, py, r, 0, Math.PI * 2);
+      wlctx.fill();
+    }
+  }
+  ctx.drawImage(whiteLayer as CanvasImageSource, 0, 0);
+
+  // ---------- LAYER 2 — CMYK ROSETTE ON TOP ----------
+  onProgress?.("Spot White · CMYK rosette", 55);
+  const INK = {
+    C: { r: 0, g: 174, b: 239, ang: 15 },
+    M: { r: 236, g: 0, b: 140, ang: 75 },
+    Y: { r: 255, g: 237, b: 0, ang: 0 },
+    K: { r: 18, g: 18, b: 18, ang: 45 },
+  };
+  const screens = [
+    { ink: INK.C, channel: 0 as const },
+    { ink: INK.M, channel: 1 as const },
+    { ink: INK.Y, channel: 2 as const },
+    { ink: INK.K, channel: 3 as const },
+  ];
+  const MAX_RADIUS = cellSize * 0.50 * DOT_GAIN_COMPENSATION;
+
+  for (let si = 0; si < screens.length; si++) {
+    const s = screens[si];
+    onProgress?.(
+      `Spot White · CMYK ${["C", "M", "Y", "K"][s.channel]}`,
+      60 + si * 7,
+    );
+    const ang = angRad + (s.ink.ang * Math.PI) / 180;
+    const ccos = Math.cos(ang), csin = Math.sin(ang);
+    ctx.fillStyle = `rgb(${s.ink.r},${s.ink.g},${s.ink.b})`;
+
+    for (let gy = -half; gy <= half; gy += cellSize) {
+      for (let gx = -half; gx <= half; gx += cellSize) {
+        const px = cx + gx * ccos - gy * csin;
+        const py = cy + gx * csin + gy * ccos;
+        const xi = Math.round(px), yi = Math.round(py);
+        if (xi < 0 || xi >= w || yi < 0 || yi >= h) continue;
+        const p = yi * w + xi;
+        if (!subj[p]) continue;
+
+        const di = p * 4;
+        const R = data[di], G = data[di + 1], B = data[di + 2];
+        const lum = luma01(R, G, B);
+        if (lum < LUM_BLACK_KNOCKOUT) continue;
+
+        const cmyk = rgbToCmyk(R, G, B);
+        const cov = cmyk[s.channel];
+        // Lower threshold than pure-rosette mode — colors must show on top of
+        // the white base, so even subtle CMYK channels render.
+        if (cov < 0.04) continue;
+        const r = MIN_DOT_RADIUS + cov * (MAX_RADIUS - MIN_DOT_RADIUS);
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Use vars so TS sees both as referenced (prevents unused warnings on cosA/sinA).
+  void cosA; void sinA;
+
+  onProgress?.("Spot White · finalize", 90);
+  return canvas;
+}
+
+// ============================================================================
 // PUBLIC API
 // ============================================================================
 export interface HalftoneOptions {
@@ -584,11 +725,12 @@ export interface HalftoneOptions {
   baseAngleDeg?: number;
   auraRadiusPx?: number;
   bgTolerance?: number;
-  rosetteIntensity?: number; // 0..1 — only used by HYBRID
+  rosetteIntensity?: number;     // 0..1 — only used by HYBRID
+  whiteThreshold?: number;       // 0..1 — only used by SPOT_WHITE_CMYK
 }
 
 export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
-  mode: "rosette_cmyk",
+  mode: "spot_white_cmyk",
   targetW: 3307,
   targetH: 4930,
   dpi: 300,
@@ -597,6 +739,7 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   auraRadiusPx: 60,
   bgTolerance: 38,
   rosetteIntensity: 0.5,
+  whiteThreshold: 0.40,
 };
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
