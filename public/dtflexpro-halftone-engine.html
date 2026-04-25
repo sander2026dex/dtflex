@@ -299,19 +299,17 @@ function isBlackPixel(data, i){
   return l <= BLACK_LUMA_CUTOFF && r <= BLACK_CHANNEL_CUTOFF && g <= BLACK_CHANNEL_CUTOFF && b <= BLACK_CHANNEL_CUTOFF;
 }
 
-function isProtectedWhite(data, i){
-  if (data[i+3] <= 30) return false;
-  const r = data[i], g = data[i+1], b = data[i+2];
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const l = 0.299*r + 0.587*g + 0.114*b;
-  return l >= WHITE_LUMA_KEEP && r >= WHITE_CHANNEL_KEEP && g >= WHITE_CHANNEL_KEEP && b >= WHITE_CHANNEL_KEEP && (max - min) <= WHITE_SATURATION_MAX;
-}
-
 function dotRadiusForLuma(luma, cell){
-  if (luma >= WHITE_LUMA_KEEP) return 0;
-  if (luma >= 205) return Math.max(0.38, cell * 0.045);
-  const density = Math.max(0, Math.min(1, (WHITE_LUMA_KEEP - luma) / (WHITE_LUMA_KEEP - BLACK_LUMA_CUTOFF)));
-  return Math.max(0.42, cell * (0.06 + Math.pow(density, 0.82) * 0.34));
+  // Mapeia luminância (0=preto, 255=branco) para raio do ponto.
+  // Preto já foi descartado (transparente). Branco gera ponto PEQUENO mas real (sem buraco).
+  // Para DTF têxtil: dots robustos, alta definição, mínimo imprimível ~1.4px.
+  const maxR = cell * 0.48;   // sombras (escuro = ponto grande)
+  const minR = Math.max(1.4, cell * 0.16); // luzes/branco = ponto pequeno mas visível
+  // Inverter: quanto menor a luma (mais escuro), maior o raio
+  const t = 1 - (luma / 255); // 0 = branco, 1 = preto
+  // curva suave
+  const eased = Math.pow(t, 0.85);
+  return minR + eased * (maxR - minR);
 }
 
 function triggerDownload(){
