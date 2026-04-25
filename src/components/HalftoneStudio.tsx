@@ -32,6 +32,9 @@ const ANGLE_DEFAULT = 45;
 const AURA_MIN = 0;
 const AURA_MAX = 80;
 const AURA_DEFAULT = 24;
+const KNOCKOUT_MIN = 0;
+const KNOCKOUT_MAX = 80;
+const KNOCKOUT_DEFAULT = 18;
 
 
 export function HalftoneStudio() {
@@ -94,6 +97,7 @@ export function HalftoneStudio() {
   const lpi = opts.lpi ?? LPI_DEFAULT;
   const angle = opts.baseAngleDeg ?? ANGLE_DEFAULT;
   const aura = opts.auraWidth ?? AURA_DEFAULT;
+  const knockout = opts.blackKnockout ?? KNOCKOUT_DEFAULT;
 
   const setLpi = (raw: number) => {
     if (Number.isNaN(raw)) return;
@@ -111,6 +115,12 @@ export function HalftoneStudio() {
     if (Number.isNaN(raw)) return;
     const clamped = Math.max(AURA_MIN, Math.min(AURA_MAX, Math.round(raw)));
     setOpts((o) => ({ ...o, auraWidth: clamped }));
+  };
+
+  const setKnockout = (raw: number) => {
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.max(KNOCKOUT_MIN, Math.min(KNOCKOUT_MAX, Math.round(raw)));
+    setOpts((o) => ({ ...o, blackKnockout: clamped }));
   };
 
   const switchMode = (newMode: HalftoneMode) => {
@@ -378,9 +388,46 @@ export function HalftoneStudio() {
 
               <Separator />
 
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-sm text-foreground">
+                    Black Knockout <span className="text-muted-foreground">(preto vazado)</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    value={knockout}
+                    min={KNOCKOUT_MIN}
+                    max={KNOCKOUT_MAX}
+                    step={1}
+                    disabled={busy}
+                    onChange={(e) => setKnockout(parseInt(e.target.value, 10))}
+                    className="h-7 w-20 text-right font-mono text-xs"
+                  />
+                </div>
+                <Slider
+                  value={[knockout]}
+                  min={KNOCKOUT_MIN}
+                  max={KNOCKOUT_MAX}
+                  step={1}
+                  disabled={busy}
+                  onValueChange={([v]) => setKnockout(v)}
+                />
+                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                  <span>0 (sem knockout)</span>
+                  <span>L&lt;{knockout} → vazado</span>
+                  <span>{KNOCKOUT_MAX}</span>
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  Pixels com luminância abaixo do limiar viram <strong className="text-foreground">100% transparentes</strong> —
+                  olhos pretos, sombras profundas e contornos ficam vazados, economizando tinta e evitando "casca" na camiseta.
+                </p>
+              </div>
+
+              <Separator />
+
               <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                <strong className="text-foreground">Regras DTF:</strong> preto puro (L&lt;12) é vazado, highlights (L&gt;242) viram micro-dots @40%.
-                Pré-processo Levels 80/255 + Gamma 0.88 antes do halftone. Fundo 100% alpha 0.
+                <strong className="text-foreground">Regras DTF:</strong> preto profundo (ajustável) é vazado, highlights (L&gt;242) viram micro-dots.
+                Pré-processo Levels 30/255 + Gamma 0.92 antes do halftone. Fundo 100% alpha 0.
               </div>
 
               <Button
