@@ -408,7 +408,8 @@ async function renderRosette(
         // GOLDEN RULE #4 — midtone scaling by TRUE CMYK channel coverage.
         const cmyk = rgbToCmyk(R, G, B);
         const cov = cmyk[s.channel];
-        if (cov < 0.02) continue;
+        // Skip channels with insufficient coverage → keeps light areas clean.
+        if (cov < MIN_INK_COVERAGE) continue;
         const r = MIN_DOT_RADIUS + cov * (MAX_RADIUS - MIN_DOT_RADIUS);
         lctx.beginPath();
         lctx.arc(px, py, r, 0, Math.PI * 2);
