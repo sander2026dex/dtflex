@@ -344,10 +344,10 @@ function distanceFromSubjectWithNearest(
 // MATH:
 //   cellSize = dpi / lpi
 //   For each ink, iterate its OWN rotated grid in steps of cellSize. At each
-//   grid intersection, sample the channel coverage at that point (in image
-//   space), then draw one disc of radius:
-//       r = (1 − luminance_channel) * (cellSize * 0.45)
-//   Channels overlap subtractively; full rectangular canvas coverage.
+//   grid intersection, sample TRUE CMYK channel coverage at that point, then
+//   draw one disc of radius:
+//       r = (Channel_Value / 255) * Max_Radius
+//   Low CMYK values in whites/highlights produce tiny/no dots — no dirty mesh.
 //
 //   Angle offsets (degrees): Cyan +15, Magenta +75, Yellow +0, Black +45.
 // ============================================================================
@@ -415,9 +415,12 @@ async function renderRosette(
   const half = Math.ceil(diag / 2);
   const cx = w / 2, cy = h / 2;
 
-  // GOLDEN RULE: DotSize = (1 - Brightness) * (MaxSize - MinSize) + MinSize
+  // STRICT CMYK DOT SIZING: radius = Channel_Value * Max_Radius.
+  // White/highlight CMYK coverage must stay tiny or zero to avoid gray mesh.
   const MAX_SIZE = cellSize * 0.50;
-  const MIN_SIZE = 1.5;
+  const MIN_VISIBLE_DOT = 1.0;
+  const PURE_WHITE_RGB = 252;
+  const WHITE_CHANNEL_SKIP = 0.015;
 
   const sampleCmyk = (x: number, y: number): [number, number, number, number] | null => {
     const xi = Math.round(x), yi = Math.round(y);
@@ -440,21 +443,13 @@ async function renderRosette(
         const py = cy + gx * s.sin + gy * s.cos;
         const cmyk = sampleCmyk(px, py);
         if (!cmyk) continue;
-        // Per-channel "brightness" = 1 - ink coverage. (Brightness 1 → no ink.)
-        const inkCoverage = cmyk[s.channel]; // 0..1
-        // ----- HIGHLIGHT PROTECTION (faces / white art must stay clean) -----
-        // Pure white in this channel → SKIP. Don't dirty white skin/paper.
-        if (inkCoverage < 0.05) continue;
-        // Highlight band (>90% brightness on this channel) → minimum structural dot.
-        let r: number;
-        if (inkCoverage < 0.10) {
-          r = 1.0; // minimum 1px structural dot in highlights
-        } else {
-          // GOLDEN RULE (linear): r = (1 - brightness) * (MAX - MIN) + MIN
-          const brightness = 1 - inkCoverage;
-          r = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
-        }
-        if (r < 0.45) continue;
+        const xi = Math.round(px), yi = Math.round(py);
+        const di = (yi * w + xi) * 4;
+        if (data[di] >= PURE_WHITE_RGB && data[di + 1] >= PURE_WHITE_RGB && data[di + 2] >= PURE_WHITE_RGB) continue;
+        const inkCoverage = cmyk[s.channel]; // TRUE CMYK channel coverage, 0..1
+        if (inkCoverage <= WHITE_CHANNEL_SKIP) continue;
+        const r = inkCoverage * MAX_SIZE;
+        if (r < MIN_VISIBLE_DOT) continue;
         lctx.beginPath();
         lctx.arc(px, py, r, 0, Math.PI * 2);
         lctx.fill();
