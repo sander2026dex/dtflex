@@ -281,12 +281,12 @@ function isBlackPixel(data, i){
   return neutralDark || deepBlack;
 }
 
-function isProtectedWhite(data, i){
+function isHighlightWhite(data, i){
+  // Branco com reflexo: muito claro mas não puro/uniforme — recebe poucas retículas
   if (data[i+3] < 30) return false;
   const r = data[i], g = data[i+1], b = data[i+2];
   const l = 0.299*r + 0.587*g + 0.114*b;
-  const sat = Math.max(r,g,b) - Math.min(r,g,b);
-  return l >= WHITE_LUMA_CUTOFF && sat <= WHITE_SAT_CUTOFF;
+  return l >= WHITE_LUMA_CUTOFF;
 }
 
 function dotRadiusForLuma(luma, cell, coverage){
@@ -296,6 +296,48 @@ function dotRadiusForLuma(luma, cell, coverage){
   const tonal = Math.pow(Math.max(0, density), 0.78);
   const coverBoost = 0.82 + Math.min(1, coverage) * 0.18;
   return (minR + tonal * (maxR - minR)) * coverBoost;
+}
+
+function dotRadiusHighlight(cell){
+  // Retícula muito pequena para áreas brancas com reflexo
+  return Math.max(1.0, cell * 0.12);
+}
+
+function removeBackground(data, W, H, tol){
+  // Flood-fill a partir das 4 bordas usando cor média da borda como referência.
+  // Marca pixels semelhantes como transparentes (alpha = 0).
+  const visited = new Uint8Array(W * H);
+  // Cor de referência: média dos cantos
+  const samples = [
+    [0,0],[W-1,0],[0,H-1],[W-1,H-1],
+    [W>>1,0],[W>>1,H-1],[0,H>>1],[W-1,H>>1]
+  ];
+  let rR=0,gR=0,bR=0;
+  for (const [x,y] of samples){
+    const i = (y*W+x)*4;
+    rR += data[i]; gR += data[i+1]; bR += data[i+2];
+  }
+  rR /= samples.length; gR /= samples.length; bR /= samples.length;
+
+  const stack = [];
+  for (let x=0; x<W; x++){ stack.push(x); stack.push((H-1)*W+x); }
+  for (let y=0; y<H; y++){ stack.push(y*W); stack.push(y*W + W-1); }
+
+  const tol2 = tol * tol * 3;
+  while (stack.length){
+    const p = stack.pop();
+    if (visited[p]) continue;
+    visited[p] = 1;
+    const i = p*4;
+    const dr = data[i] - rR, dg = data[i+1] - gR, db = data[i+2] - bR;
+    if (dr*dr + dg*dg + db*db > tol2) continue;
+    data[i+3] = 0;
+    const x = p % W, y = (p / W) | 0;
+    if (x>0) stack.push(p-1);
+    if (x<W-1) stack.push(p+1);
+    if (y>0) stack.push(p-W);
+    if (y<H-1) stack.push(p+W);
+  }
 }
 
 function triggerDownload(blob = outputBlob){
