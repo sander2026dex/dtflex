@@ -539,8 +539,8 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
     const { idx, angle, color } = channels[ch];
     const rad = (angle + baseAngle - 45) * Math.PI/180;
     const cosA = Math.cos(rad), sinA = Math.sin(rad);
-    const maxR = cell * 0.38;
-    const minR = Math.max(0.32, cell * 0.04);
+    const maxR = cell * 0.46;
+    const minR = Math.max(1.2, cell * 0.14);
     const diag = Math.ceil(Math.sqrt(W*W + H*H));
     const half = diag/2;
     const cx = W/2, cy = H/2;
@@ -556,19 +556,20 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
         if (!inside && distOut > auraPx) continue;
 
         const di = p*4;
-        if (isBlackPixel(data, di) || isProtectedWhite(data, di)) continue;
-        const L = lumaAt(data, di);
-        const v = data[di + idx]; // channel value 0..255
-        if (L >= WHITE_LUMA_KEEP) continue;
-        const t = Math.max(0.05, v / 255);
+        if (isBlackPixel(data, di)) continue; // preto = transparente
+        // Para Rosette: cada canal RGB gera ponto proporcional ao seu valor invertido
+        // (canal escuro = ponto grande). Branco puro produz pontos pequenos em todos canais.
+        const v = data[di + idx]; // 0..255
+        const density = 1 - (v / 255); // 0 = canal cheio (branco no canal), 1 = canal vazio
+        const t = Math.max(0.08, Math.pow(density, 0.85));
         let radius = minR + t * (maxR - minR);
-        let alpha = L >= 205 ? 0.42 : 0.74;
+        let alpha = 0.78;
 
         if (!inside){
           const fade = 1 - (distOut/auraPx);
           radius *= fade;
           alpha *= fade;
-          if (radius < 0.35 || alpha < 0.05) continue;
+          if (radius < 0.5 || alpha < 0.05) continue;
         }
 
         ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)})`;
