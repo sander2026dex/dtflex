@@ -583,7 +583,7 @@ function processRosetteCMYK(image, lpi) {
   cctx.drawImage(renderChannel('Y'), 0, 0);
   cctx.drawImage(renderChannel('C'), 0, 0);
   cctx.drawImage(renderChannel('M'), 0, 0);
-  cctx.drawImage(renderChannel('K'), 0, 0);
+  // canal K removido — preto = transparente (knockout DTF)
   cctx.globalCompositeOperation = 'source-over';
 
   // --- Knockout do branco -> alpha (fundo transparente para DTF)
