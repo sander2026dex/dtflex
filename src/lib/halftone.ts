@@ -163,13 +163,12 @@ export async function processImage(
 /* ============================================================================
  * STEP 0  —  PRE-PROCESS:  Levels 80/1.0/255  +  Gamma 0.88  +  Luminance Map
  * ========================================================================== */
-function preProcessLevels(src: ImageData): Prepared {
+function preProcessLevels(src: ImageData, workScale: number): Prepared {
   const { width: w, height: h, data } = src;
   const len = w * h;
   const lum = new Uint8Array(len);
   const alpha = new Uint8Array(len);
 
-  // Apply LUT in-place to R,G,B; keep A; compute luminance L = 0.299R+0.587G+0.114B
   for (let i = 0, p = 0; i < len; i++, p += 4) {
     const r = TONE_LUT[data[p]];
     const g = TONE_LUT[data[p + 1]];
@@ -178,11 +177,10 @@ function preProcessLevels(src: ImageData): Prepared {
     data[p + 1] = g;
     data[p + 2] = b;
     alpha[i] = data[p + 3];
-    // Rec.601 luma — matches print luminance perception.
     lum[i] = (r * 299 + g * 587 + b * 114 + 500) / 1000 | 0;
   }
 
-  return { w, h, rgba: data, lum, alpha };
+  return { w, h, rgba: data, lum, alpha, workScale };
 }
 
 /* ============================================================================
