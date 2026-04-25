@@ -224,7 +224,13 @@ function renderClean(
   progress: Progress,
 ) {
   const { w, h, rgba, lum, alpha } = prep;
-  const step = 300 / opts.lpi;
+  // step in WORKING-pixel units. The working canvas is later upscaled to 300 DPI,
+  // so step at 300 DPI / LPI must be reduced by the ratio between work and output.
+  // Floor at 4px to keep dot count manageable on huge images.
+  const stepOut = 300 / opts.lpi;          // step in output pixels
+  const step = Math.max(4, stepOut * (w / Math.max(1, OUTPUT_WIDTH)) * (OUTPUT_WIDTH / Math.max(1, w)));
+  // Note: we keep working LPI = output LPI directly because the working canvas
+  // already has the same physical extent. After upscaling, dot pitch matches.
   const angle = (opts.baseAngleDeg * Math.PI) / 180;
   const auraWidth = Math.max(0, opts.auraWidth);
 
