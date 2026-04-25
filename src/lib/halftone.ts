@@ -29,6 +29,7 @@ export interface HalftoneOptions {
   lpi: number;             // 22..45
   baseAngleDeg: number;    // 0..360 (global rotation)
   auraWidth: number;       // 0..80 px — clean mode only
+  blackKnockout: number;   // 0..80 — luminance threshold below which dots are skipped (vazado)
   rosetteIntensity?: number;
   whiteThreshold?: number;
 }
@@ -41,6 +42,7 @@ export const DEFAULT_OPTIONS: HalftoneOptions = {
   lpi: 35,
   baseAngleDeg: 45,
   auraWidth: 24,
+  blackKnockout: 18,        // default: shadows up to L=18 are vazado
   rosetteIntensity: 0.5,
   whiteThreshold: 0.4,
 };
@@ -238,6 +240,9 @@ function renderClean(
   const step = Math.max(3, (300 / opts.lpi) * workScale);
   const angle = (opts.baseAngleDeg * Math.PI) / 180;
   const auraWidth = Math.max(0, opts.auraWidth) * workScale;
+  // BLACK KNOCKOUT THRESHOLD — adjustable. Pixels with L < threshold render
+  // as fully transparent (vazado), saving ink and avoiding "casca" on fabric.
+  const knockout = Math.max(0, Math.min(120, opts.blackKnockout ?? 18));
 
   // ---------- Subject binary mask (L > 20 OR alpha > 32) -------------------
   // Used both for skip-no-subject decisions and for aura distance computation.
@@ -296,9 +301,9 @@ function renderClean(
         let dotAlpha = 1;
         let color = "#000000";
 
-        // PURE BLACK KNOCKOUT — only truly pure black (L<6) → vazado.
-        // Lowered from 12 so we don't punch holes in dark midtones.
-        if (L < 6) continue;
+        // BLACK KNOCKOUT — pixels darker than the user-controlled threshold
+        // become fully transparent (vazado). Eyes, deep shadows show through.
+        if (L < knockout) continue;
 
         // SPOT WHITE UNDERBASE — bright pixels (L>200) render as a small
         // white dot to simulate DTF white-ink underbase on dark fabric.
@@ -436,6 +441,7 @@ function renderRosette(
   // Step in working pixels (see renderClean for derivation).
   const step = Math.max(3, (300 / opts.lpi) * workScale);
   const baseDeg = opts.baseAngleDeg;
+  const knockout = Math.max(0, Math.min(120, opts.blackKnockout ?? 18));
 
   // CMY only — Black (K) channel is intentionally REMOVED so dark areas remain
   // "vazado" (empty/transparent reticle). On dark fabric the absence of K
@@ -480,7 +486,7 @@ function renderRosette(
   let done = 0;
   for (const ch of channels) {
     const data = ch.name === "C" ? C : ch.name === "M" ? M : Y;
-    plotChannel(tctx, data, lum, alpha, w, h, step, ch.deg, ch.hex);
+    plotChannel(tctx, data, lum, alpha, w, h, step, ch.deg, ch.hex, knockout);
     done++;
     progress(`Rosette · screen ${done}/3 (${ch.name})`, 35 + done * 16);
   }
@@ -516,6 +522,7 @@ function plotChannel(
   step: number,
   angleDeg: number,
   hex: string,
+  knockout: number,         // luminance threshold for "vazado" black areas
 ) {
   const angle = (angleDeg * Math.PI) / 180;
   const cos = Math.cos(angle);
@@ -541,9 +548,9 @@ function plotChannel(
       if (alpha[idx] < 32) continue;
 
       const L = lum[idx];
-      // Pure black knockout (vazado) — skip dot on extreme darks.
-      // With K removed, dark areas are naturally vazado (empty reticle).
-      if (L < 6) continue;
+      // Adjustable BLACK KNOCKOUT — skip dot when pixel is below threshold,
+      // leaving deep shadows fully transparent (vazado) on the print.
+      if (L < knockout) continue;
 
       const cov = ink[idx];
       if (cov <= 0.01) continue;
