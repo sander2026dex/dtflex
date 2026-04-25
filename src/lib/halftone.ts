@@ -145,7 +145,7 @@ export async function processImage(
 
   if (mode === "rosette_cmyk") {
     progress("Rendering Rosette CMYK · 4 screens", 35);
-    renderRosette(hctx, prep, opts, progress);
+    renderRosette(hctx, prep, opts, progress, dw, dh);
   } else {
     progress("Rendering Clean Organic + Aura", 35);
     renderClean(hctx, prep, opts, progress);
