@@ -45,15 +45,20 @@ export const DEFAULT_OPTIONS: HalftoneOptions = {
   whiteThreshold: 0.4,
 };
 
-/* ---------- Pre-computed tone curve LUT (Levels 80/1.0/255 + Gamma 0.88) ----- */
+/* ---------- Pre-computed tone curve LUT (SAFE Levels 30/1.0/255 + Gamma 0.92) -
+ * SOFTENED from the previous "Levels 80" crush which was deleting all subject
+ * detail (turning everything into pure black, then triggering the L<12
+ * knockout → invisible image). Levels 30 still kills washed-out shadows but
+ * preserves midtone information so the subject remains fully visible. */
 const TONE_LUT: Uint8ClampedArray = (() => {
   const lut = new Uint8ClampedArray(256);
-  const gammaInv = 1 / 0.88;
+  const gammaInv = 1 / 0.92;
   for (let v = 0; v < 256; v++) {
-    // Step 1: Levels 80/1.0/255 — crush shadows, expand remaining range.
-    let x = v < 80 ? 0 : (v - 80) * (255 / 175);
+    // Step 1: Levels 30/1.0/255 — soft shadow crush, expand remaining range.
+    // Formula:  val = val < 30 ? 0 : (val - 30) * (255 / 225)
+    let x = v < 30 ? 0 : (v - 30) * (255 / 225);
     if (x > 255) x = 255;
-    // Step 2: Gamma 0.88 (darker midtones).  out = ((x/255)^(1/0.88))*255
+    // Step 2: Mild Gamma 0.92 — gentle midtone deepening, no crush.
     x = Math.pow(x / 255, gammaInv) * 255;
     lut[v] = Math.max(0, Math.min(255, Math.round(x)));
   }
