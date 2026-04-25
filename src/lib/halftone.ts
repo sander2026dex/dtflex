@@ -437,11 +437,12 @@ function renderRosette(
   const step = Math.max(3, (300 / opts.lpi) * workScale);
   const baseDeg = opts.baseAngleDeg;
 
-  // Standard offset angles (industry-standard CMYK screen angles).
-  const channels: Array<{ name: "C" | "M" | "Y" | "K"; deg: number; hex: string }> = [
+  // CMY only — Black (K) channel is intentionally REMOVED so dark areas remain
+  // "vazado" (empty/transparent reticle). On dark fabric the absence of K
+  // shows the garment color through the dot pattern, matching pro DTF spec.
+  const channels: Array<{ name: "C" | "M" | "Y"; deg: number; hex: string }> = [
     { name: "Y", deg: baseDeg + 0,  hex: "#ffe600" },
     { name: "C", deg: baseDeg + 15, hex: "#00aeef" },
-    { name: "K", deg: baseDeg + 45, hex: "#000000" },
     { name: "M", deg: baseDeg + 75, hex: "#ec008c" },
   ];
 
@@ -478,10 +479,10 @@ function renderRosette(
 
   let done = 0;
   for (const ch of channels) {
-    const data = ch.name === "C" ? C : ch.name === "M" ? M : ch.name === "Y" ? Y : K;
+    const data = ch.name === "C" ? C : ch.name === "M" ? M : Y;
     plotChannel(tctx, data, lum, alpha, w, h, step, ch.deg, ch.hex);
     done++;
-    progress(`Rosette · screen ${done}/4 (${ch.name})`, 35 + done * 12);
+    progress(`Rosette · screen ${done}/3 (${ch.name})`, 35 + done * 16);
   }
 
   tctx.globalCompositeOperation = "source-over";
@@ -541,19 +542,26 @@ function plotChannel(
 
       const L = lum[idx];
       // Pure black knockout (vazado) — skip dot on extreme darks.
+      // With K removed, dark areas are naturally vazado (empty reticle).
       if (L < 6) continue;
 
       const cov = ink[idx];
       if (cov <= 0.01) continue;
 
       // DOT SIZING per spec: radius = 1.5 + cov * (step*0.4 - 1.5)
-      // (cov plays the role of 1 - L/255 at the channel level).
       let radius = 1.5 + cov * (step * 0.4 - 1.5);
       let dotAlpha = 1;
 
-      // HIGHLIGHT PROTECTION — extreme highlights → micro dot @ 40% alpha.
-      if (L > 242) {
-        radius = 1.5;
+      // WHITE / HIGHLIGHT REDUCTION — for bright pixels (L>200) shrink dots
+      // significantly so white areas show smaller, finer reticles instead of
+      // dense color. The brighter the pixel, the smaller the dot.
+      if (L > 200) {
+        const t = (L - 200) / 55; // 0..1 across L 200..255
+        const shrink = 1 - t * 0.75; // shrink down to 25% of computed size
+        radius = Math.max(1.0, Math.min(step * 0.22, radius * shrink));
+        dotAlpha = 1 - t * 0.4; // also fade slightly
+      } else if (L > 242) {
+        radius = 1.0;
         dotAlpha = 0.4;
       } else {
         radius = Math.min(step * 0.4, Math.max(1.5, radius));
