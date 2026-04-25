@@ -493,8 +493,9 @@ async function renderRoundClean(
   const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
   const half = Math.ceil(diag / 2);
 
-  const rMax = cellSize * 0.45;
-  const MIN_R = 1.5;
+  const rMax = cellSize * 0.54;
+  const MIN_R = Math.max(1.5, cellSize * 0.13);
+  const HIGHLIGHT_CLUSTER_R = Math.max(MIN_R, cellSize * 0.19);
 
   // Sample image rgb (with bilinear for stability)
   const sampleRgb = (x: number, y: number): [number, number, number] | null => {
@@ -517,9 +518,13 @@ async function renderRoundClean(
 
       if (insideSubject) {
         const rgb = sampleRgb(px, py)!;
-        const luma = (rgb[0] + rgb[1] + rgb[2]) / 3 / 255;
-        let radius = (1 - luma) * rMax;
-        if (radius < MIN_R) radius = MIN_R; // highlight protection — never holes
+        const luma = luma255(rgb[0], rgb[1], rgb[2]) / 255;
+        const ink = coverageHeavy(1 - luma);
+        // White/bright subject areas are NOT transparent: they become dense,
+        // opaque micro-dot clusters, while shadows become near-solid ink.
+        let radius = Math.sqrt(ink) * rMax;
+        if (luma > 0.72) radius = Math.max(radius, HIGHLIGHT_CLUSTER_R);
+        if (radius < MIN_R) radius = MIN_R;
         ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
         ctx.beginPath();
         ctx.arc(px, py, radius, 0, Math.PI * 2);
@@ -543,14 +548,14 @@ async function renderRoundClean(
       if (sx < 0) continue;
       const di = (sy * w + sx) * 4;
       const rS = data[di], gS = data[di + 1], bS = data[di + 2];
-      const lumaS = (rS + gS + bS) / 3 / 255;
-      const baseR = Math.max(MIN_R, (1 - lumaS) * rMax);
+      const lumaS = luma255(rS, gS, bS) / 255;
+      const baseR = Math.max(MIN_R, Math.sqrt(coverageHeavy(1 - lumaS)) * rMax);
 
-      const opacity = Math.pow(Math.max(0, 1 - t), 1.5);
-      const radius = baseR * opacity * 0.8;
+      const opacity = Math.pow(Math.max(0, 1 - t), 1.35);
+      const radius = baseR * opacity * 0.92;
       if (radius < 0.6) continue;
 
-      const alpha = Math.min(1, opacity * 1.1 + 0.05);
+      const alpha = Math.min(1, opacity * 1.35 + 0.08);
       ctx.fillStyle = `rgba(${rS}, ${gS}, ${bS}, ${alpha.toFixed(3)})`;
       ctx.beginPath();
       ctx.arc(px, py, radius, 0, Math.PI * 2);
