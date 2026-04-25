@@ -188,13 +188,13 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Preto e sombras pretas serão removidos. Branco sai em retícula menor.</p>
+      <p class="info-text">Preto sai 100% transparente. Escritas e brancos ficam limpos, sem retícula.</p>
     </div>
 
     <div class="control-group">
       <label>LPI (linhas/polegada)</label>
-      <input type="range" id="lpi" min="22" max="45" value="32" />
-      <div class="value" id="lpiVal">32 LPI</div>
+      <input type="range" id="lpi" min="35" max="75" value="55" />
+      <div class="value" id="lpiVal">55 LPI</div>
     </div>
 
     <div class="control-group">
@@ -231,6 +231,9 @@
 const OUT_W = 3307, OUT_H = 4930;
 const BLACK_LUMA_CUTOFF = 58;
 const BLACK_CHANNEL_CUTOFF = 72;
+const WHITE_LUMA_KEEP = 226;
+const WHITE_CHANNEL_KEEP = 210;
+const WHITE_SATURATION_MAX = 48;
 let sourceImage = null;
 let mode = 'clean';
 let outputBlob = null;
@@ -299,11 +302,19 @@ function isBlackPixel(data, i){
   return l <= BLACK_LUMA_CUTOFF && r <= BLACK_CHANNEL_CUTOFF && g <= BLACK_CHANNEL_CUTOFF && b <= BLACK_CHANNEL_CUTOFF;
 }
 
+function isProtectedWhite(data, i){
+  if (data[i+3] <= 30) return false;
+  const r = data[i], g = data[i+1], b = data[i+2];
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = 0.299*r + 0.587*g + 0.114*b;
+  return l >= WHITE_LUMA_KEEP && r >= WHITE_CHANNEL_KEEP && g >= WHITE_CHANNEL_KEEP && b >= WHITE_CHANNEL_KEEP && (max - min) <= WHITE_SATURATION_MAX;
+}
+
 function dotRadiusForLuma(luma, cell){
-  if (luma >= 238) return Math.max(0.45, cell * 0.055);
-  if (luma >= 215) return Math.max(0.55, cell * 0.075);
-  const density = Math.max(0, Math.min(1, (238 - luma) / (238 - BLACK_LUMA_CUTOFF)));
-  return Math.max(0.65, cell * (0.10 + density * 0.42));
+  if (luma >= WHITE_LUMA_KEEP) return 0;
+  if (luma >= 205) return Math.max(0.38, cell * 0.045);
+  const density = Math.max(0, Math.min(1, (WHITE_LUMA_KEEP - luma) / (WHITE_LUMA_KEEP - BLACK_LUMA_CUTOFF)));
+  return Math.max(0.42, cell * (0.06 + Math.pow(density, 0.82) * 0.34));
 }
 
 function triggerDownload(){
