@@ -466,8 +466,7 @@ function computeDistanceOutside(mask, W, H, maxDist){
 async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraPx){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
-  const maxR = cell * 0.55; // big dots for blacks
-  const minR = 1.5;
+  const minR = Math.max(0.45, cell * 0.055);
 
   // iterate in rotated grid space
   // get bounding box of rotated grid covering W×H
@@ -492,13 +491,14 @@ async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraP
       if (!inside && distOut > auraPx) continue;
 
       const di = p*4;
+      if (isBlackPixel(data, di)) continue;
       const r = data[di], g = data[di+1], b = data[di+2];
-      const L = 0.299*r + 0.587*g + 0.114*b;
+      const L = lumaAt(data, di);
 
-      // Black -> max radius, White -> min radius
-      const t = 1 - (L/255); // 0..1, 1 = black
-      let radius = minR + t * (maxR - minR);
+      // Black is never printed. White/text uses very small clean dots.
+      let radius = dotRadiusForLuma(L, cell);
       let alpha = 1.0;
+      if (L >= 238) alpha = 0.72;
 
       if (!inside){
         // aura fade: linear shrink + alpha fade
@@ -524,9 +524,9 @@ async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraP
 // === ROSETTE RGB: 3 channels at classic-ish angles, additive blend ===
 async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, auraPx){
   const channels = [
-    { idx: 0, angle: 15, color: 'rgb(255,0,0)' },   // R
-    { idx: 1, angle: 75, color: 'rgb(0,255,0)' },   // G
-    { idx: 2, angle: 0,  color: 'rgb(0,0,255)' },   // B
+    { idx: 0, angle: 15, color: [255,0,0] },
+    { idx: 1, angle: 75, color: [0,255,0] },
+    { idx: 2, angle: 0,  color: [0,0,255] },
   ];
 
   ctx.globalCompositeOperation = 'lighter'; // additive
@@ -535,13 +535,11 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
     const { idx, angle, color } = channels[ch];
     const rad = (angle + baseAngle - 45) * Math.PI/180;
     const cosA = Math.cos(rad), sinA = Math.sin(rad);
-    const maxR = cell * 0.5;
-    const minR = 1.0;
+      const maxR = cell * 0.44;
+      const minR = Math.max(0.45, cell * 0.05);
     const diag = Math.ceil(Math.sqrt(W*W + H*H));
     const half = diag/2;
     const cx = W/2, cy = H/2;
-
-    ctx.fillStyle = color;
 
     for (let gy=-half; gy<=half; gy+=cell){
       for (let gx=-half; gx<=half; gx+=cell){
@@ -554,11 +552,12 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
         if (!inside && distOut > auraPx) continue;
 
         const di = p*4;
+        if (isBlackPixel(data, di)) continue;
+        const L = lumaAt(data, di);
         const v = data[di + idx]; // channel value 0..255
-        // strong channel = big dot
-        const t = v / 255;
+        const t = L >= 238 ? 0.06 : (v / 255);
         let radius = minR + t * (maxR - minR);
-        let alpha = 0.85;
+        let alpha = L >= 238 ? 0.34 : 0.72;
 
         if (!inside){
           const fade = 1 - (distOut/auraPx);
@@ -567,7 +566,7 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
           if (radius < 0.5 || alpha < 0.05) continue;
         }
 
-        ctx.globalAlpha = alpha;
+        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)})`;
         ctx.beginPath();
         ctx.arc(ix, iy, radius, 0, Math.PI*2);
         ctx.fill();
@@ -579,21 +578,12 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
       }
     }
   }
-  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
 }
 
 // === Download ===
 $('downloadBtn').addEventListener('click', () => {
-  if (!outputBlob) return;
-  const url = URL.createObjectURL(outputBlob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `dtflex-reticula-${mode}-${Date.now()}.png`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  triggerDownload();
 });
 </script>
 </body>
