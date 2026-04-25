@@ -722,6 +722,8 @@ function processRoundClean(image, lpi) {
       if (d === 0) {
         // ---- DENTRO DO SUJEITO ----
         const lum = lumGrid[idx];
+        // Knockout do preto: sombras profundas ficam transparentes (sem tinta preta)
+        if (lum < 0.08) continue;
         // tom escuro -> ponto grande; tom claro -> ponto pequeno
         radius = Math.max(1.5, dotMax * (1 - lum) + 0.6);
         // Spot white para highlights (underbase DTF)
@@ -730,7 +732,15 @@ function processRoundClean(image, lpi) {
           radius = Math.max(1.5, dotMax * 0.35);
           alpha = 0.85;
         } else {
-          r = rGrid[idx]; g = gGrid[idx]; b = bGrid[idx];
+          // Dessaturação do preto: clareia cores muito escuras para evitar tinta preta
+          let rr = rGrid[idx], gg = gGrid[idx], bb = bGrid[idx];
+          if (lum < 0.25) {
+            const boost = 0.25 / Math.max(lum, 0.08);
+            rr = Math.min(255, rr * boost);
+            gg = Math.min(255, gg * boost);
+            bb = Math.min(255, bb * boost);
+          }
+          r = rr; g = gg; b = bb;
           alpha = 1.0;
         }
       } else if (d <= auraCells) {
