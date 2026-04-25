@@ -26,6 +26,9 @@ interface ProcessedResult {
 const LPI_MIN = 22;
 const LPI_MAX = 45;
 const LPI_DEFAULT = 35;
+const ANGLE_MIN = 0;
+const ANGLE_MAX = 90;
+const ANGLE_DEFAULT = 45;
 
 export function HalftoneStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
