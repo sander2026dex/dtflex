@@ -257,27 +257,17 @@ export function HalftoneStudio() {
                   className="grid grid-cols-2 gap-1"
                   disabled={busy}
                 >
-                  <ToggleGroupItem value="spot_white_cmyk" variant="outline" className="text-[11px]">
-                    ⚪ Spot White
+                  <ToggleGroupItem value="clean_organic" variant="outline" className="text-[11px]">
+                    🟢 Clean Organic
                   </ToggleGroupItem>
                   <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-[11px]">
-                    🟠 Rosette
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="round_clean" variant="outline" className="text-[11px]">
-                    🔵 Circular
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="hybrid" variant="outline" className="text-[11px]">
-                    🟣 Hybrid
+                    🟠 Rosette CMYK
                   </ToggleGroupItem>
                 </ToggleGroup>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {mode === "spot_white_cmyk"
-                    ? "Underbase branca + CMYK por cima. Padrão profissional para tecido escuro — rostos e camisas brancas ficam densos, não fantasmas."
-                    : mode === "rosette_cmyk"
-                      ? "4 telas C/M/Y/K em ângulos fixos (15°/75°/0°/45°). Sem underbase — light areas vazadas."
-                      : mode === "round_clean"
-                        ? "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."
-                        : "Mix entre Circular e Rosette. Slider de intensidade controla a interferência."}
+                  {mode === "rosette_cmyk"
+                    ? "4 telas C/M/Y/K com offsets fixos (Y+0° / C+15° / K+45° / M+75°) e blending multiply. Padrão de roseta simétrico."
+                    : "Grade única rotacionada + aura colorida orgânica em volta do sujeito. Fundo 100% vazado."}
                 </p>
               </div>
 
