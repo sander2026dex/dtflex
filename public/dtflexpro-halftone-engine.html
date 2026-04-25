@@ -157,7 +157,21 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Modo único: halftone normal RGB. Preto não imprime. Branco, frases e áreas brancas grandes ficam sólidos, sem retícula e sem buraco.</p>
+      <p class="info-text">Fundo removido automaticamente. Preto vira #000000 sólido. Brancos com reflexos recebem poucas retículas pequenas.</p>
+    </div>
+
+    <div class="control-group">
+      <label>
+        <input type="checkbox" id="removeBg" checked style="vertical-align:middle;margin-right:6px;accent-color:#ff3366;" />
+        Remover Fundo Automaticamente
+      </label>
+      <p class="info-text" style="margin-top:4px;">Detecta fundo uniforme nas bordas e torna transparente.</p>
+    </div>
+
+    <div class="control-group">
+      <label>Tolerância Fundo</label>
+      <input type="range" id="bgTol" min="10" max="80" value="32" />
+      <div class="value" id="bgTolVal">32</div>
     </div>
 
     <div class="control-group">
@@ -184,8 +198,8 @@
       <div class="value" id="contrastVal">18%</div>
     </div>
 
-    <button id="processBtn" class="btn-process" disabled>⚡ Processar e Baixar PNG</button>
-    <button id="downloadBtn" class="btn-download" disabled>⬇ Baixar Novamente</button>
+    <button id="processBtn" class="btn-process" disabled>⚡ Processar PNG</button>
+    <button id="downloadBtn" class="btn-download" disabled>⬇ Baixar PNG</button>
 
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
     <div class="status" id="statusText">Aguardando imagem...</div>
