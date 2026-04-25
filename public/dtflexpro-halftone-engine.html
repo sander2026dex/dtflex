@@ -364,14 +364,12 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.3, 'Detectando máscara...');
   await new Promise(r => requestAnimationFrame(r));
 
-  // Build print mask: alpha/subject minus black and protected white/text areas.
+  // Máscara do sujeito: tudo que não é preto puro nem totalmente transparente.
+  // Branco entra na máscara — vira retícula branca real (não buraco).
   const mask = new Uint8Array(OUT_W * OUT_H);
-  const whiteMask = new Uint8Array(OUT_W * OUT_H);
   let alphaCount = 0;
-  for (let y=0,i=0,p=0; y<OUT_H; y++){
-    for (let x=0; x<OUT_W; x++, i+=4, p++){
-      if (data[i+3] < 250) alphaCount++;
-    }
+  for (let i=3; i<data.length; i+=4){
+    if (data[i] < 250) alphaCount++;
   }
   const useAlpha = alphaCount > 5000;
   for (let i=0,p=0; p<mask.length; i+=4, p++){
@@ -380,16 +378,10 @@ $('processBtn').addEventListener('click', async () => {
       mask[p] = 0;
       continue;
     }
-    if (isProtectedWhite(data, i)) {
-      whiteMask[p] = 1;
-      mask[p] = 0;
-      continue;
-    }
     if (useAlpha){
       mask[p] = data[i+3] > 30 ? 1 : 0;
     } else {
-      const L = lumaAt(data, i);
-      mask[p] = L < WHITE_LUMA_KEEP ? 1 : 0; // white/text is preserved, not halftoned
+      mask[p] = 1; // sem canal alpha confiável: tudo que não é preto vira sujeito
     }
   }
 
