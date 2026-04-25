@@ -111,6 +111,12 @@ export function HalftoneStudio() {
     setOpts((o) => ({ ...o, rosetteIntensity: clamped / 100 }));
   };
 
+  const setWhiteThreshold = (raw: number) => {
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.max(0, Math.min(100, Math.round(raw)));
+    setOpts((o) => ({ ...o, whiteThreshold: clamped / 100 }));
+  };
+
   const switchMode = (newMode: HalftoneMode) => {
     setOpts((o) => ({ ...o, mode: newMode }));
   };
