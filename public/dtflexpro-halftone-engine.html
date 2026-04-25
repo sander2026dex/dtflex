@@ -205,7 +205,10 @@ const WHITE_LUMA_CUTOFF = 232;
 const WHITE_SAT_CUTOFF = 28;
 // Tamanho mínimo (em pixels) de uma região branca para ser considerada
 // "branco sólido" (texto, partes brancas grandes). Abaixo disso é reflexo isolado.
-const FLAT_WHITE_MIN_AREA = 900;
+// Só áreas brancas MUITO grandes (camisa, luva, fundos brancos da arte) viram sólido.
+// Reflexos no cabelo/chapéu/rosto ficam como highlight e recebem retículas super finas
+// com a COR DA VIZINHANÇA (não branco), preservando o brilho sem virar buraco.
+const FLAT_WHITE_MIN_AREA = 4500;
 let sourceImage = null;
 let outputBlob = null;
 
@@ -291,8 +294,35 @@ function dotRadiusForLuma(luma, cell, coverage){
 }
 
 function dotRadiusHighlight(cell){
-  // Retícula pequena, mas ainda imprimível em DTF têxtil (>= 1.4px)
-  return Math.max(1.4, cell * 0.16);
+  // Retícula SUPER FINA para reflexos: pontinhos discretos que preservam
+  // a forma e o brilho sem criar buracos. Mínimo imprimível em DTF (~1.3px).
+  return Math.max(1.3, cell * 0.18);
+}
+
+function sampleNeighborhoodColor(data, mask, blackMask, flatWhiteMask, highlightMask, W, H, cx, cy, cell){
+  // Para REFLEXOS: amostra a cor real ao redor (chapéu vermelho, pele, etc.),
+  // ignorando pixels brancos/highlight/preto/transparentes. Raio maior para
+  // alcançar a cor da vizinhança quando o reflexo é amplo.
+  const radius = Math.max(cell * 1.5, 6);
+  const half = Math.floor(radius);
+  const step = Math.max(1, Math.floor(cell / 3));
+  let r=0, g=0, b=0, count=0;
+  for (let y=cy-half; y<=cy+half; y+=step){
+    if (y<0 || y>=H) continue;
+    for (let x=cx-half; x<=cx+half; x+=step){
+      if (x<0 || x>=W) continue;
+      const p = y*W + x;
+      if (!mask[p]) continue;
+      if (blackMask[p] || flatWhiteMask[p] || highlightMask[p]) continue;
+      const i = p*4;
+      if (data[i+3] <= 30) continue;
+      r += data[i]; g += data[i+1]; b += data[i+2];
+      count++;
+    }
+  }
+  if (count === 0) return null;
+  const inv = 1 / count;
+  return { r: r*inv, g: g*inv, b: b*inv };
 }
 
 function removeBackground(data, W, H, tol){
