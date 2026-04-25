@@ -32,6 +32,9 @@ const ANGLE_DEFAULT = 45;
 const AURA_MIN = 0;
 const AURA_MAX = 80;
 const AURA_DEFAULT = 24;
+const KNOCKOUT_MIN = 0;
+const KNOCKOUT_MAX = 80;
+const KNOCKOUT_DEFAULT = 18;
 
 
 export function HalftoneStudio() {
@@ -94,6 +97,7 @@ export function HalftoneStudio() {
   const lpi = opts.lpi ?? LPI_DEFAULT;
   const angle = opts.baseAngleDeg ?? ANGLE_DEFAULT;
   const aura = opts.auraWidth ?? AURA_DEFAULT;
+  const knockout = opts.blackKnockout ?? KNOCKOUT_DEFAULT;
 
   const setLpi = (raw: number) => {
     if (Number.isNaN(raw)) return;
@@ -111,6 +115,12 @@ export function HalftoneStudio() {
     if (Number.isNaN(raw)) return;
     const clamped = Math.max(AURA_MIN, Math.min(AURA_MAX, Math.round(raw)));
     setOpts((o) => ({ ...o, auraWidth: clamped }));
+  };
+
+  const setKnockout = (raw: number) => {
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.max(KNOCKOUT_MIN, Math.min(KNOCKOUT_MAX, Math.round(raw)));
+    setOpts((o) => ({ ...o, blackKnockout: clamped }));
   };
 
   const switchMode = (newMode: HalftoneMode) => {
