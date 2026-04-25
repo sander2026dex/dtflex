@@ -144,9 +144,13 @@ export async function processImage(
     renderClean(hctx, prep, opts, progress);
   }
 
-  // 6. Composite halftone onto the centered output canvas.
+  // 6. Composite halftone onto the centered output canvas, upscaling from the
+  // working resolution to the actual placement size with smoothing on so dots
+  // stay crisp circles at 300 DPI without re-rasterizing each one.
   progress("Composing 300 DPI canvas", 90);
-  octx.drawImage(halftone, dx, dy);
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.drawImage(halftone, 0, 0, dw, dh, dx, dy, finalW, finalH);
 
   // 7. Export PNG-32 preserving alpha channel.
   progress("Exporting PNG-32", 96);
