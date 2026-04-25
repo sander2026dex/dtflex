@@ -773,7 +773,7 @@ export async function processImage(
   const sctx = ctx2d(stage);
   const rawData = sctx.getImageData(0, 0, o.targetW, o.targetH);
 
-  onProgress?.("Print curves · contrast + saturation", 18);
+  onProgress?.("Pre-process · Levels 80/255 + Gamma 0.85", 18);
   await tick();
   const data = preprocess(rawData);
 
