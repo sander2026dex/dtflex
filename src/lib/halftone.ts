@@ -411,8 +411,9 @@ function renderRosette(
   opts: HalftoneOptions,
   progress: Progress,
 ) {
-  const { w, h, rgba, lum, alpha } = prep;
-  const step = 300 / opts.lpi;
+  const { w, h, rgba, lum, alpha, workScale } = prep;
+  // Step in working pixels (see renderClean for derivation).
+  const step = Math.max(3, (300 / opts.lpi) * workScale);
   const baseDeg = opts.baseAngleDeg;
 
   // Standard offset angles (industry-standard CMYK screen angles).
