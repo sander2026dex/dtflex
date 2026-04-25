@@ -15,7 +15,7 @@
 // ============================================================================
 
 export type ProgressFn = (stage: string, pct: number) => void;
-export type HalftoneMode = "rosette_cmyk" | "round_clean" | "hybrid";
+export type HalftoneMode = "spot_white_cmyk" | "rosette_cmyk" | "round_clean" | "hybrid";
 
 // ---------------------------------------------------------------------------
 // PNG DPI metadata (pHYs chunk → 300 DPI)
