@@ -29,6 +29,9 @@ const LPI_DEFAULT = 35;
 const ANGLE_MIN = 0;
 const ANGLE_MAX = 360;
 const ANGLE_DEFAULT = 45;
+const AURA_MIN = 0;
+const AURA_MAX = 80;
+const AURA_DEFAULT = 24;
 
 
 export function HalftoneStudio() {
