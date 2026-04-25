@@ -285,26 +285,28 @@ function isBlackPixel(data, i){
   return neutralDark || deepBlack;
 }
 
-function isHighlightWhite(data, i){
-  // Branco com reflexo: muito claro mas não puro/uniforme — recebe poucas retículas
+function isWhitePixel(data, i){
   if (data[i+3] < 30) return false;
   const r = data[i], g = data[i+1], b = data[i+2];
   const l = 0.299*r + 0.587*g + 0.114*b;
-  return l >= WHITE_LUMA_CUTOFF;
+  const sat = Math.max(r,g,b) - Math.min(r,g,b);
+  return l >= WHITE_LUMA_CUTOFF && sat <= WHITE_SAT_CUTOFF;
 }
 
 function dotRadiusForLuma(luma, cell, coverage){
-  const maxR = cell * 0.47;
-  const minR = Math.max(1.55, cell * 0.18);
+  // Retícula em alta definição: dot grande o suficiente para a tinta
+  // aderir bem na poliamida (mínimo robusto, sem ficar pequeno demais).
+  const maxR = cell * 0.48;
+  const minR = Math.max(1.8, cell * 0.22);
   const density = 1 - (luma / 255);
   const tonal = Math.pow(Math.max(0, density), 0.78);
-  const coverBoost = 0.82 + Math.min(1, coverage) * 0.18;
+  const coverBoost = 0.85 + Math.min(1, coverage) * 0.15;
   return (minR + tonal * (maxR - minR)) * coverBoost;
 }
 
 function dotRadiusHighlight(cell){
-  // Retícula muito pequena para áreas brancas com reflexo
-  return Math.max(1.0, cell * 0.12);
+  // Retícula pequena, mas ainda imprimível em DTF têxtil (>= 1.4px)
+  return Math.max(1.4, cell * 0.16);
 }
 
 function removeBackground(data, W, H, tol){
