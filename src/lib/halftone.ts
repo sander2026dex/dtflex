@@ -190,9 +190,11 @@ function preProcessLevels(src: ImageData, workScale: number): Prepared {
  * ========================================================================== */
 const dotCache = new Map<string, OffscreenCanvas>();
 function getDot(radius: number, hex: string, alpha: number): OffscreenCanvas {
-  const r = Math.max(1, Math.round(radius * 2)) / 2; // half-pixel granularity
-  const a = Math.max(0, Math.min(1, alpha));
-  const key = `${r}|${hex}|${a.toFixed(2)}`;
+  // Quantize radius to 0.5 px and alpha to 0.1 buckets — keeps the cache to a
+  // few hundred entries even when called millions of times.
+  const r = Math.max(1, Math.round(radius * 2)) / 2;
+  const a = Math.max(0.1, Math.min(1, Math.round(alpha * 10) / 10));
+  const key = `${r}|${hex}|${a}`;
   const cached = dotCache.get(key);
   if (cached) return cached;
   const size = Math.ceil(r * 2) + 2;
