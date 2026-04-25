@@ -297,7 +297,7 @@ const DPI     = 300;
 
 /* Trabalhamos numa resolução interna mais leve para ficar dentro de ~10s,
    depois fazemos upscale suave para 3307×4930 ao exportar.            */
-const WORK_LONG_EDGE = 1700;
+const WORK_LONG_EDGE = 1300;  // otimizado: processa em <10s mantendo qualidade DTF
 
 const state = {
   image: null,           // HTMLImageElement carregada
