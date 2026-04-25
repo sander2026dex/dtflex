@@ -324,42 +324,33 @@ function distanceFromSubjectWithNearest(
 //   Angle offsets (degrees): Cyan +15, Magenta +75, Yellow +0, Black +45.
 // ============================================================================
 
-interface RosetteScreen {
-  ang: number;
-  cos: number; sin: number;
-  cellSize: number;
-  ink: { r: number; g: number; b: number };
-  channel: 0 | 1 | 2 | 3; // index into [c,m,y,k]
+export interface RosetteOpts {
+  whiteBackground?: boolean; // true = pure white bg, false = transparent
 }
-
-const INK = {
-  C: { r: 0,   g: 174, b: 239 },
-  M: { r: 236, g: 0,   b: 140 },
-  Y: { r: 255, g: 237, b: 0   },
-  K: { r: 18,  g: 18,  b: 18  },
-};
 
 async function renderRosette(
   src: ImageData,
   dpi: number,
   lpi: number,
   baseAngleDeg: number,
+  whiteBackground: boolean,
   onProgress?: ProgressFn,
 ): Promise<AnyCanvas> {
   const { width: w, height: h, data } = src;
   const cellSize = dpi / lpi;
 
-  // Output canvas — fully transparent. Each ink dot is drawn in its solid
-  // CMYK ink color; overlaps multiply through "multiply" composite to give
-  // authentic subtractive rosette interference.
   const canvas = makeCanvas(w, h);
   const ctx = ctx2d(canvas);
-  // Start transparent
   ctx.clearRect(0, 0, w, h);
 
-  // Spec-mandated FIXED angles (absolute, not offset from base) for true rosette
-  // interference patterns: C=15°, M=75°, Y=0°, K=45°.
-  void baseAngleDeg; // intentionally unused in rosette mode (angles are fixed)
+  // Per spec: background must be pure white OR transparent — never black.
+  if (whiteBackground) {
+    ctx.fillStyle = "rgb(255, 255, 255)";
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // Spec-mandated FIXED angles (absolute): C=15°, M=75°, Y=0°, K=45°.
+  void baseAngleDeg;
   const screens: RosetteScreen[] = [
     { ang: (15 * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.C, channel: 0 },
     { ang: (75 * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.M, channel: 1 },
@@ -368,16 +359,13 @@ async function renderRosette(
   ];
   for (const s of screens) { s.cos = Math.cos(s.ang); s.sin = Math.sin(s.ang); }
 
-  // Validate distinct screen angles (mod 90)
-  const distinct = new Set(screens.map((s) => Math.round(((s.ang * 180) / Math.PI) % 90)));
-  if (distinct.size < 4) console.warn("[rosette] non-distinct angles", [...distinct]);
-
-  // Diagonal extent so rotated grids cover the whole canvas
   const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
   const half = Math.ceil(diag / 2);
   const cx = w / 2, cy = h / 2;
-  const rMax = cellSize * 0.53;
-  const minInkRadius = Math.max(0.65, cellSize * 0.055);
+
+  // GOLDEN RULE: DotSize = (1 - Brightness) * (MaxSize - MinSize) + MinSize
+  const MAX_SIZE = cellSize * 0.50;
+  const MIN_SIZE = 1.5;
 
   const sampleCmyk = (x: number, y: number): [number, number, number, number] | null => {
     const xi = Math.round(x), yi = Math.round(y);
@@ -386,29 +374,28 @@ async function renderRosette(
     return rgbToCmyk(data[di], data[di + 1], data[di + 2]);
   };
 
-  // Render ONE channel at a time so we can use compositing modes per layer.
   for (let si = 0; si < screens.length; si++) {
     const s = screens[si];
     onProgress?.(`Rosette ${["C", "M", "Y", "K"][s.channel]} · ${lpi} LPI`, 30 + si * 12);
-    // Each ink layer is drawn into its OWN offscreen canvas, then composited
-    // onto the result with "multiply" so colors blend like real ink.
     const layer = makeCanvas(w, h);
     const lctx = ctx2d(layer);
     lctx.clearRect(0, 0, w, h);
     lctx.fillStyle = `rgb(${s.ink.r}, ${s.ink.g}, ${s.ink.b})`;
 
-    // Iterate the rotated grid in steps of cellSize.
     for (let gy = -half; gy <= half; gy += s.cellSize) {
       for (let gx = -half; gx <= half; gx += s.cellSize) {
-        // Rotate grid point back into image coords
         const px = cx + gx * s.cos - gy * s.sin;
         const py = cy + gx * s.sin + gy * s.cos;
         const cmyk = sampleCmyk(px, py);
         if (!cmyk) continue;
-        const rawCov = cmyk[s.channel];
-        const cov = coverageHeavy(rawCov);
-        if (cov <= 0.002) continue;
-        const r = Math.max(minInkRadius, Math.sqrt(cov) * rMax);
+        // Per-channel "brightness" = 1 - ink coverage. (Brightness 1 → no ink.)
+        const inkCoverage = cmyk[s.channel]; // 0..1
+        const brightness = 1 - inkCoverage;
+        // GOLDEN RULE (linear, NOT sqrt): keeps highlights dotted, shadows solid.
+        let r = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
+        // For pure-white channel areas, skip Y/M/C noise dots so we don't smear.
+        // Black channel still keeps a tiny speck for texture.
+        if (inkCoverage < 0.04 && s.channel !== 3) continue;
         if (r < 0.45) continue;
         lctx.beginPath();
         lctx.arc(px, py, r, 0, Math.PI * 2);
@@ -416,8 +403,7 @@ async function renderRosette(
       }
     }
 
-    // Composite layer onto output with multiply (subtractive ink mix).
-    if (si === 0) {
+    if (si === 0 && !whiteBackground) {
       ctx.globalCompositeOperation = "source-over";
     } else {
       ctx.globalCompositeOperation = "multiply";
