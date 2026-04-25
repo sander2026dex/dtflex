@@ -498,8 +498,6 @@ function restoreProtectedWhites(ctx, data, whiteMask, W, H){
 async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraPx){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
-  const minR = Math.max(0.45, cell * 0.055);
-
   // iterate in rotated grid space
   // get bounding box of rotated grid covering W×H
   const diag = Math.ceil(Math.sqrt(W*W + H*H));
@@ -567,8 +565,8 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
     const { idx, angle, color } = channels[ch];
     const rad = (angle + baseAngle - 45) * Math.PI/180;
     const cosA = Math.cos(rad), sinA = Math.sin(rad);
-      const maxR = cell * 0.44;
-      const minR = Math.max(0.45, cell * 0.05);
+    const maxR = cell * 0.38;
+    const minR = Math.max(0.32, cell * 0.04);
     const diag = Math.ceil(Math.sqrt(W*W + H*H));
     const half = diag/2;
     const cx = W/2, cy = H/2;
