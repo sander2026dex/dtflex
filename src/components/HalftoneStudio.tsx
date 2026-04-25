@@ -252,20 +252,25 @@ export function HalftoneStudio() {
                   type="single"
                   value={mode}
                   onValueChange={(v) => v && switchMode(v as HalftoneMode)}
-                  className="grid grid-cols-2 gap-1"
+                  className="grid grid-cols-3 gap-1"
                   disabled={busy}
                 >
-                  <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-xs">
-                    🟠 Rosette CMYK
+                  <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-[11px]">
+                    🟠 Rosette
                   </ToggleGroupItem>
-                  <ToggleGroupItem value="round_clean" variant="outline" className="text-xs">
-                    🔵 Round Clean
+                  <ToggleGroupItem value="round_clean" variant="outline" className="text-[11px]">
+                    🔵 Circular
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="hybrid" variant="outline" className="text-[11px]">
+                    🟣 Hybrid
                   </ToggleGroupItem>
                 </ToggleGroup>
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {mode === "rosette_cmyk"
                     ? "4 telas C/M/Y/K em ângulos fixos (15°/75°/0°/45°). Fundo vazado para DTF."
-                    : "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."}
+                    : mode === "round_clean"
+                      ? "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."
+                      : "Mix entre Circular e Rosette. Slider de intensidade controla a interferência."}
                 </p>
               </div>
 
