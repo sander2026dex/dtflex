@@ -80,6 +80,7 @@ interface Prepared {
   rgba: Uint8ClampedArray; // levels-corrected RGBA
   lum: Uint8Array;       // per-pixel luminance 0..255
   alpha: Uint8Array;     // original alpha 0..255 (transparency aware)
+  workScale: number;     // working pixel size relative to final 300 DPI placement
 }
 
 /* ============================================================================
