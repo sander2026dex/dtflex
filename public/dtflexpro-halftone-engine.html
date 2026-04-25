@@ -557,12 +557,24 @@ function sampleCellColor(data, mask, blackMask, W, H, cx, cy, cell){
   }
   if (count === 0) return null;
   const inv = 1 / count;
+  const ar = r * inv, ag = g * inv, ab = b * inv;
+  // Saturação aumentada (1.35x) para preservar a riqueza de cor da referência
+  // profissional. Sem isso, a média da célula puxa cores para cinza/desbotado.
+  const SAT_BOOST = 1.35;
+  const lumAvg = 0.299*ar + 0.587*ag + 0.114*ab;
+  let br = lumAvg + (ar - lumAvg) * SAT_BOOST;
+  let bg = lumAvg + (ag - lumAvg) * SAT_BOOST;
+  let bb = lumAvg + (ab - lumAvg) * SAT_BOOST;
+  br = Math.max(0, Math.min(255, br));
+  bg = Math.max(0, Math.min(255, bg));
+  bb = Math.max(0, Math.min(255, bb));
   const coverage = covered / Math.max(1, Math.pow(Math.floor((half*2)/step)+1, 2));
   return {
-    r: r * inv,
-    g: g * inv,
-    b: b * inv,
-    l: 0.299*(r*inv) + 0.587*(g*inv) + 0.114*(b*inv),
+    r: br,
+    g: bg,
+    b: bb,
+    l: 0.299*br + 0.587*bg + 0.114*bb,
+    sat: Math.max(br,bg,bb) - Math.min(br,bg,bb),
     coverage
   };
 }
