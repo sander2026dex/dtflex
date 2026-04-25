@@ -446,6 +446,8 @@ async function renderCircular(
   onProgress?.("Circular · subject mask", Math.round(progressBase + 0.1 * progressSpan));
   const subjRaw = subjectMaskFromCorners(src, bgTolerance);
   const subj = dilate(subjRaw, w, h, 1);
+  // Detect LARGE white regions inside subject → skip halftone (no speckles).
+  const whiteMask = largeWhiteMask(src, Math.max(4, Math.round(cellSize * 0.6)));
   onProgress?.("Circular · distance transform", Math.round(progressBase + 0.3 * progressSpan));
   const { dist, nx, ny } = distanceFromSubjectWithNearest(subj, w, h);
 
