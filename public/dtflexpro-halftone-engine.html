@@ -188,13 +188,13 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Preto e sombras pretas serão removidos. Branco sai em retícula menor.</p>
+      <p class="info-text">Preto sai 100% transparente. Escritas e brancos ficam limpos, sem retícula.</p>
     </div>
 
     <div class="control-group">
       <label>LPI (linhas/polegada)</label>
-      <input type="range" id="lpi" min="22" max="45" value="32" />
-      <div class="value" id="lpiVal">32 LPI</div>
+      <input type="range" id="lpi" min="35" max="75" value="55" />
+      <div class="value" id="lpiVal">55 LPI</div>
     </div>
 
     <div class="control-group">
@@ -231,6 +231,9 @@
 const OUT_W = 3307, OUT_H = 4930;
 const BLACK_LUMA_CUTOFF = 58;
 const BLACK_CHANNEL_CUTOFF = 72;
+const WHITE_LUMA_KEEP = 226;
+const WHITE_CHANNEL_KEEP = 210;
+const WHITE_SATURATION_MAX = 48;
 let sourceImage = null;
 let mode = 'clean';
 let outputBlob = null;
@@ -299,11 +302,19 @@ function isBlackPixel(data, i){
   return l <= BLACK_LUMA_CUTOFF && r <= BLACK_CHANNEL_CUTOFF && g <= BLACK_CHANNEL_CUTOFF && b <= BLACK_CHANNEL_CUTOFF;
 }
 
+function isProtectedWhite(data, i){
+  if (data[i+3] <= 30) return false;
+  const r = data[i], g = data[i+1], b = data[i+2];
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = 0.299*r + 0.587*g + 0.114*b;
+  return l >= WHITE_LUMA_KEEP && r >= WHITE_CHANNEL_KEEP && g >= WHITE_CHANNEL_KEEP && b >= WHITE_CHANNEL_KEEP && (max - min) <= WHITE_SATURATION_MAX;
+}
+
 function dotRadiusForLuma(luma, cell){
-  if (luma >= 238) return Math.max(0.45, cell * 0.055);
-  if (luma >= 215) return Math.max(0.55, cell * 0.075);
-  const density = Math.max(0, Math.min(1, (238 - luma) / (238 - BLACK_LUMA_CUTOFF)));
-  return Math.max(0.65, cell * (0.10 + density * 0.42));
+  if (luma >= WHITE_LUMA_KEEP) return 0;
+  if (luma >= 205) return Math.max(0.38, cell * 0.045);
+  const density = Math.max(0, Math.min(1, (WHITE_LUMA_KEEP - luma) / (WHITE_LUMA_KEEP - BLACK_LUMA_CUTOFF)));
+  return Math.max(0.42, cell * (0.06 + Math.pow(density, 0.82) * 0.34));
 }
 
 function triggerDownload(){
@@ -358,8 +369,9 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.3, 'Detectando máscara...');
   await new Promise(r => requestAnimationFrame(r));
 
-  // Build print mask: alpha/subject minus all black areas. Black must stay transparent.
+  // Build print mask: alpha/subject minus black and protected white/text areas.
   const mask = new Uint8Array(OUT_W * OUT_H);
+  const whiteMask = new Uint8Array(OUT_W * OUT_H);
   let alphaCount = 0;
   for (let y=0,i=0,p=0; y<OUT_H; y++){
     for (let x=0; x<OUT_W; x++, i+=4, p++){
@@ -373,11 +385,16 @@ $('processBtn').addEventListener('click', async () => {
       mask[p] = 0;
       continue;
     }
+    if (isProtectedWhite(data, i)) {
+      whiteMask[p] = 1;
+      mask[p] = 0;
+      continue;
+    }
     if (useAlpha){
       mask[p] = data[i+3] > 30 ? 1 : 0;
     } else {
       const L = lumaAt(data, i);
-      mask[p] = L < 252 ? 1 : 0; // keep whites/text, only true background stays empty
+      mask[p] = L < WHITE_LUMA_KEEP ? 1 : 0; // white/text is preserved, not halftoned
     }
   }
 
@@ -407,6 +424,7 @@ $('processBtn').addEventListener('click', async () => {
   } else {
     await renderRosetteRGB(octx, data, mask, dist, OUT_W, OUT_H, cell, baseAngle, auraPx);
   }
+  restoreProtectedWhites(octx, data, whiteMask, OUT_W, OUT_H);
 
   setProgress(0.95, 'Gerando PNG...');
   await new Promise(r => requestAnimationFrame(r));
@@ -462,12 +480,24 @@ function computeDistanceOutside(mask, W, H, maxDist){
   return d;
 }
 
+function restoreProtectedWhites(ctx, data, whiteMask, W, H){
+  const white = ctx.createImageData(W, H);
+  const out = white.data;
+  for (let p=0,i=0; p<whiteMask.length; p++, i+=4){
+    if (!whiteMask[p]) continue;
+    out[i] = data[i];
+    out[i+1] = data[i+1];
+    out[i+2] = data[i+2];
+    out[i+3] = data[i+3];
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.putImageData(white, 0, 0);
+}
+
 // === CLEAN RGB: single rotated grid sampling colors ===
 async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraPx){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
-  const minR = Math.max(0.45, cell * 0.055);
-
   // iterate in rotated grid space
   // get bounding box of rotated grid covering W×H
   const diag = Math.ceil(Math.sqrt(W*W + H*H));
@@ -491,21 +521,21 @@ async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraP
       if (!inside && distOut > auraPx) continue;
 
       const di = p*4;
-      if (isBlackPixel(data, di)) continue;
+      if (isBlackPixel(data, di) || isProtectedWhite(data, di)) continue;
       const r = data[di], g = data[di+1], b = data[di+2];
       const L = lumaAt(data, di);
 
-      // Black is never printed. White/text uses very small clean dots.
+      // Black is never printed. Whites/text are restored later without halftone.
       let radius = dotRadiusForLuma(L, cell);
-      let alpha = 1.0;
-      if (L >= 238) alpha = 0.72;
+      if (radius <= 0) continue;
+      let alpha = L >= 205 ? 0.8 : 1.0;
 
       if (!inside){
         // aura fade: linear shrink + alpha fade
         const fade = 1 - (distOut / auraPx); // 1 at edge → 0 at end
         radius *= fade;
         alpha = fade;
-        if (radius < 0.5 || alpha < 0.05) continue;
+        if (radius < 0.35 || alpha < 0.05) continue;
       }
 
       ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha.toFixed(3)})`;
@@ -535,8 +565,8 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
     const { idx, angle, color } = channels[ch];
     const rad = (angle + baseAngle - 45) * Math.PI/180;
     const cosA = Math.cos(rad), sinA = Math.sin(rad);
-      const maxR = cell * 0.44;
-      const minR = Math.max(0.45, cell * 0.05);
+    const maxR = cell * 0.38;
+    const minR = Math.max(0.32, cell * 0.04);
     const diag = Math.ceil(Math.sqrt(W*W + H*H));
     const half = diag/2;
     const cx = W/2, cy = H/2;
@@ -552,18 +582,19 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
         if (!inside && distOut > auraPx) continue;
 
         const di = p*4;
-        if (isBlackPixel(data, di)) continue;
+        if (isBlackPixel(data, di) || isProtectedWhite(data, di)) continue;
         const L = lumaAt(data, di);
         const v = data[di + idx]; // channel value 0..255
-        const t = L >= 238 ? 0.06 : (v / 255);
+        if (L >= WHITE_LUMA_KEEP) continue;
+        const t = Math.max(0.05, v / 255);
         let radius = minR + t * (maxR - minR);
-        let alpha = L >= 238 ? 0.34 : 0.72;
+        let alpha = L >= 205 ? 0.42 : 0.74;
 
         if (!inside){
           const fade = 1 - (distOut/auraPx);
           radius *= fade;
           alpha *= fade;
-          if (radius < 0.5 || alpha < 0.05) continue;
+          if (radius < 0.35 || alpha < 0.05) continue;
         }
 
         ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)})`;
