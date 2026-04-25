@@ -509,21 +509,21 @@ async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraP
       if (!inside && distOut > auraPx) continue;
 
       const di = p*4;
-      if (isBlackPixel(data, di)) continue;
+      if (isBlackPixel(data, di) || isProtectedWhite(data, di)) continue;
       const r = data[di], g = data[di+1], b = data[di+2];
       const L = lumaAt(data, di);
 
-      // Black is never printed. White/text uses very small clean dots.
+      // Black is never printed. Whites/text are restored later without halftone.
       let radius = dotRadiusForLuma(L, cell);
-      let alpha = 1.0;
-      if (L >= 238) alpha = 0.72;
+      if (radius <= 0) continue;
+      let alpha = L >= 205 ? 0.8 : 1.0;
 
       if (!inside){
         // aura fade: linear shrink + alpha fade
         const fade = 1 - (distOut / auraPx); // 1 at edge → 0 at end
         radius *= fade;
         alpha = fade;
-        if (radius < 0.5 || alpha < 0.05) continue;
+        if (radius < 0.35 || alpha < 0.05) continue;
       }
 
       ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha.toFixed(3)})`;
@@ -570,18 +570,19 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
         if (!inside && distOut > auraPx) continue;
 
         const di = p*4;
-        if (isBlackPixel(data, di)) continue;
+        if (isBlackPixel(data, di) || isProtectedWhite(data, di)) continue;
         const L = lumaAt(data, di);
         const v = data[di + idx]; // channel value 0..255
-        const t = L >= 238 ? 0.06 : (v / 255);
+        if (L >= WHITE_LUMA_KEEP) continue;
+        const t = Math.max(0.05, v / 255);
         let radius = minR + t * (maxR - minR);
-        let alpha = L >= 238 ? 0.34 : 0.72;
+        let alpha = L >= 205 ? 0.42 : 0.74;
 
         if (!inside){
           const fade = 1 - (distOut/auraPx);
           radius *= fade;
           alpha *= fade;
-          if (radius < 0.5 || alpha < 0.05) continue;
+          if (radius < 0.35 || alpha < 0.05) continue;
         }
 
         ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)})`;
