@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Download, ImageIcon, Loader2, Settings2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   DEFAULT_OPTIONS,
@@ -31,89 +30,37 @@ const LPI_DEFAULT = 35;
 export function HalftoneStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourcePreview, setSourcePreview] = useState<string | null>(null);
-  const [previewResult, setPreviewResult] = useState<ProcessedResult | null>(null);
   const [fullResult, setFullResult] = useState<ProcessedResult | null>(null);
   const [stage, setStage] = useState("");
   const [pct, setPct] = useState(0);
   const [busy, setBusy] = useState(false);
   const [opts, setOpts] = useState<HalftoneOptions>({ ...DEFAULT_OPTIONS, lpi: LPI_DEFAULT });
-  const [livePreview, setLivePreview] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const cachedImg = useRef<HTMLImageElement | null>(null);
-  const previewTimer = useRef<number | null>(null);
-  const previewRunId = useRef(0);
 
-  const runPreview = useCallback(async (file: File, options: HalftoneOptions) => {
-    const runId = ++previewRunId.current;
-    setBusy(true);
-    try {
-      if (!cachedImg.current) cachedImg.current = await loadImage(file);
-      const img = cachedImg.current;
-      const blob = await processImage(
-        img,
-        options,
-        (s, p) => {
-          if (runId !== previewRunId.current) return;
-          setStage(s);
-          setPct(p);
-        },
-        700,
-      );
-      if (runId !== previewRunId.current) return;
-      setPreviewResult((prev) => {
-        if (prev?.url) URL.revokeObjectURL(prev.url);
-        return {
-          blob,
-          url: URL.createObjectURL(blob),
-          filename: previewName(file.name),
-          sizeKB: Math.round(blob.size / 1024),
-        };
-      });
-    } finally {
-      if (runId === previewRunId.current) {
-        setBusy(false);
-        setStage("");
-        setPct(0);
-      }
-    }
+  const handleFile = useCallback(async (file: File) => {
+    cachedImg.current = null;
+    setSourceFile(file);
+    setFullResult(null);
+    const url = URL.createObjectURL(file);
+    setSourcePreview(url);
   }, []);
-
-  const handleFile = useCallback(
-    async (file: File) => {
-      cachedImg.current = null;
-      setSourceFile(file);
-      setFullResult(null);
-      setPreviewResult(null);
-      const url = URL.createObjectURL(file);
-      setSourcePreview(url);
-      if (livePreview) runPreview(file, opts);
-    },
-    [livePreview, opts, runPreview],
-  );
-
-  useEffect(() => {
-    if (!sourceFile || !livePreview) return;
-    if (previewTimer.current) window.clearTimeout(previewTimer.current);
-    previewTimer.current = window.setTimeout(() => {
-      runPreview(sourceFile, opts);
-    }, 280);
-    return () => {
-      if (previewTimer.current) window.clearTimeout(previewTimer.current);
-    };
-  }, [livePreview, opts, runPreview, sourceFile]);
 
   const runFullExport = useCallback(async () => {
     if (!sourceFile) return;
-    previewRunId.current++;
     setBusy(true);
+    // Process-then-reveal: hide previous result during processing.
+    if (fullResult?.url) URL.revokeObjectURL(fullResult.url);
     setFullResult(null);
     try {
       const img = cachedImg.current ?? (await loadImage(sourceFile));
       cachedImg.current = img;
+      // All halftone math runs on OffscreenCanvas inside processImage().
       const blob = await processImage(img, opts, (s, p) => {
         setStage(s);
         setPct(p);
       });
+      // ONLY now reveal the final image.
       setFullResult({
         blob,
         url: URL.createObjectURL(blob),
@@ -125,7 +72,7 @@ export function HalftoneStudio() {
       setStage("");
       setPct(0);
     }
-  }, [opts, sourceFile]);
+  }, [opts, sourceFile, fullResult]);
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -136,7 +83,6 @@ export function HalftoneStudio() {
     [handleFile],
   );
 
-  const currentOutput = busy ? null : fullResult?.url ?? previewResult?.url ?? null;
   const mode: HalftoneMode = opts.mode ?? "rosette_cmyk";
   const lpi = opts.lpi ?? LPI_DEFAULT;
 
@@ -166,16 +112,16 @@ export function HalftoneStudio() {
                   <ImageIcon className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Dual-Mode Halftone Engine
+                  Dual-Mode Halftone Engine · DTF
                 </span>
               </div>
               <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
                 🟠 Rosette CMYK · 🔵 Round Clean
               </h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
-                Vanilla Canvas · sem libs externas. Rosette gera padrões CMYK reais com 4 ângulos.
-                Round produz pontos circulares limpos com aura colorida orgânica em fundo
-                transparente.
+                Fundo 100% transparente (vazado), pontos mínimos de 1.5px (~0.5mm) — sem buracos
+                brancos. Processamento em OffscreenCanvas; o resultado só aparece quando 100%
+                pronto.
               </p>
             </div>
             <div className="rounded-md border border-border bg-card/50 px-4 py-2 text-sm backdrop-blur">
@@ -211,16 +157,15 @@ export function HalftoneStudio() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <PreviewCard title="Original" url={sourcePreview} meta={sourceFile?.name ?? ""} />
                   <PreviewCard
-                    title={fullResult ? "Final 300 DPI" : "Preview"}
-                    url={currentOutput}
+                    title={fullResult ? "Final 300 DPI · PNG-32" : "Resultado"}
+                    // PROCESS-THEN-REVEAL: only show URL when not busy AND fully done.
+                    url={busy ? null : fullResult?.url ?? null}
                     meta={
                       busy
                         ? "Processando…"
                         : fullResult
-                          ? `${fullResult.sizeKB} KB · 3307×4930`
-                          : previewResult
-                            ? `${previewResult.sizeKB} KB · preview`
-                            : "Aguardando render"
+                          ? `${fullResult.sizeKB} KB · 3307×4930 · transparente`
+                          : "Clique em Gerar para processar"
                     }
                     highlight={!!fullResult && !busy}
                     busy={busy}
@@ -254,22 +199,22 @@ export function HalftoneStudio() {
                     ) : (
                       <Settings2 className="h-4 w-4" />
                     )}
-                    Generate &amp; Download
+                    Gerar Halftone
                   </Button>
-                  {fullResult && (
+                  {fullResult && !busy && (
                     <Button asChild size="lg" variant="secondary">
                       <a href={fullResult.url} download={fullResult.filename}>
                         <Download className="h-4 w-4" />
-                        Download PNG ({fullResult.sizeKB} KB)
+                        Baixar PNG ({fullResult.sizeKB} KB)
                       </a>
                     </Button>
                   )}
                   <Button
                     variant="ghost"
                     onClick={() => {
+                      if (fullResult?.url) URL.revokeObjectURL(fullResult.url);
                       setSourceFile(null);
                       setSourcePreview(null);
-                      setPreviewResult(null);
                       setFullResult(null);
                     }}
                     disabled={busy}
@@ -290,6 +235,7 @@ export function HalftoneStudio() {
                   value={mode}
                   onValueChange={(v) => v && switchMode(v as HalftoneMode)}
                   className="grid grid-cols-2 gap-1"
+                  disabled={busy}
                 >
                   <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-xs">
                     🟠 Rosette CMYK
@@ -300,8 +246,8 @@ export function HalftoneStudio() {
                 </ToggleGroup>
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {mode === "rosette_cmyk"
-                    ? "4 telas C/M/Y/K em ângulos diferentes (+15°, +75°, 0°, +45°) geram rosetas autênticas."
-                    : "Grade única, mesmo ângulo para todos os pontos. Aura colorida de 60px em volta do sujeito."}
+                    ? "4 telas C/M/Y/K em ângulos fixos (15°/75°/0°/45°). Fundo vazado para DTF."
+                    : "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."}
                 </p>
               </div>
 
@@ -316,6 +262,7 @@ export function HalftoneStudio() {
                     min={LPI_MIN}
                     max={LPI_MAX}
                     step={1}
+                    disabled={busy}
                     onChange={(e) => setLpi(parseInt(e.target.value, 10))}
                     className="h-7 w-20 text-right font-mono text-xs"
                   />
@@ -325,6 +272,7 @@ export function HalftoneStudio() {
                   min={LPI_MIN}
                   max={LPI_MAX}
                   step={1}
+                  disabled={busy}
                   onValueChange={([v]) => setLpi(v)}
                 />
                 <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
@@ -336,17 +284,16 @@ export function HalftoneStudio() {
 
               <Separator />
 
-              <div className="flex items-center justify-between">
-                <Label htmlFor="live-preview" className="text-sm text-foreground">
-                  Preview ao vivo
-                </Label>
-                <Switch id="live-preview" checked={livePreview} onCheckedChange={setLivePreview} />
+              <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                <strong className="text-foreground">Regra DTF:</strong> dot mínimo 1.5px (~0.5mm).
+                Sem buracos brancos no sujeito. Fundo 100% alpha 0.
               </div>
 
               <Button
                 variant="ghost"
                 size="sm"
                 className="w-full"
+                disabled={busy}
                 onClick={() => setOpts({ ...DEFAULT_OPTIONS, lpi: LPI_DEFAULT })}
               >
                 Resetar parâmetros
@@ -419,9 +366,4 @@ function PreviewCard({
 function exportName(name: string) {
   const base = name.replace(/\.[^.]+$/, "");
   return `${base}_halftone_300dpi.png`;
-}
-
-function previewName(name: string) {
-  const base = name.replace(/\.[^.]+$/, "");
-  return `${base}_preview.png`;
 }
