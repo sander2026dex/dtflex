@@ -470,6 +470,9 @@ async function renderCircular(
       const insideSubject = subj[p] === 1;
 
       if (insideSubject) {
+        // SKIP large white regions entirely → clean transparent areas.
+        if (whiteMask[p]) continue;
+
         const di = (yi * w + xi) * 4;
         const R = data[di], G = data[di + 1], B = data[di + 2];
         const lum = luma01(R, G, B);
@@ -477,14 +480,9 @@ async function renderCircular(
         // GOLDEN RULE #2 — pure-black knockout.
         if (lum < LUM_BLACK_KNOCKOUT) continue;
 
-        // GOLDEN RULE #3 — highlight protection: 1.5px @ 40%.
-        if (lum > LUM_WHITE_PROTECT) {
-          ctx.fillStyle = `rgba(${R},${G},${B},${HIGHLIGHT_OPACITY})`;
-          ctx.beginPath();
-          ctx.arc(px, py, MIN_DOT_RADIUS, 0, Math.PI * 2);
-          ctx.fill();
-          continue;
-        }
+        // GOLDEN RULE #3 — true highlight: skip dot (large whites already
+        // skipped above; remaining are tiny edges → leave clean).
+        if (lum > LUM_WHITE_PROTECT) continue;
 
         // GOLDEN RULE #4 — midtone radius from inverted luminance.
         const inv = 1 - lum;
