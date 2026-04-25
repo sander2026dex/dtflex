@@ -374,6 +374,10 @@ async function renderRosette(
         const py = cy + gx * sin + gy * cos;
         const xi = Math.round(px), yi = Math.round(py);
         if (xi < 0 || xi >= w || yi < 0 || yi >= h) continue;
+
+        // SKIP large white regions entirely → clean transparent areas.
+        if (whiteMask[yi * w + xi]) continue;
+
         const di = (yi * w + xi) * 4;
         const R = data[di], G = data[di + 1], B = data[di + 2];
         const lum = luma01(R, G, B);
@@ -381,16 +385,10 @@ async function renderRosette(
         // GOLDEN RULE #2 — pure black knockout (handled later via composite).
         if (lum < LUM_BLACK_KNOCKOUT) continue;
 
-        // GOLDEN RULE #3 — highlight protection: tiny K-only structural dot.
-        if (lum > LUM_WHITE_PROTECT) {
-          if (s.channel !== 3) continue;
-          lctx.globalAlpha = HIGHLIGHT_OPACITY;
-          lctx.beginPath();
-          lctx.arc(px, py, MIN_DOT_RADIUS, 0, Math.PI * 2);
-          lctx.fill();
-          lctx.globalAlpha = 1;
-          continue;
-        }
+        // GOLDEN RULE #3 — highlight protection: skip dot in true highlights
+        // (large white regions already skipped above; remaining highlights are
+        // small/edge → leave clean instead of speckling).
+        if (lum > LUM_WHITE_PROTECT) continue;
 
         // GOLDEN RULE #4 — midtone scaling by TRUE CMYK channel coverage.
         const cmyk = rgbToCmyk(R, G, B);
