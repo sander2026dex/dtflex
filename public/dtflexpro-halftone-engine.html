@@ -466,19 +466,7 @@ function computeDistanceOutside(mask, W, H, maxDist){
   return d;
 }
 
-function restoreProtectedWhites(ctx, data, whiteMask, W, H){
-  const white = ctx.createImageData(W, H);
-  const out = white.data;
-  for (let p=0,i=0; p<whiteMask.length; p++, i+=4){
-    if (!whiteMask[p]) continue;
-    out[i] = data[i];
-    out[i+1] = data[i+1];
-    out[i+2] = data[i+2];
-    out[i+3] = data[i+3];
-  }
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.putImageData(white, 0, 0);
-}
+// (removido) restoreProtectedWhites — branco agora vira ponto branco real via halftone.
 
 // === CLEAN RGB: single rotated grid sampling colors ===
 async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraPx){
