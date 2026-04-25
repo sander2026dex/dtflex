@@ -321,7 +321,7 @@ function init() {
     state.mode = btn.dataset.mode;
     document.querySelectorAll('#modeToggle button').forEach(b =>
       b.classList.toggle('active', b === btn));
-    $('modePill').textContent = state.mode === 'rosette' ? 'ROSETTE CMYK' : 'ROUND CLEAN';
+    $('modePill').textContent = state.mode === 'rosette' ? 'ROSETTE CMY · PRETO VAZADO' : 'ROUND CLEAN · PRETO VAZADO';
   });
 
   $('lpi').addEventListener('input', (e) => {
