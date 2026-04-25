@@ -175,7 +175,7 @@
 <body>
 <header>
   <h1>🎨 RETICULA STUDIO — DTFLEXPRO</h1>
-  <p>RGB Halftone Engine • 3307×4930px • PNG Transparente</p>
+  <p>RGB Halftone Engine • Sem preto • Retícula vazada transparente • 3307×4930px</p>
 </header>
 
 <div class="container">
@@ -188,7 +188,7 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Recomendado: PNG sem fundo para melhor detecção da aura.</p>
+      <p class="info-text">Preto e sombras pretas serão removidos. Branco sai em retícula menor.</p>
     </div>
 
     <div class="control-group">
@@ -229,6 +229,8 @@
 
 <script>
 const OUT_W = 3307, OUT_H = 4930;
+const BLACK_LUMA_CUTOFF = 58;
+const BLACK_CHANNEL_CUTOFF = 72;
 let sourceImage = null;
 let mode = 'clean';
 let outputBlob = null;
@@ -287,6 +289,35 @@ function setProgress(p, msg){
   if (msg) $('statusText').textContent = msg;
 }
 
+function lumaAt(data, i){
+  return 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+}
+
+function isBlackPixel(data, i){
+  const r = data[i], g = data[i+1], b = data[i+2];
+  const l = 0.299*r + 0.587*g + 0.114*b;
+  return l <= BLACK_LUMA_CUTOFF && r <= BLACK_CHANNEL_CUTOFF && g <= BLACK_CHANNEL_CUTOFF && b <= BLACK_CHANNEL_CUTOFF;
+}
+
+function dotRadiusForLuma(luma, cell){
+  if (luma >= 238) return Math.max(0.45, cell * 0.055);
+  if (luma >= 215) return Math.max(0.55, cell * 0.075);
+  const density = Math.max(0, Math.min(1, (238 - luma) / (238 - BLACK_LUMA_CUTOFF)));
+  return Math.max(0.65, cell * (0.10 + density * 0.42));
+}
+
+function triggerDownload(){
+  if (!outputBlob) return;
+  const url = URL.createObjectURL(outputBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dtflex-reticula-sem-preto-${mode}-${Date.now()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // === Process ===
 $('processBtn').addEventListener('click', async () => {
   if (!sourceImage) return;
@@ -327,7 +358,7 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.3, 'Detectando máscara...');
   await new Promise(r => requestAnimationFrame(r));
 
-  // Build subject mask (alpha if available, else luminance threshold)
+  // Build print mask: alpha/subject minus all black areas. Black must stay transparent.
   const mask = new Uint8Array(OUT_W * OUT_H);
   let alphaCount = 0;
   for (let y=0,i=0,p=0; y<OUT_H; y++){
@@ -337,11 +368,16 @@ $('processBtn').addEventListener('click', async () => {
   }
   const useAlpha = alphaCount > 5000;
   for (let i=0,p=0; p<mask.length; i+=4, p++){
+    if (isBlackPixel(data, i)) {
+      data[i+3] = 0;
+      mask[p] = 0;
+      continue;
+    }
     if (useAlpha){
       mask[p] = data[i+3] > 30 ? 1 : 0;
     } else {
-      const L = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
-      mask[p] = L < 245 ? 1 : 0; // assume non-near-white = subject
+      const L = lumaAt(data, i);
+      mask[p] = L < 252 ? 1 : 0; // keep whites/text, only true background stays empty
     }
   }
 
@@ -377,7 +413,7 @@ $('processBtn').addEventListener('click', async () => {
 
   out.toBlob(blob => {
     outputBlob = blob;
-    setProgress(1, '✅ Pronto! Clique em Download.');
+    setProgress(1, '✅ Pronto! Download iniciado.');
     $('downloadBtn').disabled = false;
     $('processBtn').disabled = false;
 
@@ -388,6 +424,7 @@ $('processBtn').addEventListener('click', async () => {
     previewCanvas.height = maxH;
     pctx.clearRect(0,0,maxW,maxH);
     pctx.drawImage(out, 0, 0, maxW, maxH);
+    triggerDownload();
   }, 'image/png');
 });
 
@@ -429,8 +466,7 @@ function computeDistanceOutside(mask, W, H, maxDist){
 async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraPx){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
-  const maxR = cell * 0.55; // big dots for blacks
-  const minR = 1.5;
+  const minR = Math.max(0.45, cell * 0.055);
 
   // iterate in rotated grid space
   // get bounding box of rotated grid covering W×H
@@ -455,13 +491,14 @@ async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraP
       if (!inside && distOut > auraPx) continue;
 
       const di = p*4;
+      if (isBlackPixel(data, di)) continue;
       const r = data[di], g = data[di+1], b = data[di+2];
-      const L = 0.299*r + 0.587*g + 0.114*b;
+      const L = lumaAt(data, di);
 
-      // Black -> max radius, White -> min radius
-      const t = 1 - (L/255); // 0..1, 1 = black
-      let radius = minR + t * (maxR - minR);
+      // Black is never printed. White/text uses very small clean dots.
+      let radius = dotRadiusForLuma(L, cell);
       let alpha = 1.0;
+      if (L >= 238) alpha = 0.72;
 
       if (!inside){
         // aura fade: linear shrink + alpha fade
@@ -487,9 +524,9 @@ async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraP
 // === ROSETTE RGB: 3 channels at classic-ish angles, additive blend ===
 async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, auraPx){
   const channels = [
-    { idx: 0, angle: 15, color: 'rgb(255,0,0)' },   // R
-    { idx: 1, angle: 75, color: 'rgb(0,255,0)' },   // G
-    { idx: 2, angle: 0,  color: 'rgb(0,0,255)' },   // B
+    { idx: 0, angle: 15, color: [255,0,0] },
+    { idx: 1, angle: 75, color: [0,255,0] },
+    { idx: 2, angle: 0,  color: [0,0,255] },
   ];
 
   ctx.globalCompositeOperation = 'lighter'; // additive
@@ -498,13 +535,11 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
     const { idx, angle, color } = channels[ch];
     const rad = (angle + baseAngle - 45) * Math.PI/180;
     const cosA = Math.cos(rad), sinA = Math.sin(rad);
-    const maxR = cell * 0.5;
-    const minR = 1.0;
+      const maxR = cell * 0.44;
+      const minR = Math.max(0.45, cell * 0.05);
     const diag = Math.ceil(Math.sqrt(W*W + H*H));
     const half = diag/2;
     const cx = W/2, cy = H/2;
-
-    ctx.fillStyle = color;
 
     for (let gy=-half; gy<=half; gy+=cell){
       for (let gx=-half; gx<=half; gx+=cell){
@@ -517,11 +552,12 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
         if (!inside && distOut > auraPx) continue;
 
         const di = p*4;
+        if (isBlackPixel(data, di)) continue;
+        const L = lumaAt(data, di);
         const v = data[di + idx]; // channel value 0..255
-        // strong channel = big dot
-        const t = v / 255;
+        const t = L >= 238 ? 0.06 : (v / 255);
         let radius = minR + t * (maxR - minR);
-        let alpha = 0.85;
+        let alpha = L >= 238 ? 0.34 : 0.72;
 
         if (!inside){
           const fade = 1 - (distOut/auraPx);
@@ -530,7 +566,7 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
           if (radius < 0.5 || alpha < 0.05) continue;
         }
 
-        ctx.globalAlpha = alpha;
+        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)})`;
         ctx.beginPath();
         ctx.arc(ix, iy, radius, 0, Math.PI*2);
         ctx.fill();
@@ -542,21 +578,12 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
       }
     }
   }
-  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
 }
 
 // === Download ===
 $('downloadBtn').addEventListener('click', () => {
-  if (!outputBlob) return;
-  const url = URL.createObjectURL(outputBlob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `dtflex-reticula-${mode}-${Date.now()}.png`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  triggerDownload();
 });
 </script>
 </body>
