@@ -182,6 +182,54 @@ function subjectMaskFromCorners(img: ImageData, tolerance = 32): Uint8Array {
   return subj;
 }
 
+// Erode: keeps only pixels where ALL neighbors within radius r are also "on".
+// Used to find LARGE contiguous regions (small specks vanish).
+function erode(mask: Uint8Array, w: number, h: number, r: number): Uint8Array {
+  if (r <= 0) return mask.slice();
+  const tmp = new Uint8Array(mask.length);
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 1;
+      for (let dx = -r; dx <= r; dx++) {
+        const xx = x + dx;
+        if (xx < 0 || xx >= w) { v = 0; break; }
+        if (!mask[y * w + xx]) { v = 0; break; }
+      }
+      tmp[y * w + x] = v;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 1;
+      for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) { v = 0; break; }
+        if (!tmp[yy * w + x]) { v = 0; break; }
+      }
+      out[y * w + x] = v;
+    }
+  }
+  return out;
+}
+
+// Builds a "large white area" mask: pixels that are near-white AND belong to a
+// big contiguous white region (small white specks inside the subject are NOT
+// flagged, so detail is preserved). Used to skip halftone entirely in those
+// areas → clean transparent ("vazado") whites without speckled "holes".
+function largeWhiteMask(img: ImageData, erodeRadius = 6): Uint8Array {
+  const { width: w, height: h, data } = img;
+  const total = w * h;
+  const white = new Uint8Array(total);
+  for (let i = 0, di = 0; i < total; i++, di += 4) {
+    const r = data[di], g = data[di + 1], b = data[di + 2];
+    // Near-white threshold (post-curve): RGB all > 235
+    if (r > 235 && g > 235 && b > 235) white[i] = 1;
+  }
+  // Erosion isolates only LARGE white regions (radius ~ small dot footprint).
+  return erode(white, w, h, erodeRadius);
+}
+
 function dilate(subj: Uint8Array, w: number, h: number, r: number): Uint8Array {
   if (r <= 0) return subj.slice();
   const tmp = new Uint8Array(subj.length);
