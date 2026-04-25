@@ -45,15 +45,20 @@ export const DEFAULT_OPTIONS: HalftoneOptions = {
   whiteThreshold: 0.4,
 };
 
-/* ---------- Pre-computed tone curve LUT (Levels 80/1.0/255 + Gamma 0.88) ----- */
+/* ---------- Pre-computed tone curve LUT (SAFE Levels 30/1.0/255 + Gamma 0.92) -
+ * SOFTENED from the previous "Levels 80" crush which was deleting all subject
+ * detail (turning everything into pure black, then triggering the L<12
+ * knockout → invisible image). Levels 30 still kills washed-out shadows but
+ * preserves midtone information so the subject remains fully visible. */
 const TONE_LUT: Uint8ClampedArray = (() => {
   const lut = new Uint8ClampedArray(256);
-  const gammaInv = 1 / 0.88;
+  const gammaInv = 1 / 0.92;
   for (let v = 0; v < 256; v++) {
-    // Step 1: Levels 80/1.0/255 — crush shadows, expand remaining range.
-    let x = v < 80 ? 0 : (v - 80) * (255 / 175);
+    // Step 1: Levels 30/1.0/255 — soft shadow crush, expand remaining range.
+    // Formula:  val = val < 30 ? 0 : (val - 30) * (255 / 225)
+    let x = v < 30 ? 0 : (v - 30) * (255 / 225);
     if (x > 255) x = 255;
-    // Step 2: Gamma 0.88 (darker midtones).  out = ((x/255)^(1/0.88))*255
+    // Step 2: Mild Gamma 0.92 — gentle midtone deepening, no crush.
     x = Math.pow(x / 255, gammaInv) * 255;
     lut[v] = Math.max(0, Math.min(255, Math.round(x)));
   }
@@ -93,7 +98,7 @@ export async function processImage(
 ): Promise<Blob> {
   const progress = onProgress ?? (() => {});
   dotCache.clear(); // fresh cache per run keeps memory bounded across uploads
-  progress("Pre-process · Levels 80/255 + Gamma 0.88", 5);
+  progress("Pre-process · Levels 30/255 + Gamma 0.92", 5);
 
   // 1. Fit source into output canvas (preserve aspect, center).
   const out = new OffscreenCanvas(OUTPUT_WIDTH, OUTPUT_HEIGHT);
@@ -140,7 +145,7 @@ export async function processImage(
 
   if (mode === "rosette_cmyk") {
     progress("Rendering Rosette CMYK · 4 screens", 35);
-    renderRosette(hctx, prep, opts, progress);
+    renderRosette(hctx, prep, opts, progress, dw, dh);
   } else {
     progress("Rendering Clean Organic + Aura", 35);
     renderClean(hctx, prep, opts, progress);
@@ -291,11 +296,18 @@ function renderClean(
         let dotAlpha = 1;
         let color = "#000000";
 
-        // PURE BLACK KNOCKOUT — L < 12 → fully transparent (vazado).
-        if (L < 12) continue;
+        // PURE BLACK KNOCKOUT — only truly pure black (L<6) → vazado.
+        // Lowered from 12 so we don't punch holes in dark midtones.
+        if (L < 6) continue;
 
-        // HIGHLIGHT PROTECTION — L > 242 → micro dot, low opacity, never holes.
-        if (L > 242) {
+        // SPOT WHITE UNDERBASE — bright pixels (L>200) render as a small
+        // white dot to simulate DTF white-ink underbase on dark fabric.
+        if (L > 200) {
+          radius = Math.max(1.5, step * 0.22);
+          color = "#ffffff";
+          dotAlpha = 0.85;
+        } else if (L > 242) {
+          // (kept for safety — unreachable due to branch above, but harmless)
           radius = 1.5;
           dotAlpha = 0.4;
         } else {
@@ -417,6 +429,8 @@ function renderRosette(
   prep: Prepared,
   opts: HalftoneOptions,
   progress: Progress,
+  dw: number,
+  dh: number,
 ) {
   const { w, h, rgba, lum, alpha, workScale } = prep;
   // Step in working pixels (see renderClean for derivation).
@@ -449,18 +463,45 @@ function renderRosette(
     K[i] = k;
   }
 
-  // Render each channel with multiply so dots blend optically.
-  ctx.globalCompositeOperation = "multiply";
+  // ------------------------------------------------------------------
+  // FIX: `multiply` blending only works against an opaque destination.
+  // On a transparent canvas, multiplying yellow * alpha=0 = invisible.
+  // Solution: render channels onto a temp WHITE canvas using multiply,
+  // then knock out the white background back to alpha and composite
+  // the result onto the (transparent) output ctx.
+  // ------------------------------------------------------------------
+  const temp = new OffscreenCanvas(dw, dh);
+  const tctx = temp.getContext("2d", { alpha: true })!;
+  tctx.fillStyle = "#ffffff";
+  tctx.fillRect(0, 0, dw, dh);
+  tctx.globalCompositeOperation = "multiply";
 
   let done = 0;
   for (const ch of channels) {
     const data = ch.name === "C" ? C : ch.name === "M" ? M : ch.name === "Y" ? Y : K;
-    plotChannel(ctx, data, lum, alpha, w, h, step, ch.deg, ch.hex);
+    plotChannel(tctx, data, lum, alpha, w, h, step, ch.deg, ch.hex);
     done++;
     progress(`Rosette · screen ${done}/4 (${ch.name})`, 35 + done * 12);
   }
 
-  ctx.globalCompositeOperation = "source-over";
+  tctx.globalCompositeOperation = "source-over";
+
+  // Knockout pure-white background → transparent. Anything that was touched
+  // by ink is darker than 250 and survives. Subject mask (alpha>32) is also
+  // honored so background outside the art stays fully transparent.
+  const td = tctx.getImageData(0, 0, dw, dh);
+  const px = td.data;
+  for (let i = 0, p = 0; i < len; i++, p += 4) {
+    const r = px[p], g = px[p + 1], b = px[p + 2];
+    // Outside the original subject → fully transparent.
+    if (alpha[i] < 32) { px[p + 3] = 0; continue; }
+    // Pure white (untouched by any channel) → transparent.
+    if (r > 248 && g > 248 && b > 248) { px[p + 3] = 0; continue; }
+    px[p + 3] = 255;
+  }
+  tctx.putImageData(td, 0, 0);
+
+  ctx.drawImage(temp, 0, 0);
 }
 
 /* Plot a single CMYK channel on its rotated grid. */
@@ -500,7 +541,7 @@ function plotChannel(
 
       const L = lum[idx];
       // Pure black knockout (vazado) — skip dot on extreme darks.
-      if (L < 12) continue;
+      if (L < 6) continue;
 
       const cov = ink[idx];
       if (cov <= 0.01) continue;
