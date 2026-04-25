@@ -317,7 +317,8 @@ function distanceFromSubjectWithNearest(
 const MIN_DOT_RADIUS = 1.5;          // physical print floor (~0.5 mm @300dpi)
 const HIGHLIGHT_OPACITY = 0.40;      // white-protected dots: 40% opacity
 const LUM_BLACK_KNOCKOUT = 0.05;     // <5% lum → vazado (no ink on dark fabric)
-const LUM_WHITE_PROTECT = 0.95;      // >95% lum → 1.5px @ 40% opacity
+const LUM_WHITE_PROTECT = 0.85;      // >85% lum → skip dot (clean highlight)
+const MIN_INK_COVERAGE = 0.12;       // <12% ink coverage per channel → skip
 const DOT_GAIN_COMPENSATION = 0.88;  // -12% radius for rosette (bleed comp.)
 
 // ============================================================================
