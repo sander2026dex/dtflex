@@ -88,11 +88,18 @@ export function HalftoneStudio() {
 
   const mode: HalftoneMode = opts.mode ?? "rosette_cmyk";
   const lpi = opts.lpi ?? LPI_DEFAULT;
+  const angle = opts.baseAngleDeg ?? ANGLE_DEFAULT;
 
   const setLpi = (raw: number) => {
     if (Number.isNaN(raw)) return;
     const clamped = Math.max(LPI_MIN, Math.min(LPI_MAX, Math.round(raw)));
     setOpts((o) => ({ ...o, lpi: clamped }));
+  };
+
+  const setAngle = (raw: number) => {
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.max(ANGLE_MIN, Math.min(ANGLE_MAX, Math.round(raw)));
+    setOpts((o) => ({ ...o, baseAngleDeg: clamped }));
   };
 
   const switchMode = (newMode: HalftoneMode) => {
