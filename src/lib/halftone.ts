@@ -565,15 +565,16 @@ async function renderRoundClean(
 // PIPELINE OPTIONS + PUBLIC API
 // ============================================================================
 export interface HalftoneOptions {
-  mode?: HalftoneMode;     // "rosette_cmyk" | "round_clean"
+  mode?: HalftoneMode;
   targetW?: number;
   targetH?: number;
   dpi?: number;
-  lpi?: number;            // 22..45 per spec
-  baseAngleDeg?: number;   // 0..90
-  auraRadiusPx?: number;   // 0..120 — only in round_clean (spec default 60)
+  lpi?: number;
+  baseAngleDeg?: number;
+  auraRadiusPx?: number;
   bgTolerance?: number;
   seed?: number;
+  whiteBackground?: boolean; // ROSETTE only — white vs transparent canvas
 }
 
 export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
@@ -581,11 +582,12 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   targetW: 3307,
   targetH: 4930,
   dpi: 300,
-  lpi: 35,                 // spec default
+  lpi: 35,
   baseAngleDeg: 45,
-  auraRadiusPx: 60,        // spec
+  auraRadiusPx: 60,
   bgTolerance: 38,
   seed: 1337,
+  whiteBackground: false,
 };
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
