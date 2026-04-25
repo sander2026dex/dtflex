@@ -403,31 +403,40 @@ $('processBtn').addEventListener('click', async () => {
     data[i+2] = clamp((data[i+2]-128)*f + 128);
   }
 
-  setProgress(0.28, 'Separando preto sólido e brancos com reflexo...');
+  setProgress(0.28, 'Detectando preto (vazado), brancos sólidos e reflexos...');
   await nextFrame();
 
-  const mask = new Uint8Array(OUT_W * OUT_H);          // pixel imprimível (recebe halftone)
-  const blackMask = new Uint8Array(OUT_W * OUT_H);     // preto absoluto sólido
-  const highlightMask = new Uint8Array(OUT_W * OUT_H); // branco com reflexo: poucas retículas
+  const mask = new Uint8Array(OUT_W * OUT_H);            // pixel imprimível
+  const blackMask = new Uint8Array(OUT_W * OUT_H);       // preto -> vazado (transparente)
+  const whitePixelMask = new Uint8Array(OUT_W * OUT_H);  // todos os pixels brancos
 
   for (let i=0,p=0; p<mask.length; i+=4, p++){
-    if (data[i+3] <= 30) continue; // fundo transparente
+    if (data[i+3] <= 30) continue;
     if (isBlackPixel(data, i)) {
       blackMask[p] = 1;
-      mask[p] = 1; // conta como área da figura para a aura
+      // preto fica VAZADO: não entra na máscara imprimível nem na aura
       continue;
     }
     mask[p] = 1;
-    if (isHighlightWhite(data, i)) highlightMask[p] = 1;
+    if (isWhitePixel(data, i)) whitePixelMask[p] = 1;
   }
 
-  setProgress(0.42, 'Calculando área da aura...');
+  setProgress(0.36, 'Separando branco sólido (texto/áreas grandes) de reflexos...');
+  await nextFrame();
+
+  // Classifica regiões brancas conexas pelo tamanho:
+  // grandes -> flatWhiteMask (pinta sólido). Pequenas/isoladas -> highlightMask (poucas retículas).
+  const { flatWhiteMask, highlightMask } = classifyWhiteRegions(
+    whitePixelMask, OUT_W, OUT_H, FLAT_WHITE_MIN_AREA
+  );
+
+  setProgress(0.46, 'Calculando área da aura...');
   await nextFrame();
 
   const auraPx = parseInt($('aura').value, 10);
   const dist = computeDistanceOutside(mask, OUT_W, OUT_H);
 
-  setProgress(0.55, 'Renderizando halftone em alta definição...');
+  setProgress(0.58, 'Renderizando halftone em alta definição...');
   await nextFrame();
 
   const out = document.createElement('canvas');
@@ -440,11 +449,11 @@ $('processBtn').addEventListener('click', async () => {
   const cell = Math.max(7, Math.round(dpi / lpi));
   const angle = parseInt($('angle').value, 10);
 
-  // 1) Preto absoluto sólido — pinta primeiro como #000000
-  paintSolidBlack(octx, blackMask, OUT_W, OUT_H);
+  // 1) Branco sólido (texto/áreas grandes brancas) — pintado sólido FFFFFF
+  paintSolidWhite(octx, flatWhiteMask, OUT_W, OUT_H);
 
-  // 2) Halftone RGB nas demais áreas
-  await renderRoundCleanRGB(octx, data, mask, blackMask, highlightMask, dist, OUT_W, OUT_H, cell, angle, auraPx);
+  // 2) Halftone RGB nas demais áreas (preto fica vazado, reflexos com poucas retículas)
+  await renderRoundCleanRGB(octx, data, mask, blackMask, flatWhiteMask, highlightMask, dist, OUT_W, OUT_H, cell, angle, auraPx);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
