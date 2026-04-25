@@ -543,9 +543,18 @@ async function renderRoundClean(
 
       if (insideSubject) {
         const rgb = sampleRgb(px, py)!;
+        // ----- HIGHLIGHT PROTECTION (Pacino-style clean faces) -----
+        // Skip pure white (RGB > 250) so light skin / paper stays crisp.
+        if (rgb[0] > 250 && rgb[1] > 250 && rgb[2] > 250) continue;
         const brightness = luma255(rgb[0], rgb[1], rgb[2]) / 255;
-        // Linear Golden Rule. NEVER transparent inside subject.
-        const radius = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
+        // Highlight band (>90% brightness) → minimum 1px structural dot.
+        let radius: number;
+        if (brightness > 0.90) {
+          radius = 1.0;
+        } else {
+          // Linear Golden Rule. NEVER transparent inside subject (mid/shadow).
+          radius = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
+        }
         ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
         ctx.beginPath();
         ctx.arc(px, py, radius, 0, Math.PI * 2);
