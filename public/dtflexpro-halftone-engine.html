@@ -503,7 +503,7 @@ function computeDistanceOutside(mask, W, H){
   return d;
 }
 
-function sampleCellColor(data, mask, whiteMask, W, H, cx, cy, cell){
+function sampleCellColor(data, mask, blackMask, W, H, cx, cy, cell){
   const half = Math.max(2, Math.floor(cell * 0.46));
   const step = Math.max(1, Math.floor(cell / 4));
   let r=0, g=0, b=0, count=0, covered=0;
@@ -514,9 +514,9 @@ function sampleCellColor(data, mask, whiteMask, W, H, cx, cy, cell){
       const p = y*W + x;
       if (!mask[p]) continue;
       covered++;
-      if (whiteMask[p]) continue;
+      if (blackMask[p]) continue; // não amostra preto sólido
       const i = p*4;
-      if (data[i+3] <= 30 || isBlackPixel(data, i)) continue;
+      if (data[i+3] <= 30) continue;
       r += data[i]; g += data[i+1]; b += data[i+2];
       count++;
     }
@@ -533,7 +533,26 @@ function sampleCellColor(data, mask, whiteMask, W, H, cx, cy, cell){
   };
 }
 
-async function renderRoundCleanRGB(ctx, data, mask, whiteMask, dist, W, H, cell, angleDeg, auraPx){
+function paintSolidBlack(ctx, blackMask, W, H){
+  // Pinta os pixels da máscara como #000000 sólido
+  const blackCanvas = document.createElement('canvas');
+  blackCanvas.width = W;
+  blackCanvas.height = H;
+  const bctx = blackCanvas.getContext('2d');
+  const imgData = bctx.createImageData(W, H);
+  const out = imgData.data;
+  for (let p=0, i=0; p<blackMask.length; p++, i+=4){
+    if (!blackMask[p]) continue;
+    out[i] = 0;
+    out[i+1] = 0;
+    out[i+2] = 0;
+    out[i+3] = 255;
+  }
+  bctx.putImageData(imgData, 0, 0);
+  ctx.drawImage(blackCanvas, 0, 0);
+}
+
+async function renderRoundCleanRGB(ctx, data, mask, blackMask, highlightMask, dist, W, H, cell, angleDeg, auraPx){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const diag = Math.ceil(Math.sqrt(W*W + H*H));
@@ -551,12 +570,21 @@ async function renderRoundCleanRGB(ctx, data, mask, whiteMask, dist, W, H, cell,
       const inside = mask[p] === 1;
       const distOut = dist[p];
       if (!inside && distOut > auraPx) continue;
-      if (whiteMask[p]) continue;
+      if (blackMask[p]) continue; // preto já foi pintado sólido
 
-      const avg = sampleCellColor(data, mask, whiteMask, W, H, ix, iy, cell);
+      const avg = sampleCellColor(data, mask, blackMask, W, H, ix, iy, cell);
       if (!avg) continue;
 
-      let radius = dotRadiusForLuma(avg.l, cell, avg.coverage);
+      const isHL = highlightMask[p] === 1;
+      // Branco com reflexo: poucas e pequenas retículas, em frequência reduzida
+      if (isHL) {
+        // Reduz frequência: aplica só em ~1 a cada 4 células
+        const cellIx = Math.round((gx + half) / cell);
+        const cellIy = Math.round((gy + half) / cell);
+        if (((cellIx + cellIy) & 3) !== 0) continue;
+      }
+
+      let radius = isHL ? dotRadiusHighlight(cell) : dotRadiusForLuma(avg.l, cell, avg.coverage);
       let alpha = 1;
       if (!inside){
         const fade = auraPx > 0 ? 1 - (distOut / auraPx) : 0;
@@ -571,29 +599,11 @@ async function renderRoundCleanRGB(ctx, data, mask, whiteMask, dist, W, H, cell,
       ctx.fill();
     }
     if (Math.round((gy + half) / cell) % 28 === 0) {
-      const prog = 0.58 + 0.34 * ((gy+half)/diag);
-      setProgress(prog, 'Renderizando retícula normal RGB...');
+      const prog = 0.55 + 0.36 * ((gy+half)/diag);
+      setProgress(prog, 'Renderizando retícula em alta definição...');
       await new Promise(r => setTimeout(r, 0));
     }
   }
-}
-
-function restoreProtectedWhites(ctx, data, whiteMask, W, H){
-  const whiteCanvas = document.createElement('canvas');
-  whiteCanvas.width = W;
-  whiteCanvas.height = H;
-  const wctx = whiteCanvas.getContext('2d');
-  const whiteData = wctx.createImageData(W, H);
-  const out = whiteData.data;
-  for (let p=0, i=0; p<whiteMask.length; p++, i+=4){
-    if (!whiteMask[p]) continue;
-    out[i] = data[i];
-    out[i+1] = data[i+1];
-    out[i+2] = data[i+2];
-    out[i+3] = data[i+3];
-  }
-  wctx.putImageData(whiteData, 0, 0);
-  ctx.drawImage(whiteCanvas, 0, 0);
 }
 
 $('downloadBtn').addEventListener('click', () => {
