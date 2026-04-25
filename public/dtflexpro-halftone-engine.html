@@ -282,14 +282,19 @@ function isWhitePixel(data, i){
   return l >= WHITE_LUMA_CUTOFF && sat <= WHITE_SAT_CUTOFF;
 }
 
-function dotRadiusForLuma(luma, cell, coverage){
-  // Retícula em alta definição: dot grande o suficiente para a tinta
-  // aderir bem na poliamida (mínimo robusto, sem ficar pequeno demais).
-  const maxR = cell * 0.48;
-  const minR = Math.max(1.8, cell * 0.22);
-  const density = 1 - (luma / 255);
-  const tonal = Math.pow(Math.max(0, density), 0.78);
-  const coverBoost = 0.85 + Math.min(1, coverage) * 0.15;
+function dotRadiusForLuma(luma, cell, coverage, sat){
+  // Retícula DENSA estilo profissional: pontos grandes para preservar
+  // a saturação e a riqueza de cor (igual ao output de softwares pro de DTF).
+  // Pixels coloridos (amarelo, verde, azul) ficam com pontos GRANDES mesmo
+  // tendo luma alta, porque o que importa é a presença da cor, não só o brilho.
+  const maxR = cell * 0.54;          // pontos podem encostar na vizinha
+  const minR = Math.max(2.0, cell * 0.30);
+  // density combina escuridão + saturação: cor saturada = ponto cheio
+  const lumaDensity = 1 - (luma / 255);
+  const satDensity = sat ? Math.min(1, sat / 140) : 0;
+  const density = Math.max(lumaDensity, satDensity * 0.85);
+  const tonal = Math.pow(Math.max(0, density), 0.55);  // curva mais densa
+  const coverBoost = 0.9 + Math.min(1, coverage) * 0.1;
   return (minR + tonal * (maxR - minR)) * coverBoost;
 }
 
