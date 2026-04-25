@@ -296,11 +296,18 @@ function renderClean(
         let dotAlpha = 1;
         let color = "#000000";
 
-        // PURE BLACK KNOCKOUT — L < 12 → fully transparent (vazado).
-        if (L < 12) continue;
+        // PURE BLACK KNOCKOUT — only truly pure black (L<6) → vazado.
+        // Lowered from 12 so we don't punch holes in dark midtones.
+        if (L < 6) continue;
 
-        // HIGHLIGHT PROTECTION — L > 242 → micro dot, low opacity, never holes.
-        if (L > 242) {
+        // SPOT WHITE UNDERBASE — bright pixels (L>200) render as a small
+        // white dot to simulate DTF white-ink underbase on dark fabric.
+        if (L > 200) {
+          radius = Math.max(1.5, step * 0.22);
+          color = "#ffffff";
+          dotAlpha = 0.85;
+        } else if (L > 242) {
+          // (kept for safety — unreachable due to branch above, but harmless)
           radius = 1.5;
           dotAlpha = 0.4;
         } else {
