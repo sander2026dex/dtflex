@@ -282,14 +282,19 @@ function isWhitePixel(data, i){
   return l >= WHITE_LUMA_CUTOFF && sat <= WHITE_SAT_CUTOFF;
 }
 
-function dotRadiusForLuma(luma, cell, coverage){
-  // Retícula em alta definição: dot grande o suficiente para a tinta
-  // aderir bem na poliamida (mínimo robusto, sem ficar pequeno demais).
-  const maxR = cell * 0.48;
-  const minR = Math.max(1.8, cell * 0.22);
-  const density = 1 - (luma / 255);
-  const tonal = Math.pow(Math.max(0, density), 0.78);
-  const coverBoost = 0.85 + Math.min(1, coverage) * 0.15;
+function dotRadiusForLuma(luma, cell, coverage, sat){
+  // Retícula DENSA estilo profissional: pontos grandes para preservar
+  // a saturação e a riqueza de cor (igual ao output de softwares pro de DTF).
+  // Pixels coloridos (amarelo, verde, azul) ficam com pontos GRANDES mesmo
+  // tendo luma alta, porque o que importa é a presença da cor, não só o brilho.
+  const maxR = cell * 0.54;          // pontos podem encostar na vizinha
+  const minR = Math.max(2.0, cell * 0.30);
+  // density combina escuridão + saturação: cor saturada = ponto cheio
+  const lumaDensity = 1 - (luma / 255);
+  const satDensity = sat ? Math.min(1, sat / 140) : 0;
+  const density = Math.max(lumaDensity, satDensity * 0.85);
+  const tonal = Math.pow(Math.max(0, density), 0.55);  // curva mais densa
+  const coverBoost = 0.9 + Math.min(1, coverage) * 0.1;
   return (minR + tonal * (maxR - minR)) * coverBoost;
 }
 
@@ -552,12 +557,24 @@ function sampleCellColor(data, mask, blackMask, W, H, cx, cy, cell){
   }
   if (count === 0) return null;
   const inv = 1 / count;
+  const ar = r * inv, ag = g * inv, ab = b * inv;
+  // Saturação aumentada (1.35x) para preservar a riqueza de cor da referência
+  // profissional. Sem isso, a média da célula puxa cores para cinza/desbotado.
+  const SAT_BOOST = 1.35;
+  const lumAvg = 0.299*ar + 0.587*ag + 0.114*ab;
+  let br = lumAvg + (ar - lumAvg) * SAT_BOOST;
+  let bg = lumAvg + (ag - lumAvg) * SAT_BOOST;
+  let bb = lumAvg + (ab - lumAvg) * SAT_BOOST;
+  br = Math.max(0, Math.min(255, br));
+  bg = Math.max(0, Math.min(255, bg));
+  bb = Math.max(0, Math.min(255, bb));
   const coverage = covered / Math.max(1, Math.pow(Math.floor((half*2)/step)+1, 2));
   return {
-    r: r * inv,
-    g: g * inv,
-    b: b * inv,
-    l: 0.299*(r*inv) + 0.587*(g*inv) + 0.114*(b*inv),
+    r: br,
+    g: bg,
+    b: bb,
+    l: 0.299*br + 0.587*bg + 0.114*bb,
+    sat: Math.max(br,bg,bb) - Math.min(br,bg,bb),
     coverage
   };
 }
@@ -648,7 +665,7 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
         avg = sampled;
       }
 
-      let radius = isHL ? dotRadiusHighlight(cell) : dotRadiusForLuma(avg.l, cell, avg.coverage);
+      let radius = isHL ? dotRadiusHighlight(cell) : dotRadiusForLuma(avg.l, cell, avg.coverage, avg.sat);
       let alpha = 1;
       if (!inside){
         const fade = auraPx > 0 ? 1 - (distOut / auraPx) : 0;
