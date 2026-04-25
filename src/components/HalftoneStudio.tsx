@@ -259,9 +259,12 @@ export function HalftoneStudio() {
                   type="single"
                   value={mode}
                   onValueChange={(v) => v && switchMode(v as HalftoneMode)}
-                  className="grid grid-cols-3 gap-1"
+                  className="grid grid-cols-2 gap-1"
                   disabled={busy}
                 >
+                  <ToggleGroupItem value="spot_white_cmyk" variant="outline" className="text-[11px]">
+                    ⚪ Spot White
+                  </ToggleGroupItem>
                   <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-[11px]">
                     🟠 Rosette
                   </ToggleGroupItem>
@@ -273,11 +276,13 @@ export function HalftoneStudio() {
                   </ToggleGroupItem>
                 </ToggleGroup>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {mode === "rosette_cmyk"
-                    ? "4 telas C/M/Y/K em ângulos fixos (15°/75°/0°/45°). Fundo vazado para DTF."
-                    : mode === "round_clean"
-                      ? "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."
-                      : "Mix entre Circular e Rosette. Slider de intensidade controla a interferência."}
+                  {mode === "spot_white_cmyk"
+                    ? "Underbase branca + CMYK por cima. Padrão profissional para tecido escuro — rostos e camisas brancas ficam densos, não fantasmas."
+                    : mode === "rosette_cmyk"
+                      ? "4 telas C/M/Y/K em ângulos fixos (15°/75°/0°/45°). Sem underbase — light areas vazadas."
+                      : mode === "round_clean"
+                        ? "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."
+                        : "Mix entre Circular e Rosette. Slider de intensidade controla a interferência."}
                 </p>
               </div>
 
