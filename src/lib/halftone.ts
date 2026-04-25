@@ -479,10 +479,10 @@ function renderRosette(
 
   let done = 0;
   for (const ch of channels) {
-    const data = ch.name === "C" ? C : ch.name === "M" ? M : ch.name === "Y" ? Y : K;
+    const data = ch.name === "C" ? C : ch.name === "M" ? M : Y;
     plotChannel(tctx, data, lum, alpha, w, h, step, ch.deg, ch.hex);
     done++;
-    progress(`Rosette · screen ${done}/4 (${ch.name})`, 35 + done * 12);
+    progress(`Rosette · screen ${done}/3 (${ch.name})`, 35 + done * 16);
   }
 
   tctx.globalCompositeOperation = "source-over";
