@@ -369,8 +369,9 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.3, 'Detectando máscara...');
   await new Promise(r => requestAnimationFrame(r));
 
-  // Build print mask: alpha/subject minus all black areas. Black must stay transparent.
+  // Build print mask: alpha/subject minus black and protected white/text areas.
   const mask = new Uint8Array(OUT_W * OUT_H);
+  const whiteMask = new Uint8Array(OUT_W * OUT_H);
   let alphaCount = 0;
   for (let y=0,i=0,p=0; y<OUT_H; y++){
     for (let x=0; x<OUT_W; x++, i+=4, p++){
@@ -384,11 +385,16 @@ $('processBtn').addEventListener('click', async () => {
       mask[p] = 0;
       continue;
     }
+    if (isProtectedWhite(data, i)) {
+      whiteMask[p] = 1;
+      mask[p] = 0;
+      continue;
+    }
     if (useAlpha){
       mask[p] = data[i+3] > 30 ? 1 : 0;
     } else {
       const L = lumaAt(data, i);
-      mask[p] = L < 252 ? 1 : 0; // keep whites/text, only true background stays empty
+      mask[p] = L < WHITE_LUMA_KEEP ? 1 : 0; // white/text is preserved, not halftoned
     }
   }
 
@@ -418,6 +424,7 @@ $('processBtn').addEventListener('click', async () => {
   } else {
     await renderRosetteRGB(octx, data, mask, dist, OUT_W, OUT_H, cell, baseAngle, auraPx);
   }
+  restoreProtectedWhites(octx, data, whiteMask, OUT_W, OUT_H);
 
   setProgress(0.95, 'Gerando PNG...');
   await new Promise(r => requestAnimationFrame(r));
