@@ -387,7 +387,8 @@ async function renderRosette(
   const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
   const half = Math.ceil(diag / 2);
   const cx = w / 2, cy = h / 2;
-  const rMax = cellSize * 0.45;
+  const rMax = cellSize * 0.53;
+  const minInkRadius = Math.max(0.65, cellSize * 0.055);
 
   const sampleCmyk = (x: number, y: number): [number, number, number, number] | null => {
     const xi = Math.round(x), yi = Math.round(y);
@@ -415,10 +416,11 @@ async function renderRosette(
         const py = cy + gx * s.sin + gy * s.cos;
         const cmyk = sampleCmyk(px, py);
         if (!cmyk) continue;
-        const cov = cmyk[s.channel];
-        if (cov <= 0.01) continue;
-        const r = cov * rMax;
-        if (r < 0.4) continue;
+        const rawCov = cmyk[s.channel];
+        const cov = coverageHeavy(rawCov);
+        if (cov <= 0.002) continue;
+        const r = Math.max(minInkRadius, Math.sqrt(cov) * rMax);
+        if (r < 0.45) continue;
         lctx.beginPath();
         lctx.arc(px, py, r, 0, Math.PI * 2);
         lctx.fill();
