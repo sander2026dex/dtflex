@@ -411,7 +411,6 @@ $('processBtn').addEventListener('click', async () => {
   } else {
     await renderRosetteRGB(octx, data, mask, dist, OUT_W, OUT_H, cell, baseAngle, auraPx);
   }
-  restoreProtectedWhites(octx, data, whiteMask, OUT_W, OUT_H);
 
   setProgress(0.95, 'Gerando PNG...');
   await new Promise(r => requestAnimationFrame(r));
