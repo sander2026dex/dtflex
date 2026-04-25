@@ -322,7 +322,11 @@ export function HalftoneStudio() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <Label className="text-sm text-foreground">
-                    Ângulo {mode === "rosette_cmyk" ? "(fixo CMYK)" : "(grade única)"}
+                    Ângulo {mode === "rosette_cmyk"
+                      ? "(fixo CMYK)"
+                      : mode === "spot_white_cmyk"
+                        ? "(rotação global)"
+                        : "(grade única)"}
                   </Label>
                   <Input
                     type="number"
@@ -351,6 +355,39 @@ export function HalftoneStudio() {
                       : `default ${ANGLE_DEFAULT}°`}
                   </span>
                   <span>{ANGLE_MAX}°</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-sm text-foreground">
+                    White Threshold {mode !== "spot_white_cmyk" ? "(somente Spot White)" : ""}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={whiteThreshold}
+                    min={0}
+                    max={100}
+                    step={1}
+                    disabled={busy || mode !== "spot_white_cmyk"}
+                    onChange={(e) => setWhiteThreshold(parseInt(e.target.value, 10))}
+                    className="h-7 w-20 text-right font-mono text-xs"
+                  />
+                </div>
+                <Slider
+                  value={[whiteThreshold]}
+                  min={0}
+                  max={100}
+                  step={1}
+                  disabled={busy || mode !== "spot_white_cmyk"}
+                  onValueChange={([v]) => setWhiteThreshold(v)}
+                />
+                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                  <span>0% (mais branca)</span>
+                  <span>40% default</span>
+                  <span>100% (sem branca)</span>
                 </div>
               </div>
 
@@ -391,7 +428,7 @@ export function HalftoneStudio() {
 
               <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
                 <strong className="text-foreground">Regras DTF:</strong> preto puro (lum&lt;5%) é vazado.
-                Branco puro (lum&gt;95%) imprime ponto 1.5px @ 40% opacidade. Fundo 100% alpha 0.
+                Spot White desenha base branca onde lum&gt;{whiteThreshold}% e CMYK por cima. Fundo 100% alpha 0.
               </div>
 
               <Button
