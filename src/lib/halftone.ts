@@ -360,15 +360,18 @@ async function renderRosette(
   const { width: w, height: h, data } = src;
   const cellSize = dpi / lpi;
 
+  // Final output canvas — STARTS FULLY TRANSPARENT (alpha = 0) for DTF.
   const canvas = makeCanvas(w, h);
   const ctx = ctx2d(canvas);
   ctx.clearRect(0, 0, w, h);
 
-  // Per spec: background must be pure white OR transparent — never black.
-  if (whiteBackground) {
-    ctx.fillStyle = "rgb(255, 255, 255)";
-    ctx.fillRect(0, 0, w, h);
-  }
+  // Internal compositing canvas: CMYK multiply only works on white.
+  // We composite all 4 ink layers onto white here, then knock white → transparent
+  // when blitting back to the final transparent canvas.
+  const work = makeCanvas(w, h);
+  const wctx = ctx2d(work);
+  wctx.fillStyle = "rgb(255, 255, 255)";
+  wctx.fillRect(0, 0, w, h);
 
   // Spec-mandated FIXED angles (absolute): C=15°, M=75°, Y=0°, K=45°.
   void baseAngleDeg;
