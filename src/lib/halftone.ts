@@ -349,7 +349,11 @@ function sampleNearestSubject(
       const idx = sy * w + sx;
       if (mask[idx]) {
         const p = idx * 4;
-        const R = rgba[p], G = rgba[p + 1], B = rgba[p + 2];
+        // Quantize each channel to 5 bits (32 levels) so the dotCache stays small
+        // even when sampling thousands of slightly different aura colors.
+        const R = rgba[p] & 0xf8;
+        const G = rgba[p + 1] & 0xf8;
+        const B = rgba[p + 2] & 0xf8;
         const hex = "#" + ((R << 16) | (G << 8) | B).toString(16).padStart(6, "0");
         const L = (R * 299 + G * 587 + B * 114 + 500) / 1000 | 0;
         return { hex, l: L };
