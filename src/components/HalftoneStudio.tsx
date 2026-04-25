@@ -29,6 +29,9 @@ const LPI_DEFAULT = 35;
 const ANGLE_MIN = 0;
 const ANGLE_MAX = 360;
 const ANGLE_DEFAULT = 45;
+const AURA_MIN = 0;
+const AURA_MAX = 80;
+const AURA_DEFAULT = 24;
 
 
 export function HalftoneStudio() {
@@ -87,11 +90,10 @@ export function HalftoneStudio() {
     [handleFile],
   );
 
-  const mode: HalftoneMode = opts.mode ?? "spot_white_cmyk";
+  const mode: HalftoneMode = opts.mode ?? "clean_organic";
   const lpi = opts.lpi ?? LPI_DEFAULT;
   const angle = opts.baseAngleDeg ?? ANGLE_DEFAULT;
-  const rosetteIntensity = Math.round((opts.rosetteIntensity ?? 0.5) * 100);
-  const whiteThreshold = Math.round((opts.whiteThreshold ?? 0.4) * 100);
+  const aura = opts.auraWidth ?? AURA_DEFAULT;
 
   const setLpi = (raw: number) => {
     if (Number.isNaN(raw)) return;
@@ -105,16 +107,10 @@ export function HalftoneStudio() {
     setOpts((o) => ({ ...o, baseAngleDeg: clamped }));
   };
 
-  const setRosetteIntensity = (raw: number) => {
+  const setAura = (raw: number) => {
     if (Number.isNaN(raw)) return;
-    const clamped = Math.max(0, Math.min(100, Math.round(raw)));
-    setOpts((o) => ({ ...o, rosetteIntensity: clamped / 100 }));
-  };
-
-  const setWhiteThreshold = (raw: number) => {
-    if (Number.isNaN(raw)) return;
-    const clamped = Math.max(0, Math.min(100, Math.round(raw)));
-    setOpts((o) => ({ ...o, whiteThreshold: clamped / 100 }));
+    const clamped = Math.max(AURA_MIN, Math.min(AURA_MAX, Math.round(raw)));
+    setOpts((o) => ({ ...o, auraWidth: clamped }));
   };
 
   const switchMode = (newMode: HalftoneMode) => {
@@ -261,27 +257,17 @@ export function HalftoneStudio() {
                   className="grid grid-cols-2 gap-1"
                   disabled={busy}
                 >
-                  <ToggleGroupItem value="spot_white_cmyk" variant="outline" className="text-[11px]">
-                    ⚪ Spot White
+                  <ToggleGroupItem value="clean_organic" variant="outline" className="text-[11px]">
+                    🟢 Clean Organic
                   </ToggleGroupItem>
                   <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-[11px]">
-                    🟠 Rosette
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="round_clean" variant="outline" className="text-[11px]">
-                    🔵 Circular
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="hybrid" variant="outline" className="text-[11px]">
-                    🟣 Hybrid
+                    🟠 Rosette CMYK
                   </ToggleGroupItem>
                 </ToggleGroup>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {mode === "spot_white_cmyk"
-                    ? "Underbase branca + CMYK por cima. Padrão profissional para tecido escuro — rostos e camisas brancas ficam densos, não fantasmas."
-                    : mode === "rosette_cmyk"
-                      ? "4 telas C/M/Y/K em ângulos fixos (15°/75°/0°/45°). Sem underbase — light areas vazadas."
-                      : mode === "round_clean"
-                        ? "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."
-                        : "Mix entre Circular e Rosette. Slider de intensidade controla a interferência."}
+                  {mode === "rosette_cmyk"
+                    ? "4 telas C/M/Y/K com offsets fixos (Y+0° / C+15° / K+45° / M+75°) e blending multiply. Padrão de roseta simétrico."
+                    : "Grade única rotacionada + aura colorida orgânica em volta do sujeito. Fundo 100% vazado."}
                 </p>
               </div>
 
@@ -362,72 +348,39 @@ export function HalftoneStudio() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <Label className="text-sm text-foreground">
-                    White Threshold {mode !== "spot_white_cmyk" ? "(somente Spot White)" : ""}
+                    Aura Width {mode !== "clean_organic" ? "(somente Clean Organic)" : ""}
                   </Label>
                   <Input
                     type="number"
-                    value={whiteThreshold}
-                    min={0}
-                    max={100}
+                    value={aura}
+                    min={AURA_MIN}
+                    max={AURA_MAX}
                     step={1}
-                    disabled={busy || mode !== "spot_white_cmyk"}
-                    onChange={(e) => setWhiteThreshold(parseInt(e.target.value, 10))}
+                    disabled={busy || mode !== "clean_organic"}
+                    onChange={(e) => setAura(parseInt(e.target.value, 10))}
                     className="h-7 w-20 text-right font-mono text-xs"
                   />
                 </div>
                 <Slider
-                  value={[whiteThreshold]}
-                  min={0}
-                  max={100}
+                  value={[aura]}
+                  min={AURA_MIN}
+                  max={AURA_MAX}
                   step={1}
-                  disabled={busy || mode !== "spot_white_cmyk"}
-                  onValueChange={([v]) => setWhiteThreshold(v)}
+                  disabled={busy || mode !== "clean_organic"}
+                  onValueChange={([v]) => setAura(v)}
                 />
                 <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
-                  <span>0% (mais branca)</span>
-                  <span>40% default</span>
-                  <span>100% (sem branca)</span>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <Label className="text-sm text-foreground">
-                    Rosette Intensity {mode !== "hybrid" ? "(somente Hybrid)" : ""}
-                  </Label>
-                  <Input
-                    type="number"
-                    value={rosetteIntensity}
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={busy || mode !== "hybrid"}
-                    onChange={(e) => setRosetteIntensity(parseInt(e.target.value, 10))}
-                    className="h-7 w-20 text-right font-mono text-xs"
-                  />
-                </div>
-                <Slider
-                  value={[rosetteIntensity]}
-                  min={0}
-                  max={100}
-                  step={1}
-                  disabled={busy || mode !== "hybrid"}
-                  onValueChange={([v]) => setRosetteIntensity(v)}
-                />
-                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
-                  <span>0% circular</span>
-                  <span>50% mix</span>
-                  <span>100% rosette</span>
+                  <span>{AURA_MIN}px</span>
+                  <span>default {AURA_DEFAULT}px</span>
+                  <span>{AURA_MAX}px</span>
                 </div>
               </div>
 
               <Separator />
 
               <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                <strong className="text-foreground">Regras DTF:</strong> preto puro (lum&lt;5%) é vazado.
-                Spot White desenha base branca onde lum&gt;{whiteThreshold}% e CMYK por cima. Fundo 100% alpha 0.
+                <strong className="text-foreground">Regras DTF:</strong> preto puro (L&lt;12) é vazado, highlights (L&gt;242) viram micro-dots @40%.
+                Pré-processo Levels 80/255 + Gamma 0.88 antes do halftone. Fundo 100% alpha 0.
               </div>
 
               <Button

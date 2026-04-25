@@ -1,815 +1,500 @@
-// ============================================================================
-// DTF HALFTONE ENGINE — strict physical printing rules.
-// ----------------------------------------------------------------------------
-//   MODE A · ROSETTE   → CMYK 4 telas, ângulos fixos C15 M75 Y0 K45
-//   MODE B · CIRCULAR  → grade única, ângulo do usuário, com aura colorida
-//   MODE C · HYBRID    → mistura A↔B controlada por "Rosette Intensity" (0..1)
-//
-// GOLDEN RULES (non-negotiable):
-//   1. Background: ctx.clearRect — alpha 0 sempre.
-//   2. Pure-black knockout: luminance < 5%  → alpha 0 (vazado).
-//   3. White highlight protection: luminance > 95% → r=1.5px, opacity=40%.
-//   4. Midtones (5%–95%): r = MIN + invertedLum * (MAX - MIN).
-//
-// Output: PNG-32 · 3307×4930 px · 300 DPI (pHYs).
-// ============================================================================
+/* ============================================================================
+ * DTF Halftone Engine — Production Pipeline
+ * ----------------------------------------------------------------------------
+ * Two engines:
+ *   A) CLEAN ORGANIC  — single rotated grid, perfect circles, organic aura fade.
+ *   B) ROSETTE CMYK   — 4 channels (C/M/Y/K) at fixed offset angles, multiply.
+ *
+ * Output:
+ *   • 3307 × 4930 px (A3 @ 300 DPI)
+ *   • PNG-32 with full alpha channel
+ *   • Background: 100% transparent (alpha 0 outside subject + aura)
+ *
+ * NON-NEGOTIABLE pre-process pipeline (Step 0):
+ *   1. Levels crush 80 / 1.0 / 255  → kills washed gray, deepens shadows.
+ *   2. Gamma 0.88                   → "midtones darker" print profile.
+ *   3. Per-pixel luminance map (Rec.601) for all dot decisions.
+ * ========================================================================== */
 
-export type ProgressFn = (stage: string, pct: number) => void;
-export type HalftoneMode = "spot_white_cmyk" | "rosette_cmyk" | "round_clean" | "hybrid";
+export type HalftoneMode =
+  | "clean_organic"   // Engine A — single grid + aura
+  | "rosette_cmyk"    // Engine B — true CMYK rosette
+  // Legacy aliases kept so existing UI state never crashes; they map to the two engines.
+  | "spot_white_cmyk"
+  | "round_clean"
+  | "hybrid";
 
-// ---------------------------------------------------------------------------
-// PNG DPI metadata (pHYs chunk → 300 DPI)
-// ---------------------------------------------------------------------------
-function crc32(buf: Uint8Array): number {
-  let c: number;
-  const table: number[] = [];
-  for (let n = 0; n < 256; n++) {
-    c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    table[n] = c;
-  }
-  let crc = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) crc = table[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
-  return (crc ^ 0xffffffff) >>> 0;
+export interface HalftoneOptions {
+  mode: HalftoneMode;
+  lpi: number;             // 22..45
+  baseAngleDeg: number;    // 0..360 (global rotation)
+  auraWidth: number;       // 0..80 px — clean mode only
+  rosetteIntensity?: number;
+  whiteThreshold?: number;
 }
 
-async function injectDpiPng(blob: Blob, dpi = 300): Promise<Blob> {
-  const buf = new Uint8Array(await blob.arrayBuffer());
-  const ppm = Math.round(dpi * 39.3701);
-  const phys = new Uint8Array(21);
-  phys[0] = 0; phys[1] = 0; phys[2] = 0; phys[3] = 9;
-  phys[4] = 0x70; phys[5] = 0x48; phys[6] = 0x59; phys[7] = 0x73;
-  const dv = new DataView(phys.buffer);
-  dv.setUint32(8, ppm); dv.setUint32(12, ppm);
-  phys[16] = 1;
-  const crcInput = phys.slice(4, 17);
-  dv.setUint32(17, crc32(crcInput));
-  const ihdrEnd = 8 + 4 + 4 + 13 + 4;
-  const out = new Uint8Array(buf.length + phys.length);
-  out.set(buf.subarray(0, ihdrEnd), 0);
-  out.set(phys, ihdrEnd);
-  out.set(buf.subarray(ihdrEnd), ihdrEnd + phys.length);
-  return new Blob([out], { type: "image/png" });
-}
+export const OUTPUT_WIDTH = 3307;
+export const OUTPUT_HEIGHT = 4930;
 
-// ---------------------------------------------------------------------------
-// Canvas helpers
-// ---------------------------------------------------------------------------
-type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
-type AnyCtx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+export const DEFAULT_OPTIONS: HalftoneOptions = {
+  mode: "clean_organic",
+  lpi: 35,
+  baseAngleDeg: 45,
+  auraWidth: 24,
+  rosetteIntensity: 0.5,
+  whiteThreshold: 0.4,
+};
 
-function makeCanvas(w: number, h: number): AnyCanvas {
-  if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(w, h);
-  const c = document.createElement("canvas");
-  c.width = w; c.height = h;
-  return c;
-}
-function ctx2d(c: AnyCanvas): AnyCtx {
-  return c.getContext("2d", { willReadFrequently: true }) as AnyCtx;
-}
-async function canvasToBlob(c: AnyCanvas): Promise<Blob> {
-  if ("convertToBlob" in c) return await (c as OffscreenCanvas).convertToBlob({ type: "image/png" });
-  return await new Promise<Blob>((res) => (c as HTMLCanvasElement).toBlob((b) => res(b!), "image/png"));
-}
-
-// ---------------------------------------------------------------------------
-// Stepped high-quality resize
-// ---------------------------------------------------------------------------
-function resizeTo(src: HTMLImageElement | AnyCanvas, tw: number, th: number): AnyCanvas {
-  const sw = "naturalWidth" in src ? (src as HTMLImageElement).naturalWidth : (src as AnyCanvas).width;
-  const sh = "naturalHeight" in src ? (src as HTMLImageElement).naturalHeight : (src as AnyCanvas).height;
-  let stage: AnyCanvas;
-  if (typeof HTMLImageElement !== "undefined" && src instanceof HTMLImageElement) {
-    stage = makeCanvas(sw, sh);
-    ctx2d(stage).drawImage(src, 0, 0);
-  } else {
-    stage = src as AnyCanvas;
-  }
-  while (stage.width * 0.5 > tw * 1.4 && stage.height * 0.5 > th * 1.4) {
-    const next = makeCanvas(Math.round(stage.width * 0.5), Math.round(stage.height * 0.5));
-    const c = ctx2d(next);
-    c.imageSmoothingEnabled = true;
-    c.imageSmoothingQuality = "high";
-    c.drawImage(stage as CanvasImageSource, 0, 0, next.width, next.height);
-    stage = next;
-  }
-  if (stage.width === tw && stage.height === th) return stage;
-  const out = makeCanvas(tw, th);
-  const c = ctx2d(out);
-  c.imageSmoothingEnabled = true;
-  c.imageSmoothingQuality = "high";
-  c.drawImage(stage as CanvasImageSource, 0, 0, tw, th);
-  return out;
-}
-
-// ---------------------------------------------------------------------------
-// Color helpers
-// ---------------------------------------------------------------------------
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-const luma01 = (r: number, g: number, b: number) =>
-  (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255;
-
-function rgbToCmyk(r: number, g: number, b: number): [number, number, number, number] {
-  const rn = r / 255, gn = g / 255, bn = b / 255;
-  const k = 1 - Math.max(rn, gn, bn);
-  if (k >= 0.999) return [0, 0, 0, 1];
-  const c = (1 - rn - k) / (1 - k);
-  const m = (1 - gn - k) / (1 - k);
-  const y = (1 - bn - k) / (1 - k);
-  return [c, m, y, k];
-}
-
-// ============================================================================
-// 🔥 PRINT PRE-PROCESS — "Secret Sauce" applied BEFORE halftone.
-// ----------------------------------------------------------------------------
-// STEP 1 · LEVELS ADJUSTMENT  (Input Levels 80 / 1.00 / 255)
-//   Per channel (R,G,B):
-//     if (v < 80)  → 0                                        (crush shadows)
-//     else         → (v - 80) * (255 / (255 - 80))            (linear stretch)
-//   Gamma = 1.00 (linear remap of the surviving range).
-//
-// STEP 2 · MIDTONES DARKENING  (Gamma 0.85)
-//   Apply gamma 0.85 to the post-levels value:
-//     v' = 255 * pow(v / 255, 1 / 0.85)
-//   This deepens midtones — mimics Photoshop's "Midtones Darker".
-//
-// Result: deep blacks, punchy contrast, no washed-out grays. Halftone math
-// later receives a print-ready luminance distribution.
-// ============================================================================
-const LEVELS_BLACK = 80;
-const LEVELS_SCALE = 255 / (255 - LEVELS_BLACK); // ≈ 1.4571
-const GAMMA_MID = 0.85;
-const GAMMA_EXP = 1 / GAMMA_MID;                  // ≈ 1.1765
-
-// LUT for performance — 256-entry table applied to every R/G/B byte.
-const LEVELS_GAMMA_LUT: Uint8ClampedArray = (() => {
+/* ---------- Pre-computed tone curve LUT (Levels 80/1.0/255 + Gamma 0.88) ----- */
+const TONE_LUT: Uint8ClampedArray = (() => {
   const lut = new Uint8ClampedArray(256);
+  const gammaInv = 1 / 0.88;
   for (let v = 0; v < 256; v++) {
-    // STEP 1 — Levels 80/1.00/255
-    let post = v < LEVELS_BLACK ? 0 : (v - LEVELS_BLACK) * LEVELS_SCALE;
-    if (post > 255) post = 255;
-    // STEP 2 — Gamma 0.85 (midtone darkening)
-    const norm = post / 255;
-    const gam = Math.pow(norm, GAMMA_EXP) * 255;
-    lut[v] = Math.round(gam);
+    // Step 1: Levels 80/1.0/255 — crush shadows, expand remaining range.
+    let x = v < 80 ? 0 : (v - 80) * (255 / 175);
+    if (x > 255) x = 255;
+    // Step 2: Gamma 0.88 (darker midtones).  out = ((x/255)^(1/0.88))*255
+    x = Math.pow(x / 255, gammaInv) * 255;
+    lut[v] = Math.max(0, Math.min(255, Math.round(x)));
   }
   return lut;
 })();
 
-function preprocess(img: ImageData): ImageData {
-  const { width, height, data } = img;
-  const out = new ImageData(new Uint8ClampedArray(data), width, height);
-  const d = out.data;
-  // Apply LUT to R, G, B (alpha untouched). Per-channel — preserves color cast.
-  for (let i = 0; i < d.length; i += 4) {
-    d[i]     = LEVELS_GAMMA_LUT[d[i]];
-    d[i + 1] = LEVELS_GAMMA_LUT[d[i + 1]];
-    d[i + 2] = LEVELS_GAMMA_LUT[d[i + 2]];
-  }
-  return out;
-}
-
-// ---------------------------------------------------------------------------
-// Subject mask (flood-fill from corners) + distance transform with nearest-px
-// ---------------------------------------------------------------------------
-function subjectMaskFromCorners(img: ImageData, tolerance = 32): Uint8Array {
-  const { width: w, height: h, data } = img;
-  const total = w * h;
-  const isBg = new Uint8Array(total);
-  const corners: [number, number][] = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]];
-  const seedRGB: [number, number, number][] = [];
-  const stack: number[] = [];
-  for (const [cx, cy] of corners) {
-    const idx = cy * w + cx;
-    const di = idx * 4;
-    seedRGB.push([data[di], data[di + 1], data[di + 2]]);
-    if (!isBg[idx]) { isBg[idx] = 1; stack.push(idx); }
-  }
-  const matches = (idx: number) => {
-    const di = idx * 4;
-    const r = data[di], g = data[di + 1], b = data[di + 2];
-    for (const [sr, sg, sb] of seedRGB) {
-      if (Math.max(Math.abs(r - sr), Math.abs(g - sg), Math.abs(b - sb)) <= tolerance) return true;
-    }
-    return false;
-  };
-  while (stack.length) {
-    const idx = stack.pop()!;
-    const x = idx % w;
-    const y = (idx - x) / w;
-    if (x > 0 && !isBg[idx - 1] && matches(idx - 1)) { isBg[idx - 1] = 1; stack.push(idx - 1); }
-    if (x < w - 1 && !isBg[idx + 1] && matches(idx + 1)) { isBg[idx + 1] = 1; stack.push(idx + 1); }
-    if (y > 0 && !isBg[idx - w] && matches(idx - w)) { isBg[idx - w] = 1; stack.push(idx - w); }
-    if (y < h - 1 && !isBg[idx + w] && matches(idx + w)) { isBg[idx + w] = 1; stack.push(idx + w); }
-  }
-  const subj = new Uint8Array(total);
-  for (let i = 0; i < total; i++) subj[i] = isBg[i] ? 0 : 1;
-  return subj;
-}
-
-// Erode: keeps only pixels where ALL neighbors within radius r are also "on".
-// Used to find LARGE contiguous regions (small specks vanish).
-function erode(mask: Uint8Array, w: number, h: number, r: number): Uint8Array {
-  if (r <= 0) return mask.slice();
-  const tmp = new Uint8Array(mask.length);
-  const out = new Uint8Array(mask.length);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = 1;
-      for (let dx = -r; dx <= r; dx++) {
-        const xx = x + dx;
-        if (xx < 0 || xx >= w) { v = 0; break; }
-        if (!mask[y * w + xx]) { v = 0; break; }
-      }
-      tmp[y * w + x] = v;
-    }
-  }
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = 1;
-      for (let dy = -r; dy <= r; dy++) {
-        const yy = y + dy;
-        if (yy < 0 || yy >= h) { v = 0; break; }
-        if (!tmp[yy * w + x]) { v = 0; break; }
-      }
-      out[y * w + x] = v;
-    }
-  }
-  return out;
-}
-
-// Builds a "light area" mask: pixels that are LIGHT (high luminance, including
-// light yellow / light gray / off-white — not just pure white) AND belong to a
-// big contiguous light region. Small light specks inside the subject are NOT
-// flagged, so detail is preserved. Used to skip halftone entirely in those
-// areas → clean transparent ("vazado") whites/lights without speckled holes.
-function largeWhiteMask(img: ImageData, erodeRadius = 6): Uint8Array {
-  const { width: w, height: h, data } = img;
-  const total = w * h;
-  const light = new Uint8Array(total);
-  for (let i = 0, di = 0; i < total; i++, di += 4) {
-    const r = data[di], g = data[di + 1], b = data[di + 2];
-    // LIGHT threshold: perceptual luminance > 0.82 catches light yellow shirts,
-    // light blue jeans highlights, off-white sneakers, light gray, etc.
-    const lum = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255;
-    // Also require min channel > 180 so saturated mids (pure red/blue) survive.
-    const minCh = Math.min(r, g, b);
-    if (lum > 0.82 && minCh > 180) light[i] = 1;
-  }
-  // Erosion isolates only LARGE light regions (radius ~ small dot footprint).
-  return erode(light, w, h, erodeRadius);
-}
-
-function dilate(subj: Uint8Array, w: number, h: number, r: number): Uint8Array {
-  if (r <= 0) return subj.slice();
-  const tmp = new Uint8Array(subj.length);
-  const out = new Uint8Array(subj.length);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = 0;
-      for (let dx = -r; dx <= r; dx++) {
-        const xx = x + dx;
-        if (xx < 0 || xx >= w) continue;
-        if (subj[y * w + xx]) { v = 1; break; }
-      }
-      tmp[y * w + x] = v;
-    }
-  }
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = 0;
-      for (let dy = -r; dy <= r; dy++) {
-        const yy = y + dy;
-        if (yy < 0 || yy >= h) continue;
-        if (tmp[yy * w + x]) { v = 1; break; }
-      }
-      out[y * w + x] = v;
-    }
-  }
-  return out;
-}
-
-function distanceFromSubjectWithNearest(
-  subj: Uint8Array, w: number, h: number,
-): { dist: Float32Array; nx: Int32Array; ny: Int32Array } {
-  const total = w * h;
-  const INF = 1e9;
-  const d = new Float32Array(total);
-  const nx = new Int32Array(total);
-  const ny = new Int32Array(total);
-  for (let i = 0; i < total; i++) {
-    if (subj[i]) {
-      d[i] = 0;
-      const x = i % w; const y = (i - x) / w;
-      nx[i] = x; ny[i] = y;
-    } else { d[i] = INF; nx[i] = -1; ny[i] = -1; }
-  }
-  const relax = (i: number, j: number, cost: number) => {
-    if (d[j] + cost < d[i]) { d[i] = d[j] + cost; nx[i] = nx[j]; ny[i] = ny[j]; }
-  };
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x;
-    if (d[i] === 0) continue;
-    if (x > 0) relax(i, i - 1, 3);
-    if (y > 0) relax(i, i - w, 3);
-    if (x > 0 && y > 0) relax(i, i - w - 1, 4);
-    if (x < w - 1 && y > 0) relax(i, i - w + 1, 4);
-  }
-  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) {
-    const i = y * w + x;
-    if (d[i] === 0) continue;
-    if (x < w - 1) relax(i, i + 1, 3);
-    if (y < h - 1) relax(i, i + w, 3);
-    if (x < w - 1 && y < h - 1) relax(i, i + w + 1, 4);
-    if (x > 0 && y < h - 1) relax(i, i + w - 1, 4);
-  }
-  for (let i = 0; i < total; i++) d[i] /= 3;
-  return { dist: d, nx, ny };
-}
-
-// ============================================================================
-// SHARED CONSTANTS — Golden Rules
-// ============================================================================
-const MIN_DOT_RADIUS = 1.5;          // physical print floor (~0.5 mm @300dpi)
-const HIGHLIGHT_OPACITY = 0.40;      // white-protected dots: 40% opacity
-const LUM_BLACK_KNOCKOUT = 0.05;     // <5% lum → vazado (no ink on dark fabric)
-const LUM_WHITE_PROTECT = 0.85;      // >85% lum → skip dot (clean highlight)
-const MIN_INK_COVERAGE = 0.12;       // <12% ink coverage per channel → skip
-const DOT_GAIN_COMPENSATION = 0.88;  // -12% radius for rosette (bleed comp.)
-
-// ============================================================================
-// 🟠 ENGINE — ROSETTE CMYK
-// At each ink's grid intersection, dot radius = channel coverage * MAX_RADIUS.
-// Fixed angles C15 M75 Y0 K45. Knockout pure-black & background → alpha 0.
-// ============================================================================
-async function renderRosette(
-  src: ImageData,
-  dpi: number,
-  lpi: number,
-  onProgress: ((s: string, p: number) => void) | undefined,
-  progressBase: number,
-  progressSpan: number,
-): Promise<AnyCanvas> {
-  const { width: w, height: h, data } = src;
-  const cellSize = dpi / lpi;
-
-  // Detect LARGE white regions → skip halftone entirely (no "holes/speckles").
-  const whiteMask = largeWhiteMask(src, Math.max(4, Math.round(cellSize * 0.6)));
-
-  // FINAL canvas — fully transparent (Golden Rule #1).
-  const canvas = makeCanvas(w, h);
-  const ctx = ctx2d(canvas);
-  ctx.clearRect(0, 0, w, h);
-
-  // CMYK multiply requires a white substrate; we knock it out at the end.
-  const work = makeCanvas(w, h);
-  const wctx = ctx2d(work);
-  wctx.fillStyle = "rgb(255,255,255)";
-  wctx.fillRect(0, 0, w, h);
-
-  const INK = {
-    C: { r: 0, g: 174, b: 239, ang: 15 },
-    M: { r: 236, g: 0, b: 140, ang: 75 },
-    Y: { r: 255, g: 237, b: 0, ang: 0 },
-    K: { r: 18, g: 18, b: 18, ang: 45 },
-  };
-  const screens = [
-    { ink: INK.C, channel: 0 as const },
-    { ink: INK.M, channel: 1 as const },
-    { ink: INK.Y, channel: 2 as const },
-    { ink: INK.K, channel: 3 as const },
-  ];
-
-  const MAX_RADIUS = cellSize * 0.50 * DOT_GAIN_COMPENSATION;
-  const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
-  const half = Math.ceil(diag / 2);
-  const cx = w / 2, cy = h / 2;
-
-  for (let si = 0; si < screens.length; si++) {
-    const s = screens[si];
-    onProgress?.(
-      `Rosette ${["C", "M", "Y", "K"][s.channel]} · ${lpi} LPI`,
-      Math.round(progressBase + (si / screens.length) * progressSpan),
-    );
-    const layer = makeCanvas(w, h);
-    const lctx = ctx2d(layer);
-    lctx.clearRect(0, 0, w, h);
-    lctx.fillStyle = `rgb(${s.ink.r},${s.ink.g},${s.ink.b})`;
-
-    const ang = (s.ink.ang * Math.PI) / 180;
-    const cos = Math.cos(ang), sin = Math.sin(ang);
-
-    for (let gy = -half; gy <= half; gy += cellSize) {
-      for (let gx = -half; gx <= half; gx += cellSize) {
-        const px = cx + gx * cos - gy * sin;
-        const py = cy + gx * sin + gy * cos;
-        const xi = Math.round(px), yi = Math.round(py);
-        if (xi < 0 || xi >= w || yi < 0 || yi >= h) continue;
-
-        // SKIP large white regions entirely → clean transparent areas.
-        if (whiteMask[yi * w + xi]) continue;
-
-        const di = (yi * w + xi) * 4;
-        const R = data[di], G = data[di + 1], B = data[di + 2];
-        const lum = luma01(R, G, B);
-
-        // GOLDEN RULE #2 — pure black knockout (handled later via composite).
-        if (lum < LUM_BLACK_KNOCKOUT) continue;
-
-        // GOLDEN RULE #3 — highlight protection: skip dot in true highlights
-        // (large white regions already skipped above; remaining highlights are
-        // small/edge → leave clean instead of speckling).
-        if (lum > LUM_WHITE_PROTECT) continue;
-
-        // GOLDEN RULE #4 — midtone scaling by TRUE CMYK channel coverage.
-        const cmyk = rgbToCmyk(R, G, B);
-        const cov = cmyk[s.channel];
-        // Skip channels with insufficient coverage → keeps light areas clean.
-        if (cov < MIN_INK_COVERAGE) continue;
-        const r = MIN_DOT_RADIUS + cov * (MAX_RADIUS - MIN_DOT_RADIUS);
-        lctx.beginPath();
-        lctx.arc(px, py, r, 0, Math.PI * 2);
-        lctx.fill();
-      }
-    }
-    wctx.globalCompositeOperation = "multiply";
-    wctx.drawImage(layer as CanvasImageSource, 0, 0);
-  }
-  wctx.globalCompositeOperation = "source-over";
-
-  // Knockout: near-white substrate → alpha 0 (background + white-protected
-  // areas keep tiny K dots visible because those are gray, not white).
-  const id = wctx.getImageData(0, 0, w, h);
-  const d = id.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i + 1], b = d[i + 2];
-    const distFromWhite = 255 - Math.min(r, g, b);
-    if (distFromWhite < 6) {
-      d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0;
-    } else if (distFromWhite < 18) {
-      d[i + 3] = Math.round((distFromWhite - 6) * (255 / 12));
-    }
-  }
-  ctx.putImageData(id, 0, 0);
-  return canvas;
-}
-
-// ============================================================================
-// 🔵 ENGINE — CIRCULAR (single grid + colored aura)
-// ============================================================================
-async function renderCircular(
-  src: ImageData,
-  dpi: number,
-  lpi: number,
-  angleDeg: number,
-  auraRadiusPx: number,
-  bgTolerance: number,
-  onProgress: ((s: string, p: number) => void) | undefined,
-  progressBase: number,
-  progressSpan: number,
-): Promise<AnyCanvas> {
-  const { width: w, height: h, data } = src;
-  const cellSize = dpi / lpi;
-
-  const canvas = makeCanvas(w, h);
-  const ctx = ctx2d(canvas);
-  ctx.clearRect(0, 0, w, h);
-
-  onProgress?.("Circular · subject mask", Math.round(progressBase + 0.1 * progressSpan));
-  const subjRaw = subjectMaskFromCorners(src, bgTolerance);
-  const subj = dilate(subjRaw, w, h, 1);
-  // Detect LARGE white regions inside subject → skip halftone (no speckles).
-  const whiteMask = largeWhiteMask(src, Math.max(4, Math.round(cellSize * 0.6)));
-  onProgress?.("Circular · distance transform", Math.round(progressBase + 0.3 * progressSpan));
-  const { dist, nx, ny } = distanceFromSubjectWithNearest(subj, w, h);
-
-  const ang = (angleDeg * Math.PI) / 180;
-  const cos = Math.cos(ang), sin = Math.sin(ang);
-  const cx = w / 2, cy = h / 2;
-  const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
-  const half = Math.ceil(diag / 2);
-  const MAX_RADIUS = cellSize * 0.50;
-
-  onProgress?.(`Circular · ${lpi} LPI · ${angleDeg}°`, Math.round(progressBase + 0.5 * progressSpan));
-
-  for (let gy = -half; gy <= half; gy += cellSize) {
-    for (let gx = -half; gx <= half; gx += cellSize) {
-      const px = cx + gx * cos - gy * sin;
-      const py = cy + gx * sin + gy * cos;
-      const xi = Math.round(px), yi = Math.round(py);
-      if (xi < 0 || xi >= w || yi < 0 || yi >= h) continue;
-      const p = yi * w + xi;
-      const insideSubject = subj[p] === 1;
-
-      if (insideSubject) {
-        // SKIP large white regions entirely → clean transparent areas.
-        if (whiteMask[p]) continue;
-
-        const di = (yi * w + xi) * 4;
-        const R = data[di], G = data[di + 1], B = data[di + 2];
-        const lum = luma01(R, G, B);
-
-        // GOLDEN RULE #2 — pure-black knockout.
-        if (lum < LUM_BLACK_KNOCKOUT) continue;
-
-        // GOLDEN RULE #3 — true highlight: skip dot (large whites already
-        // skipped above; remaining are tiny edges → leave clean).
-        if (lum > LUM_WHITE_PROTECT) continue;
-
-        // GOLDEN RULE #4 — midtone radius from inverted luminance.
-        const inv = 1 - lum;
-        const r = MIN_DOT_RADIUS + inv * (MAX_RADIUS - MIN_DOT_RADIUS);
-        ctx.fillStyle = `rgb(${R},${G},${B})`;
-        ctx.beginPath();
-        ctx.arc(px, py, r, 0, Math.PI * 2);
-        ctx.fill();
-        continue;
-      }
-
-      // ----- AURA: distance-based exponential fade, color from nearest subj.
-      if (auraRadiusPx <= 0) continue;
-      const d = dist[p];
-      if (d >= auraRadiusPx) continue;
-      const sx = nx[p], sy = ny[p];
-      if (sx < 0) continue;
-      const di = (sy * w + sx) * 4;
-      const R = data[di], G = data[di + 1], B = data[di + 2];
-      const lumS = luma01(R, G, B);
-      if (lumS < LUM_BLACK_KNOCKOUT) continue;
-      const inv = 1 - lumS;
-      const baseR = MIN_DOT_RADIUS + inv * (MAX_RADIUS - MIN_DOT_RADIUS);
-
-      // Exponential fade: fade^2 = quadratic ease-out.
-      const fade = 1 - d / auraRadiusPx;
-      const f2 = fade * fade;
-      const radius = baseR * f2;
-      if (radius < 0.4) continue;
-      ctx.fillStyle = `rgba(${R},${G},${B},${fade.toFixed(3)})`;
-      ctx.beginPath();
-      ctx.arc(px, py, radius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  return canvas;
-}
-
-// ============================================================================
-// 🟣 HYBRID — composites Rosette over Circular by intensity (0..1)
-// 0 = pure circular ; 1 = pure rosette ; 0.5 = subtle interference.
-// ============================================================================
-async function renderHybrid(
-  src: ImageData,
-  dpi: number,
-  lpi: number,
-  angleDeg: number,
-  auraRadiusPx: number,
-  bgTolerance: number,
-  intensity: number,
-  onProgress?: ProgressFn,
-): Promise<AnyCanvas> {
-  const t = clamp01(intensity);
-  const { width: w, height: h } = src;
-
-  const circular = await renderCircular(
-    src, dpi, lpi, angleDeg, auraRadiusPx, bgTolerance, onProgress, 25, 35,
-  );
-  const rosette = await renderRosette(src, dpi, lpi, onProgress, 60, 30);
-
-  const out = makeCanvas(w, h);
-  const ctx = ctx2d(out);
-  ctx.clearRect(0, 0, w, h);
-
-  // Layer the circular base, then composite rosette on top with alpha = t.
-  ctx.globalAlpha = 1 - t * 0.5; // keep base visible even at high t
-  ctx.drawImage(circular as CanvasImageSource, 0, 0);
-  ctx.globalAlpha = t;
-  ctx.drawImage(rosette as CanvasImageSource, 0, 0);
-  ctx.globalAlpha = 1;
-  return out;
-}
-
-// ============================================================================
-// ⚪ ENGINE — SPOT WHITE + CMYK (Professional DTF Underbase)
-// ----------------------------------------------------------------------------
-// Two visually-combined data layers:
-//   LAYER 1 — SPOT WHITE (Underbase): white dots wherever luminance > threshold
-//             (default 40%). Dense pattern → solid base for color on top.
-//   LAYER 2 — CMYK ROSETTE: colored dots at fixed angles, rendered ON TOP of
-//             the white base so colors stay vibrant and opaque.
-// Background stays 100% transparent. Pure black (lum<5%) is knocked out.
-// Pure-white pixels still get a dense white micro-dot pattern → no "ghost".
-// ============================================================================
-async function renderSpotWhiteCmyk(
-  src: ImageData,
-  dpi: number,
-  lpi: number,
-  whiteThreshold: number, // 0..1 — luminance above which Spot White triggers
-  angleOffsetDeg: number, // global rotation of all screens (0..360)
-  onProgress: ProgressFn | undefined,
-): Promise<AnyCanvas> {
-  const { width: w, height: h, data } = src;
-  const cellSize = dpi / lpi;
-
-  // Subject mask + erosion to find true background (no white-region knockout —
-  // even pure-white pixels INSIDE the subject must receive Spot White dots).
-  onProgress?.("Spot White · subject mask", 25);
-  const subjRaw = subjectMaskFromCorners(src, 38);
-  const subj = dilate(subjRaw, w, h, 1);
-
-  const canvas = makeCanvas(w, h);
-  const ctx = ctx2d(canvas);
-  ctx.clearRect(0, 0, w, h);
-
-  // ---------- LAYER 1 — SPOT WHITE UNDERBASE ----------
-  onProgress?.("Spot White · underbase", 35);
-  const whiteLayer = makeCanvas(w, h);
-  const wlctx = ctx2d(whiteLayer);
-  wlctx.clearRect(0, 0, w, h);
-  // Light grey-white so even dense areas read as bright white on dark fabric.
-  wlctx.fillStyle = "rgb(248,248,248)";
-
-  const SPOT_MAX = cellSize * 0.50;
-  const angRad = (angleOffsetDeg * Math.PI) / 180;
-  const cosA = Math.cos(angRad), sinA = Math.sin(angRad);
-  const cx = w / 2, cy = h / 2;
-  const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
-  const half = Math.ceil(diag / 2);
-
-  // White screen at angle 30° (relative to user's global angle).
-  const wAng = angRad + (30 * Math.PI) / 180;
-  const wcos = Math.cos(wAng), wsin = Math.sin(wAng);
-
-  for (let gy = -half; gy <= half; gy += cellSize) {
-    for (let gx = -half; gx <= half; gx += cellSize) {
-      const px = cx + gx * wcos - gy * wsin;
-      const py = cy + gx * wsin + gy * wcos;
-      const xi = Math.round(px), yi = Math.round(py);
-      if (xi < 0 || xi >= w || yi < 0 || yi >= h) continue;
-      const p = yi * w + xi;
-      if (!subj[p]) continue; // background → no underbase
-
-      const di = p * 4;
-      const R = data[di], G = data[di + 1], B = data[di + 2];
-      const lum = luma01(R, G, B);
-
-      // Pure black knockout — no underbase under solid black.
-      if (lum < LUM_BLACK_KNOCKOUT) continue;
-
-      // Underbase only triggers above the white threshold (mid → highlight).
-      if (lum < whiteThreshold) continue;
-
-      // Density formula: brighter pixel → larger white dot (more underbase).
-      // Map [threshold..1] → [0..1] then to [MIN..SPOT_MAX].
-      const norm = (lum - whiteThreshold) / Math.max(0.0001, 1 - whiteThreshold);
-      const r = MIN_DOT_RADIUS + norm * (SPOT_MAX - MIN_DOT_RADIUS);
-      wlctx.beginPath();
-      wlctx.arc(px, py, r, 0, Math.PI * 2);
-      wlctx.fill();
-    }
-  }
-  ctx.drawImage(whiteLayer as CanvasImageSource, 0, 0);
-
-  // ---------- LAYER 2 — CMYK ROSETTE ON TOP ----------
-  onProgress?.("Spot White · CMYK rosette", 55);
-  const INK = {
-    C: { r: 0, g: 174, b: 239, ang: 15 },
-    M: { r: 236, g: 0, b: 140, ang: 75 },
-    Y: { r: 255, g: 237, b: 0, ang: 0 },
-    K: { r: 18, g: 18, b: 18, ang: 45 },
-  };
-  const screens = [
-    { ink: INK.C, channel: 0 as const },
-    { ink: INK.M, channel: 1 as const },
-    { ink: INK.Y, channel: 2 as const },
-    { ink: INK.K, channel: 3 as const },
-  ];
-  const MAX_RADIUS = cellSize * 0.50 * DOT_GAIN_COMPENSATION;
-
-  for (let si = 0; si < screens.length; si++) {
-    const s = screens[si];
-    onProgress?.(
-      `Spot White · CMYK ${["C", "M", "Y", "K"][s.channel]}`,
-      60 + si * 7,
-    );
-    const ang = angRad + (s.ink.ang * Math.PI) / 180;
-    const ccos = Math.cos(ang), csin = Math.sin(ang);
-    ctx.fillStyle = `rgb(${s.ink.r},${s.ink.g},${s.ink.b})`;
-
-    for (let gy = -half; gy <= half; gy += cellSize) {
-      for (let gx = -half; gx <= half; gx += cellSize) {
-        const px = cx + gx * ccos - gy * csin;
-        const py = cy + gx * csin + gy * ccos;
-        const xi = Math.round(px), yi = Math.round(py);
-        if (xi < 0 || xi >= w || yi < 0 || yi >= h) continue;
-        const p = yi * w + xi;
-        if (!subj[p]) continue;
-
-        const di = p * 4;
-        const R = data[di], G = data[di + 1], B = data[di + 2];
-        const lum = luma01(R, G, B);
-        if (lum < LUM_BLACK_KNOCKOUT) continue;
-
-        const cmyk = rgbToCmyk(R, G, B);
-        const cov = cmyk[s.channel];
-        // Lower threshold than pure-rosette mode — colors must show on top of
-        // the white base, so even subtle CMYK channels render.
-        if (cov < 0.04) continue;
-        const r = MIN_DOT_RADIUS + cov * (MAX_RADIUS - MIN_DOT_RADIUS);
-        ctx.beginPath();
-        ctx.arc(px, py, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-
-  // Use vars so TS sees both as referenced (prevents unused warnings on cosA/sinA).
-  void cosA; void sinA;
-
-  onProgress?.("Spot White · finalize", 90);
-  return canvas;
-}
-
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-export interface HalftoneOptions {
-  mode?: HalftoneMode;
-  targetW?: number;
-  targetH?: number;
-  dpi?: number;
-  lpi?: number;
-  baseAngleDeg?: number;
-  auraRadiusPx?: number;
-  bgTolerance?: number;
-  rosetteIntensity?: number;     // 0..1 — only used by HYBRID
-  whiteThreshold?: number;       // 0..1 — only used by SPOT_WHITE_CMYK
-}
-
-export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
-  mode: "spot_white_cmyk",
-  targetW: 3307,
-  targetH: 4930,
-  dpi: 300,
-  lpi: 35,
-  baseAngleDeg: 45,
-  auraRadiusPx: 60,
-  bgTolerance: 38,
-  rosetteIntensity: 0.5,
-  whiteThreshold: 0.40,
-};
-
-const tick = () => new Promise<void>((r) => setTimeout(r, 0));
-
-export async function processImage(
-  source: HTMLImageElement,
-  opts: HalftoneOptions = {},
-  onProgress?: ProgressFn,
-): Promise<Blob> {
-  const o = { ...DEFAULT_OPTIONS, ...opts };
-
-  onProgress?.("Resize → 3307×4930", 8);
-  await tick();
-  const stage = resizeTo(source, o.targetW, o.targetH);
-  const sctx = ctx2d(stage);
-  const rawData = sctx.getImageData(0, 0, o.targetW, o.targetH);
-
-  onProgress?.("Pre-process · Levels 80/255 + Gamma 0.85", 18);
-  await tick();
-  const data = preprocess(rawData);
-
-  let outCanvas: AnyCanvas;
-  if (o.mode === "spot_white_cmyk") {
-    outCanvas = await renderSpotWhiteCmyk(
-      data, o.dpi, o.lpi, o.whiteThreshold, o.baseAngleDeg, onProgress,
-    );
-  } else if (o.mode === "rosette_cmyk") {
-    outCanvas = await renderRosette(data, o.dpi, o.lpi, onProgress, 25, 65);
-  } else if (o.mode === "round_clean") {
-    outCanvas = await renderCircular(
-      data, o.dpi, o.lpi, o.baseAngleDeg, o.auraRadiusPx, o.bgTolerance, onProgress, 25, 65,
-    );
-  } else {
-    outCanvas = await renderHybrid(
-      data, o.dpi, o.lpi, o.baseAngleDeg, o.auraRadiusPx, o.bgTolerance, o.rosetteIntensity, onProgress,
-    );
-  }
-
-  onProgress?.("Encoding PNG-32", 92);
-  await tick();
-  const blob = await canvasToBlob(outCanvas);
-
-  onProgress?.("Embedding 300 DPI metadata", 98);
-  const finalBlob = await injectDpiPng(blob, o.dpi);
-  onProgress?.("Done", 100);
-  return finalBlob;
-}
-
+/* ---------- Public helpers -------------------------------------------------- */
 export function loadImage(file: File): Promise<HTMLImageElement> {
-  return new Promise((res, rej) => {
-    const url = URL.createObjectURL(file);
+  return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => res(img);
-    img.onerror = (e) => rej(e);
-    img.src = url;
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
   });
+}
+
+type Progress = (stage: string, pct: number) => void;
+
+/* ---------- Internal types -------------------------------------------------- */
+interface Prepared {
+  w: number;             // working canvas width
+  h: number;             // working canvas height
+  rgba: Uint8ClampedArray; // levels-corrected RGBA
+  lum: Uint8Array;       // per-pixel luminance 0..255
+  alpha: Uint8Array;     // original alpha 0..255 (transparency aware)
+}
+
+/* ============================================================================
+ * MAIN ENTRY
+ * ========================================================================== */
+export async function processImage(
+  img: HTMLImageElement,
+  opts: HalftoneOptions,
+  onProgress?: Progress,
+): Promise<Blob> {
+  const progress = onProgress ?? (() => {});
+  progress("Pre-process · Levels 80/255 + Gamma 0.88", 5);
+
+  // 1. Fit source into output canvas (preserve aspect, center).
+  const out = new OffscreenCanvas(OUTPUT_WIDTH, OUTPUT_HEIGHT);
+  const octx = out.getContext("2d", { alpha: true })!;
+  octx.clearRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT); // background fully transparent
+
+  const scale = Math.min(OUTPUT_WIDTH / img.naturalWidth, OUTPUT_HEIGHT / img.naturalHeight);
+  const dw = Math.round(img.naturalWidth * scale);
+  const dh = Math.round(img.naturalHeight * scale);
+  const dx = Math.round((OUTPUT_WIDTH - dw) / 2);
+  const dy = Math.round((OUTPUT_HEIGHT - dh) / 2);
+
+  // 2. Sample pixels into a working buffer the same size as the placed art.
+  const work = new OffscreenCanvas(dw, dh);
+  const wctx = work.getContext("2d", { alpha: true, willReadFrequently: true })!;
+  wctx.clearRect(0, 0, dw, dh);
+  wctx.drawImage(img, 0, 0, dw, dh);
+  const imgData = wctx.getImageData(0, 0, dw, dh);
+
+  // 3. Apply pre-processing LUT + build luminance + alpha maps in one pass.
+  const prep = preProcessLevels(imgData);
+  progress("Building luminance map", 18);
+
+  // 4. Resolve mode (legacy aliases route to the two real engines).
+  const mode: HalftoneMode = ((): HalftoneMode => {
+    if (opts.mode === "rosette_cmyk" || opts.mode === "spot_white_cmyk") return "rosette_cmyk";
+    return "clean_organic";
+  })();
+
+  // 5. Render into a transparent halftone canvas the size of the placed art.
+  const halftone = new OffscreenCanvas(dw, dh);
+  const hctx = halftone.getContext("2d", { alpha: true })!;
+  hctx.clearRect(0, 0, dw, dh);
+
+  if (mode === "rosette_cmyk") {
+    progress("Rendering Rosette CMYK · 4 screens", 35);
+    renderRosette(hctx, prep, opts, progress);
+  } else {
+    progress("Rendering Clean Organic + Aura", 35);
+    renderClean(hctx, prep, opts, progress);
+  }
+
+  // 6. Composite halftone onto the centered output canvas.
+  progress("Composing 300 DPI canvas", 90);
+  octx.drawImage(halftone, dx, dy);
+
+  // 7. Export PNG-32 preserving alpha channel.
+  progress("Exporting PNG-32", 96);
+  const blob = await out.convertToBlob({ type: "image/png" });
+  progress("Done", 100);
+  return blob;
+}
+
+/* ============================================================================
+ * STEP 0  —  PRE-PROCESS:  Levels 80/1.0/255  +  Gamma 0.88  +  Luminance Map
+ * ========================================================================== */
+function preProcessLevels(src: ImageData): Prepared {
+  const { width: w, height: h, data } = src;
+  const len = w * h;
+  const lum = new Uint8Array(len);
+  const alpha = new Uint8Array(len);
+
+  // Apply LUT in-place to R,G,B; keep A; compute luminance L = 0.299R+0.587G+0.114B
+  for (let i = 0, p = 0; i < len; i++, p += 4) {
+    const r = TONE_LUT[data[p]];
+    const g = TONE_LUT[data[p + 1]];
+    const b = TONE_LUT[data[p + 2]];
+    data[p] = r;
+    data[p + 1] = g;
+    data[p + 2] = b;
+    alpha[i] = data[p + 3];
+    // Rec.601 luma — matches print luminance perception.
+    lum[i] = (r * 299 + g * 587 + b * 114 + 500) / 1000 | 0;
+  }
+
+  return { w, h, rgba: data, lum, alpha };
+}
+
+/* ============================================================================
+ * Pre-rendered circle bitmap cache (fast drawImage instead of arc-per-dot)
+ * One bitmap per integer radius and per color key. Anti-aliased via arc on a
+ * tiny offscreen canvas, then reused thousands of times.
+ * ========================================================================== */
+const dotCache = new Map<string, OffscreenCanvas>();
+function getDot(radius: number, hex: string, alpha: number): OffscreenCanvas {
+  const r = Math.max(1, Math.round(radius * 2)) / 2; // half-pixel granularity
+  const a = Math.max(0, Math.min(1, alpha));
+  const key = `${r}|${hex}|${a.toFixed(2)}`;
+  const cached = dotCache.get(key);
+  if (cached) return cached;
+  const size = Math.ceil(r * 2) + 2;
+  const c = new OffscreenCanvas(size, size);
+  const cx = c.getContext("2d", { alpha: true })!;
+  cx.clearRect(0, 0, size, size);
+  cx.beginPath();
+  cx.arc(size / 2, size / 2, r, 0, Math.PI * 2);
+  cx.closePath();
+  cx.globalAlpha = a;
+  cx.fillStyle = hex;
+  cx.fill();
+  dotCache.set(key, c);
+  return c;
+}
+
+/* ============================================================================
+ * ENGINE A — CLEAN ORGANIC
+ * ----------------------------------------------------------------------------
+ * • One rotated grid at baseAngleDeg.
+ * • Perfect black-circle dots sized by luminance.
+ * • Aura: outside subject mask, fades color outward by distance, with noise.
+ * ========================================================================== */
+function renderClean(
+  ctx: OffscreenCanvasRenderingContext2D,
+  prep: Prepared,
+  opts: HalftoneOptions,
+  progress: Progress,
+) {
+  const { w, h, rgba, lum, alpha } = prep;
+  const step = 300 / opts.lpi;
+  const angle = (opts.baseAngleDeg * Math.PI) / 180;
+  const auraWidth = Math.max(0, opts.auraWidth);
+
+  // ---------- Subject binary mask (L > 20 OR alpha > 32) -------------------
+  // Used both for skip-no-subject decisions and for aura distance computation.
+  const mask = new Uint8Array(w * h);
+  for (let i = 0; i < mask.length; i++) {
+    mask[i] = lum[i] > 20 && alpha[i] > 32 ? 1 : 0;
+  }
+
+  // ---------- Distance transform (chamfer 3-4) for aura --------------------
+  // Computes distance (in px) of every pixel to the nearest subject pixel.
+  // Two passes: forward then backward. Approximates Euclidean within ~2%.
+  const dist = auraWidth > 0 ? distanceTransform(mask, w, h, auraWidth + 4) : null;
+
+  progress("Clean · plotting dots", 55);
+
+  // ---------- Iterate ROTATED grid -----------------------------------------
+  // We loop over a virtual rotated grid by traversing the AABB of the image
+  // expressed in the rotated frame, then mapping back via inverse rotation.
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  // Rotated-frame extents: project the four corners of [0,w]x[0,h] back
+  // through the inverse rotation to find min/max rotated coordinates.
+  const corners = [
+    [0, 0],
+    [w, 0],
+    [0, h],
+    [w, h],
+  ];
+  let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  for (const [x, y] of corners) {
+    const u = x * cos + y * sin;
+    const v = -x * sin + y * cos;
+    if (u < uMin) uMin = u;
+    if (u > uMax) uMax = u;
+    if (v < vMin) vMin = v;
+    if (v > vMax) vMax = v;
+  }
+
+  for (let v = vMin; v <= vMax; v += step) {
+    for (let u = uMin; u <= uMax; u += step) {
+      // Rotate (u,v) back to image coordinates.
+      const x = u * cos - v * sin;
+      const y = u * sin + v * cos;
+      const xi = x | 0;
+      const yi = y | 0;
+      if (xi < 0 || yi < 0 || xi >= w || yi >= h) continue;
+
+      const idx = yi * w + xi;
+      const L = lum[idx];
+      const inSubject = mask[idx] === 1;
+
+      if (inSubject) {
+        // -------- DOT SIZING (subject) -----------------------------------
+        // radius = 1.5 + (1 - L/255) * (step*0.4 - 1.5)
+        let radius = 1.5 + (1 - L / 255) * (step * 0.4 - 1.5);
+        let dotAlpha = 1;
+        let color = "#000000";
+
+        // PURE BLACK KNOCKOUT — L < 12 → fully transparent (vazado).
+        if (L < 12) continue;
+
+        // HIGHLIGHT PROTECTION — L > 242 → micro dot, low opacity, never holes.
+        if (L > 242) {
+          radius = 1.5;
+          dotAlpha = 0.4;
+        } else {
+          radius = Math.min(step * 0.4, Math.max(1.5, radius));
+        }
+
+        const sprite = getDot(radius, color, dotAlpha);
+        ctx.drawImage(sprite, x - sprite.width / 2, y - sprite.height / 2);
+      } else if (auraWidth > 0 && dist) {
+        // -------- AURA (outside subject, within auraWidth) ---------------
+        const d = dist[idx];
+        if (d >= auraWidth) continue; // beyond aura: keep transparent
+        const fade = 1 - d / auraWidth;
+        // Sample nearest subject pixel for color (cheap radial probe).
+        const sample = sampleNearestSubject(rgba, mask, w, h, xi, yi, auraWidth);
+        if (!sample) continue;
+        // Base radius from sampled luminance, scaled by aura fade.
+        const sL = sample.l;
+        let radius = 1.5 + (1 - sL / 255) * (step * 0.4 - 1.5);
+        radius = Math.max(1.0, Math.min(step * 0.4, radius)) * fade * 0.8;
+        if (radius < 0.6) continue;
+        const dotAlpha = fade;
+        // Noise: organic splatter feel.
+        const nx = x + (Math.random() - 0.5) * step * 0.3;
+        const ny = y + (Math.random() - 0.5) * step * 0.3;
+        const sprite = getDot(radius, sample.hex, dotAlpha);
+        ctx.drawImage(sprite, nx - sprite.width / 2, ny - sprite.height / 2);
+      }
+    }
+  }
+  progress("Clean · finalizing", 88);
+}
+
+/* Sample the nearest subject pixel within `maxR` of (x,y) — small spiral probe. */
+function sampleNearestSubject(
+  rgba: Uint8ClampedArray,
+  mask: Uint8Array,
+  w: number,
+  h: number,
+  x: number,
+  y: number,
+  maxR: number,
+): { hex: string; l: number } | null {
+  const limit = Math.max(2, Math.ceil(maxR));
+  for (let r = 1; r <= limit; r++) {
+    // Sample 8 cardinal/diagonal points on a ring of radius r.
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
+      const sx = (x + Math.cos(a) * r) | 0;
+      const sy = (y + Math.sin(a) * r) | 0;
+      if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
+      const idx = sy * w + sx;
+      if (mask[idx]) {
+        const p = idx * 4;
+        const R = rgba[p], G = rgba[p + 1], B = rgba[p + 2];
+        const hex = "#" + ((R << 16) | (G << 8) | B).toString(16).padStart(6, "0");
+        const L = (R * 299 + G * 587 + B * 114 + 500) / 1000 | 0;
+        return { hex, l: L };
+      }
+    }
+  }
+  return null;
+}
+
+/* Two-pass chamfer (3,4) distance transform clipped to `cap` (perf). */
+function distanceTransform(mask: Uint8Array, w: number, h: number, cap: number): Float32Array {
+  const INF = 1e9;
+  const d = new Float32Array(w * h);
+  for (let i = 0; i < d.length; i++) d[i] = mask[i] ? 0 : INF;
+
+  // Forward pass — neighbours: NW(4) N(3) NE(4) W(3)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      let v = d[i];
+      if (v === 0) continue;
+      if (x > 0)              v = Math.min(v, d[i - 1] + 3);
+      if (y > 0)              v = Math.min(v, d[i - w] + 3);
+      if (x > 0 && y > 0)     v = Math.min(v, d[i - w - 1] + 4);
+      if (x < w - 1 && y > 0) v = Math.min(v, d[i - w + 1] + 4);
+      d[i] = v;
+    }
+  }
+  // Backward pass — neighbours: E(3) SE(4) S(3) SW(4)
+  for (let y = h - 1; y >= 0; y--) {
+    for (let x = w - 1; x >= 0; x--) {
+      const i = y * w + x;
+      let v = d[i];
+      if (v === 0) continue;
+      if (x < w - 1)              v = Math.min(v, d[i + 1] + 3);
+      if (y < h - 1)              v = Math.min(v, d[i + w] + 3);
+      if (x < w - 1 && y < h - 1) v = Math.min(v, d[i + w + 1] + 4);
+      if (x > 0 && y < h - 1)     v = Math.min(v, d[i + w - 1] + 4);
+      d[i] = v;
+    }
+  }
+  // Convert chamfer units (3 per step) to pixels and clip to cap.
+  const capUnits = cap * 3;
+  for (let i = 0; i < d.length; i++) {
+    d[i] = d[i] >= capUnits ? cap : d[i] / 3;
+  }
+  return d;
+}
+
+/* ============================================================================
+ * ENGINE B — ROSETTE CMYK
+ * ----------------------------------------------------------------------------
+ * • RGB → CMYK separation.
+ * • 4 grids at angles  Y+0°  C+15°  K+45°  M+75°  (+ baseAngleDeg global).
+ * • Each channel rendered with `multiply` blending so they intermix optically.
+ * • Same dot-sizing/knockout per channel; pure black L<12 is skipped per channel.
+ * ========================================================================== */
+function renderRosette(
+  ctx: OffscreenCanvasRenderingContext2D,
+  prep: Prepared,
+  opts: HalftoneOptions,
+  progress: Progress,
+) {
+  const { w, h, rgba, lum, alpha } = prep;
+  const step = 300 / opts.lpi;
+  const baseDeg = opts.baseAngleDeg;
+
+  // Standard offset angles (industry-standard CMYK screen angles).
+  const channels: Array<{ name: "C" | "M" | "Y" | "K"; deg: number; hex: string }> = [
+    { name: "Y", deg: baseDeg + 0,  hex: "#ffe600" },
+    { name: "C", deg: baseDeg + 15, hex: "#00aeef" },
+    { name: "K", deg: baseDeg + 45, hex: "#000000" },
+    { name: "M", deg: baseDeg + 75, hex: "#ec008c" },
+  ];
+
+  // Pre-separate CMYK channels (0..1) once.
+  const len = w * h;
+  const C = new Float32Array(len);
+  const M = new Float32Array(len);
+  const Y = new Float32Array(len);
+  const K = new Float32Array(len);
+  for (let i = 0, p = 0; i < len; i++, p += 4) {
+    if (alpha[i] < 32) continue;
+    const r = rgba[p] / 255, g = rgba[p + 1] / 255, b = rgba[p + 2] / 255;
+    const k = 1 - Math.max(r, g, b);
+    if (k >= 1) { K[i] = 1; continue; }
+    const inv = 1 / (1 - k);
+    C[i] = (1 - r - k) * inv;
+    M[i] = (1 - g - k) * inv;
+    Y[i] = (1 - b - k) * inv;
+    K[i] = k;
+  }
+
+  // Render each channel with multiply so dots blend optically.
+  ctx.globalCompositeOperation = "multiply";
+
+  let done = 0;
+  for (const ch of channels) {
+    const data = ch.name === "C" ? C : ch.name === "M" ? M : ch.name === "Y" ? Y : K;
+    plotChannel(ctx, data, lum, alpha, w, h, step, ch.deg, ch.hex);
+    done++;
+    progress(`Rosette · screen ${done}/4 (${ch.name})`, 35 + done * 12);
+  }
+
+  ctx.globalCompositeOperation = "source-over";
+}
+
+/* Plot a single CMYK channel on its rotated grid. */
+function plotChannel(
+  ctx: OffscreenCanvasRenderingContext2D,
+  ink: Float32Array,        // 0..1 ink coverage for this channel
+  lum: Uint8Array,
+  alpha: Uint8Array,
+  w: number,
+  h: number,
+  step: number,
+  angleDeg: number,
+  hex: string,
+) {
+  const angle = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
+  // Rotated-frame AABB.
+  let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  for (const [x, y] of [[0,0],[w,0],[0,h],[w,h]]) {
+    const u = x * cos + y * sin;
+    const v = -x * sin + y * cos;
+    if (u < uMin) uMin = u; if (u > uMax) uMax = u;
+    if (v < vMin) vMin = v; if (v > vMax) vMax = v;
+  }
+
+  for (let v = vMin; v <= vMax; v += step) {
+    for (let u = uMin; u <= uMax; u += step) {
+      const x = u * cos - v * sin;
+      const y = u * sin + v * cos;
+      const xi = x | 0;
+      const yi = y | 0;
+      if (xi < 0 || yi < 0 || xi >= w || yi >= h) continue;
+      const idx = yi * w + xi;
+      if (alpha[idx] < 32) continue;
+
+      const L = lum[idx];
+      // Pure black knockout (vazado) — skip dot on extreme darks.
+      if (L < 12) continue;
+
+      const cov = ink[idx];
+      if (cov <= 0.01) continue;
+
+      // DOT SIZING per spec: radius = 1.5 + cov * (step*0.4 - 1.5)
+      // (cov plays the role of 1 - L/255 at the channel level).
+      let radius = 1.5 + cov * (step * 0.4 - 1.5);
+      let dotAlpha = 1;
+
+      // HIGHLIGHT PROTECTION — extreme highlights → micro dot @ 40% alpha.
+      if (L > 242) {
+        radius = 1.5;
+        dotAlpha = 0.4;
+      } else {
+        radius = Math.min(step * 0.4, Math.max(1.5, radius));
+      }
+
+      const sprite = getDot(radius, hex, dotAlpha);
+      ctx.drawImage(sprite, x - sprite.width / 2, y - sprite.height / 2);
+    }
+  }
 }
