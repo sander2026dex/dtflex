@@ -414,12 +414,18 @@ async function renderRosette(
         if (!cmyk) continue;
         // Per-channel "brightness" = 1 - ink coverage. (Brightness 1 → no ink.)
         const inkCoverage = cmyk[s.channel]; // 0..1
-        const brightness = 1 - inkCoverage;
-        // GOLDEN RULE (linear, NOT sqrt): keeps highlights dotted, shadows solid.
-        let r = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
-        // For pure-white channel areas, skip Y/M/C noise dots so we don't smear.
-        // Black channel still keeps a tiny speck for texture.
-        if (inkCoverage < 0.04 && s.channel !== 3) continue;
+        // ----- HIGHLIGHT PROTECTION (faces / white art must stay clean) -----
+        // Pure white in this channel → SKIP. Don't dirty white skin/paper.
+        if (inkCoverage < 0.05) continue;
+        // Highlight band (>90% brightness on this channel) → minimum structural dot.
+        let r: number;
+        if (inkCoverage < 0.10) {
+          r = 1.0; // minimum 1px structural dot in highlights
+        } else {
+          // GOLDEN RULE (linear): r = (1 - brightness) * (MAX - MIN) + MIN
+          const brightness = 1 - inkCoverage;
+          r = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
+        }
         if (r < 0.45) continue;
         lctx.beginPath();
         lctx.arc(px, py, r, 0, Math.PI * 2);
@@ -537,9 +543,18 @@ async function renderRoundClean(
 
       if (insideSubject) {
         const rgb = sampleRgb(px, py)!;
+        // ----- HIGHLIGHT PROTECTION (Pacino-style clean faces) -----
+        // Skip pure white (RGB > 250) so light skin / paper stays crisp.
+        if (rgb[0] > 250 && rgb[1] > 250 && rgb[2] > 250) continue;
         const brightness = luma255(rgb[0], rgb[1], rgb[2]) / 255;
-        // Linear Golden Rule. NEVER transparent inside subject.
-        const radius = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
+        // Highlight band (>90% brightness) → minimum 1px structural dot.
+        let radius: number;
+        if (brightness > 0.90) {
+          radius = 1.0;
+        } else {
+          // Linear Golden Rule. NEVER transparent inside subject (mid/shadow).
+          radius = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
+        }
         ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
         ctx.beginPath();
         ctx.arc(px, py, radius, 0, Math.PI * 2);

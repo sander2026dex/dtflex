@@ -26,6 +26,9 @@ interface ProcessedResult {
 const LPI_MIN = 22;
 const LPI_MAX = 45;
 const LPI_DEFAULT = 35;
+const ANGLE_MIN = 0;
+const ANGLE_MAX = 90;
+const ANGLE_DEFAULT = 45;
 
 export function HalftoneStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -85,11 +88,18 @@ export function HalftoneStudio() {
 
   const mode: HalftoneMode = opts.mode ?? "rosette_cmyk";
   const lpi = opts.lpi ?? LPI_DEFAULT;
+  const angle = opts.baseAngleDeg ?? ANGLE_DEFAULT;
 
   const setLpi = (raw: number) => {
     if (Number.isNaN(raw)) return;
     const clamped = Math.max(LPI_MIN, Math.min(LPI_MAX, Math.round(raw)));
     setOpts((o) => ({ ...o, lpi: clamped }));
+  };
+
+  const setAngle = (raw: number) => {
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.max(ANGLE_MIN, Math.min(ANGLE_MAX, Math.round(raw)));
+    setOpts((o) => ({ ...o, baseAngleDeg: clamped }));
   };
 
   const switchMode = (newMode: HalftoneMode) => {
@@ -279,6 +289,43 @@ export function HalftoneStudio() {
                   <span>{LPI_MIN}</span>
                   <span>default {LPI_DEFAULT}</span>
                   <span>{LPI_MAX}</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-sm text-foreground">
+                    Ângulo {mode === "rosette_cmyk" ? "(fixo CMYK)" : "(grade única)"}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={angle}
+                    min={ANGLE_MIN}
+                    max={ANGLE_MAX}
+                    step={1}
+                    disabled={busy || mode === "rosette_cmyk"}
+                    onChange={(e) => setAngle(parseInt(e.target.value, 10))}
+                    className="h-7 w-20 text-right font-mono text-xs"
+                  />
+                </div>
+                <Slider
+                  value={[angle]}
+                  min={ANGLE_MIN}
+                  max={ANGLE_MAX}
+                  step={1}
+                  disabled={busy || mode === "rosette_cmyk"}
+                  onValueChange={([v]) => setAngle(v)}
+                />
+                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                  <span>{ANGLE_MIN}°</span>
+                  <span>
+                    {mode === "rosette_cmyk"
+                      ? "C15° M75° Y0° K45°"
+                      : `default ${ANGLE_DEFAULT}°`}
+                  </span>
+                  <span>{ANGLE_MAX}°</span>
                 </div>
               </div>
 
