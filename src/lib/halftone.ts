@@ -322,6 +322,9 @@ async function renderRosette(
   const { width: w, height: h, data } = src;
   const cellSize = dpi / lpi;
 
+  // Detect LARGE white regions → skip halftone entirely (no "holes/speckles").
+  const whiteMask = largeWhiteMask(src, Math.max(4, Math.round(cellSize * 0.6)));
+
   // FINAL canvas — fully transparent (Golden Rule #1).
   const canvas = makeCanvas(w, h);
   const ctx = ctx2d(canvas);
