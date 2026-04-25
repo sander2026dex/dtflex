@@ -115,6 +115,55 @@ function rgbToCmyk(r: number, g: number, b: number): [number, number, number, nu
   return [c, m, y, k];
 }
 
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+function heavyInkCurve(v: number): number {
+  // Print-style curves: set a small black point, add hard contrast, then use an
+  // S-curve that pushes shadows down while keeping bright detail printable.
+  let x = clamp01((v - 0.025) / 0.94);
+  x = clamp01((x - 0.5) * 1.48 + 0.5);
+  if (x < 0.5) return Math.pow(x * 2, 1.22) * 0.5;
+  return 1 - Math.pow((1 - x) * 2, 0.84) * 0.5;
+}
+
+function preprocessHeavyInk(img: ImageData): ImageData {
+  const { width, height, data } = img;
+  const out = new ImageData(new Uint8ClampedArray(data), width, height);
+  const d = out.data;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = heavyInkCurve(d[i] / 255);
+    let g = heavyInkCurve(d[i + 1] / 255);
+    let b = heavyInkCurve(d[i + 2] / 255);
+
+    // Saturation +40% around perceptual luma for the vibrant shirt-print look.
+    const l = r * 0.2126 + g * 0.7152 + b * 0.0722;
+    r = clamp01(l + (r - l) * 1.4);
+    g = clamp01(l + (g - l) * 1.4);
+    b = clamp01(l + (b - l) * 1.4);
+
+    // Extra shadow density: rich blacks instead of a faded watermark result.
+    const l2 = r * 0.2126 + g * 0.7152 + b * 0.0722;
+    const shadow = clamp01((0.62 - l2) / 0.62);
+    const darken = 1 - shadow * shadow * 0.24;
+    d[i] = Math.round(clamp01(r * darken) * 255);
+    d[i + 1] = Math.round(clamp01(g * darken) * 255);
+    d[i + 2] = Math.round(clamp01(b * darken) * 255);
+  }
+  return out;
+}
+
+function coverageHeavy(cov: number): number {
+  // AM halftone area must track coverage. Radius therefore uses sqrt(coverage),
+  // and this dot-gain curve intentionally packs more ink into mids/shadows.
+  const c = clamp01(cov);
+  if (c <= 0.002) return 0;
+  return clamp01(Math.pow(c, 0.58) * 1.18 + 0.035);
+}
+
+function luma255(r: number, g: number, b: number): number {
+  return r * 0.2126 + g * 0.7152 + b * 0.0722;
+}
+
 // ---------------------------------------------------------------------------
 // Value-noise (fBm) for ROUND aura splatter
 // ---------------------------------------------------------------------------
