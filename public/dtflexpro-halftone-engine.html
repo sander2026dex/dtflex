@@ -175,7 +175,7 @@
 <body>
 <header>
   <h1>🎨 RETICULA STUDIO — DTFLEXPRO</h1>
-  <p>RGB Halftone Engine • 3307×4930px • PNG Transparente</p>
+  <p>RGB Halftone Engine • Sem preto • Retícula vazada transparente • 3307×4930px</p>
 </header>
 
 <div class="container">
@@ -188,7 +188,7 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Recomendado: PNG sem fundo para melhor detecção da aura.</p>
+      <p class="info-text">Preto e sombras pretas serão removidos. Branco sai em retícula menor.</p>
     </div>
 
     <div class="control-group">
@@ -229,6 +229,8 @@
 
 <script>
 const OUT_W = 3307, OUT_H = 4930;
+const BLACK_LUMA_CUTOFF = 58;
+const BLACK_CHANNEL_CUTOFF = 72;
 let sourceImage = null;
 let mode = 'clean';
 let outputBlob = null;
@@ -285,6 +287,35 @@ function drawPreviewSource(img){
 function setProgress(p, msg){
   $('progressFill').style.width = (p*100)+'%';
   if (msg) $('statusText').textContent = msg;
+}
+
+function lumaAt(data, i){
+  return 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+}
+
+function isBlackPixel(data, i){
+  const r = data[i], g = data[i+1], b = data[i+2];
+  const l = 0.299*r + 0.587*g + 0.114*b;
+  return l <= BLACK_LUMA_CUTOFF && r <= BLACK_CHANNEL_CUTOFF && g <= BLACK_CHANNEL_CUTOFF && b <= BLACK_CHANNEL_CUTOFF;
+}
+
+function dotRadiusForLuma(luma, cell){
+  if (luma >= 238) return Math.max(0.45, cell * 0.055);
+  if (luma >= 215) return Math.max(0.55, cell * 0.075);
+  const density = Math.max(0, Math.min(1, (238 - luma) / (238 - BLACK_LUMA_CUTOFF)));
+  return Math.max(0.65, cell * (0.10 + density * 0.42));
+}
+
+function triggerDownload(){
+  if (!outputBlob) return;
+  const url = URL.createObjectURL(outputBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dtflex-reticula-sem-preto-${mode}-${Date.now()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // === Process ===
