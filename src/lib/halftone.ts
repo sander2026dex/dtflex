@@ -1,13 +1,15 @@
 // ============================================================================
-// DUAL-MODE HALFTONE ENGINE
+// DUAL-MODE HALFTONE ENGINE — Vanilla Canvas, no external libs
 // ----------------------------------------------------------------------------
-// Two mathematically distinct rendering pipelines, selected by `mode`:
+//   🟠 ROSETTE CMYK  → 4 channels (C/M/Y/K) on 4 angled grids → real rosettes
+//   🔵 ROUND CLEAN   → 1 RGB grid, single user angle, organic colored aura
 //
-//   🟠 ROSETTE CMYK  → 4 channels (C/M/Y/K), 4 angle-offset grids → rosettes
-//   🔵 ROUND CLEAN   → 1 RGB grid, single angle, organic edge aura
+// Rendering strategy (spec-compliant):
+//   for (y = 0; y < h; y += cellSize)
+//     for (x = 0; x < w; x += cellSize)
+//       sample cell center → compute radius → ctx.arc().fill()
 //
-// Output: PNG-32 (RGBA) · 3307×4930 px · 300 DPI metadata embedded.
-// Performance: OffscreenCanvas + TypedArrays; grid-step iteration for dots.
+// Output: PNG-32 (RGBA) · 3307×4930 px · 300 DPI (pHYs metadata embedded).
 // ============================================================================
 
 export type ProgressFn = (stage: string, pct: number) => void;
@@ -71,7 +73,7 @@ async function canvasToBlob(c: AnyCanvas): Promise<Blob> {
 }
 
 // ---------------------------------------------------------------------------
-// Fast resize (high-quality bilinear via stepped halving + final draw)
+// Stepped high-quality resize
 // ---------------------------------------------------------------------------
 function resizeTo(src: HTMLImageElement | AnyCanvas, tw: number, th: number): AnyCanvas {
   const sw = "naturalWidth" in src ? (src as HTMLImageElement).naturalWidth : (src as AnyCanvas).width;
@@ -103,10 +105,6 @@ function resizeTo(src: HTMLImageElement | AnyCanvas, tw: number, th: number): An
 // ---------------------------------------------------------------------------
 // Pixel ops
 // ---------------------------------------------------------------------------
-function rgbToLuma(r: number, g: number, b: number) {
-  return 0.299 * r + 0.587 * g + 0.114 * b;
-}
-
 function rgbToCmyk(r: number, g: number, b: number): [number, number, number, number] {
   const rn = r / 255, gn = g / 255, bn = b / 255;
   const k = 1 - Math.max(rn, gn, bn);
@@ -118,7 +116,7 @@ function rgbToCmyk(r: number, g: number, b: number): [number, number, number, nu
 }
 
 // ---------------------------------------------------------------------------
-// Value-noise (fBm) used by the ROUND aura splatter
+// Value-noise (fBm) for ROUND aura splatter
 // ---------------------------------------------------------------------------
 function makeValueNoise(seed = 1337) {
   const hash = (x: number, y: number) => {
@@ -151,7 +149,7 @@ function makeValueNoise(seed = 1337) {
 }
 
 // ---------------------------------------------------------------------------
-// Subject mask via flood-fill from the 4 corners (used only by ROUND aura)
+// Subject mask via flood-fill from the 4 corners (ROUND aura)
 // ---------------------------------------------------------------------------
 function subjectMaskFromCorners(img: ImageData, tolerance = 32): Uint8Array {
   const { width: w, height: h, data } = img;
@@ -188,56 +186,113 @@ function subjectMaskFromCorners(img: ImageData, tolerance = 32): Uint8Array {
   return subj;
 }
 
-// Chamfer 3-4 distance transform (in pixels) FROM subject edge, OUTWARD
-function distanceFromSubject(subj: Uint8Array, w: number, h: number): Float32Array {
+// Morphological dilation (square structuring element radius=r) — irregularizes
+// the boundary slightly when combined with noise gating.
+function dilate(subj: Uint8Array, w: number, h: number, r: number): Uint8Array {
+  if (r <= 0) return subj.slice();
+  const out = new Uint8Array(subj.length);
+  // horizontal pass
+  const tmp = new Uint8Array(subj.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 0;
+      for (let dx = -r; dx <= r; dx++) {
+        const xx = x + dx;
+        if (xx < 0 || xx >= w) continue;
+        if (subj[y * w + xx]) { v = 1; break; }
+      }
+      tmp[y * w + x] = v;
+    }
+  }
+  // vertical pass
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 0;
+      for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        if (tmp[yy * w + x]) { v = 1; break; }
+      }
+      out[y * w + x] = v;
+    }
+  }
+  return out;
+}
+
+// Chamfer 3-4 distance transform (px) FROM subject edge, OUTWARD; also returns
+// nearest-subject coordinates so the aura can sample subject color.
+function distanceFromSubjectWithNearest(
+  subj: Uint8Array,
+  w: number,
+  h: number,
+): { dist: Float32Array; nx: Int32Array; ny: Int32Array } {
   const total = w * h;
   const INF = 1e9;
   const d = new Float32Array(total);
-  for (let i = 0; i < total; i++) d[i] = subj[i] ? 0 : INF;
+  const nx = new Int32Array(total);
+  const ny = new Int32Array(total);
+  for (let i = 0; i < total; i++) {
+    if (subj[i]) {
+      d[i] = 0;
+      const x = i % w;
+      const y = (i - x) / w;
+      nx[i] = x; ny[i] = y;
+    } else {
+      d[i] = INF;
+      nx[i] = -1; ny[i] = -1;
+    }
+  }
+  const relax = (i: number, j: number, cost: number) => {
+    if (d[j] + cost < d[i]) {
+      d[i] = d[j] + cost;
+      nx[i] = nx[j]; ny[i] = ny[j];
+    }
+  };
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
       if (d[i] === 0) continue;
-      let m = d[i];
-      if (x > 0) m = Math.min(m, d[i - 1] + 3);
-      if (y > 0) m = Math.min(m, d[i - w] + 3);
-      if (x > 0 && y > 0) m = Math.min(m, d[i - w - 1] + 4);
-      if (x < w - 1 && y > 0) m = Math.min(m, d[i - w + 1] + 4);
-      d[i] = m;
+      if (x > 0) relax(i, i - 1, 3);
+      if (y > 0) relax(i, i - w, 3);
+      if (x > 0 && y > 0) relax(i, i - w - 1, 4);
+      if (x < w - 1 && y > 0) relax(i, i - w + 1, 4);
     }
   }
   for (let y = h - 1; y >= 0; y--) {
     for (let x = w - 1; x >= 0; x--) {
       const i = y * w + x;
       if (d[i] === 0) continue;
-      let m = d[i];
-      if (x < w - 1) m = Math.min(m, d[i + 1] + 3);
-      if (y < h - 1) m = Math.min(m, d[i + w] + 3);
-      if (x < w - 1 && y < h - 1) m = Math.min(m, d[i + w + 1] + 4);
-      if (x > 0 && y < h - 1) m = Math.min(m, d[i + w - 1] + 4);
-      d[i] = m;
+      if (x < w - 1) relax(i, i + 1, 3);
+      if (y < h - 1) relax(i, i + w, 3);
+      if (x < w - 1 && y < h - 1) relax(i, i + w + 1, 4);
+      if (x > 0 && y < h - 1) relax(i, i + w - 1, 4);
     }
   }
-  for (let i = 0; i < total; i++) d[i] /= 3;
-  return d;
+  for (let i = 0; i < total; i++) d[i] /= 3; // approx pixels
+  return { dist: d, nx, ny };
 }
 
 // ============================================================================
 // 🟠 ENGINE 1 — ROSETTE CMYK
 // ----------------------------------------------------------------------------
-// Math: Each ink (C/M/Y/K) is screened on its OWN angled grid. The grid step
-// is (dpi / lpi). Dot radius for a cell is sqrt(coverage * cellArea / π) where
-// coverage = channel value (0..1) modulated by Dot Gain.
+// MATH:
+//   cellSize = dpi / lpi
+//   For each ink, iterate its OWN rotated grid in steps of cellSize. At each
+//   grid intersection, sample the channel coverage at that point (in image
+//   space), then draw one disc of radius:
+//       r = (1 − luminance_channel) * (cellSize * 0.45)
+//   Channels overlap subtractively; full rectangular canvas coverage.
 //
-// To produce authentic offset-print rosettes, the four screens are rotated by
-// fixed offsets relative to the user's Base Angle:
-//
-//     C = base + 15°   M = base + 75°   Y = base + 0°   K = base + 45°
-//
-// Compositing: subtractive — start from white and multiply each ink-color
-// where its dot is solid. Result is opaque RGB on transparent background
-// (cells with no ink stay alpha=0, so the canvas remains transparent).
+//   Angle offsets (degrees): Cyan +15, Magenta +75, Yellow +0, Black +45.
 // ============================================================================
+
+interface RosetteScreen {
+  ang: number;
+  cos: number; sin: number;
+  cellSize: number;
+  ink: { r: number; g: number; b: number };
+  channel: 0 | 1 | 2 | 3; // index into [c,m,y,k]
+}
 
 const INK = {
   C: { r: 0,   g: 174, b: 239 },
@@ -246,195 +301,209 @@ const INK = {
   K: { r: 18,  g: 18,  b: 18  },
 };
 
-interface ScreenSpec {
-  ang: number;       // radians (inverse rotation cached cos/sin)
-  cosI: number;
-  sinI: number;
-  cellPx: number;
-  cellArea: number;
-}
-
-function makeScreen(angleDeg: number, dpi: number, lpi: number): ScreenSpec {
-  const cellPx = dpi / lpi;
-  const ang = (angleDeg * Math.PI) / 180;
-  return { ang, cosI: Math.cos(-ang), sinI: Math.sin(-ang), cellPx, cellArea: cellPx * cellPx };
-}
-
-// Returns 1 if pixel (x,y) lies inside the ink dot for the given channel grid.
-function dotHit(x: number, y: number, coverage: number, s: ScreenSpec): boolean {
-  if (coverage <= 0.005) return false;
-  const xr = x * s.cosI - y * s.sinI;
-  const yr = x * s.sinI + y * s.cosI;
-  const cxr = (Math.floor(xr / s.cellPx) + 0.5) * s.cellPx;
-  const cyr = (Math.floor(yr / s.cellPx) + 0.5) * s.cellPx;
-  const dxr = xr - cxr;
-  const dyr = yr - cyr;
-  const r = Math.sqrt((Math.min(1, coverage) * s.cellArea) / Math.PI);
-  return dxr * dxr + dyr * dyr <= r * r;
-}
-
-function renderRosette(
-  img: ImageData,
+async function renderRosette(
+  src: ImageData,
   dpi: number,
   lpi: number,
   baseAngleDeg: number,
-  dotGain: number, // -0.2 .. +0.2
-): ImageData {
-  const { width: w, height: h, data } = img;
-  const out = new ImageData(w, h);
-  const o = out.data;
+  onProgress?: ProgressFn,
+): Promise<AnyCanvas> {
+  const { width: w, height: h, data } = src;
+  const cellSize = dpi / lpi;
 
-  const sC = makeScreen(baseAngleDeg + 15, dpi, lpi);
-  const sM = makeScreen(baseAngleDeg + 75, dpi, lpi);
-  const sY = makeScreen(baseAngleDeg + 0,  dpi, lpi);
-  const sK = makeScreen(baseAngleDeg + 45, dpi, lpi);
+  // Output canvas — fully transparent. Each ink dot is drawn in its solid
+  // CMYK ink color; overlaps multiply through "multiply" composite to give
+  // authentic subtractive rosette interference.
+  const canvas = makeCanvas(w, h);
+  const ctx = ctx2d(canvas);
+  // Start transparent
+  ctx.clearRect(0, 0, w, h);
 
-  // Validation — distinct per-channel angles (mod 90°)
-  const angs = [sC.ang, sM.ang, sY.ang, sK.ang].map((a) => Math.round(((a * 180) / Math.PI) % 90));
-  if (new Set(angs).size < 4) {
-    console.warn("[rosette] expected 4 distinct angles, got", angs);
-  }
+  const screens: RosetteScreen[] = [
+    { ang: ((baseAngleDeg + 15) * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.C, channel: 0 },
+    { ang: ((baseAngleDeg + 75) * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.M, channel: 1 },
+    { ang: ((baseAngleDeg + 0)  * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.Y, channel: 2 },
+    { ang: ((baseAngleDeg + 45) * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.K, channel: 3 },
+  ];
+  for (const s of screens) { s.cos = Math.cos(s.ang); s.sin = Math.sin(s.ang); }
 
-  const gain = 1 + dotGain; // multiplicative
+  // Validate distinct screen angles (mod 90)
+  const distinct = new Set(screens.map((s) => Math.round(((s.ang * 180) / Math.PI) % 90)));
+  if (distinct.size < 4) console.warn("[rosette] non-distinct angles", [...distinct]);
 
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      const [c, m, yC, k] = rgbToCmyk(data[i], data[i + 1], data[i + 2]);
-      const cc = Math.max(0, Math.min(1, c * gain));
-      const mc = Math.max(0, Math.min(1, m * gain));
-      const yc = Math.max(0, Math.min(1, yC * gain));
-      const kc = Math.max(0, Math.min(1, k * gain));
+  // Diagonal extent so rotated grids cover the whole canvas
+  const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
+  const half = Math.ceil(diag / 2);
+  const cx = w / 2, cy = h / 2;
+  const rMax = cellSize * 0.45;
 
-      const hC = dotHit(x, y, cc, sC);
-      const hM = dotHit(x, y, mc, sM);
-      const hY = dotHit(x, y, yc, sY);
-      const hK = dotHit(x, y, kc, sK);
-      if (!hC && !hM && !hY && !hK) continue;
+  const sampleCmyk = (x: number, y: number): [number, number, number, number] | null => {
+    const xi = Math.round(x), yi = Math.round(y);
+    if (xi < 0 || xi >= w || yi < 0 || yi >= h) return null;
+    const di = (yi * w + xi) * 4;
+    return rgbToCmyk(data[di], data[di + 1], data[di + 2]);
+  };
 
-      // Subtractive mix from white
-      let r = 1, g = 1, b = 1;
-      if (hC) { r *= INK.C.r / 255; g *= INK.C.g / 255; b *= INK.C.b / 255; }
-      if (hM) { r *= INK.M.r / 255; g *= INK.M.g / 255; b *= INK.M.b / 255; }
-      if (hY) { r *= INK.Y.r / 255; g *= INK.Y.g / 255; b *= INK.Y.b / 255; }
-      if (hK) { r *= INK.K.r / 255; g *= INK.K.g / 255; b *= INK.K.b / 255; }
-      o[i]     = Math.round(r * 255);
-      o[i + 1] = Math.round(g * 255);
-      o[i + 2] = Math.round(b * 255);
-      o[i + 3] = 255;
+  // Render ONE channel at a time so we can use compositing modes per layer.
+  for (let si = 0; si < screens.length; si++) {
+    const s = screens[si];
+    onProgress?.(`Rosette ${["C", "M", "Y", "K"][s.channel]} · ${lpi} LPI`, 30 + si * 12);
+    // Each ink layer is drawn into its OWN offscreen canvas, then composited
+    // onto the result with "multiply" so colors blend like real ink.
+    const layer = makeCanvas(w, h);
+    const lctx = ctx2d(layer);
+    lctx.clearRect(0, 0, w, h);
+    lctx.fillStyle = `rgb(${s.ink.r}, ${s.ink.g}, ${s.ink.b})`;
+
+    // Iterate the rotated grid in steps of cellSize.
+    for (let gy = -half; gy <= half; gy += s.cellSize) {
+      for (let gx = -half; gx <= half; gx += s.cellSize) {
+        // Rotate grid point back into image coords
+        const px = cx + gx * s.cos - gy * s.sin;
+        const py = cy + gx * s.sin + gy * s.cos;
+        const cmyk = sampleCmyk(px, py);
+        if (!cmyk) continue;
+        const cov = cmyk[s.channel];
+        if (cov <= 0.01) continue;
+        const r = cov * rMax;
+        if (r < 0.4) continue;
+        lctx.beginPath();
+        lctx.arc(px, py, r, 0, Math.PI * 2);
+        lctx.fill();
+      }
     }
+
+    // Composite layer onto output with multiply (subtractive ink mix).
+    if (si === 0) {
+      ctx.globalCompositeOperation = "source-over";
+    } else {
+      ctx.globalCompositeOperation = "multiply";
+    }
+    ctx.drawImage(layer as CanvasImageSource, 0, 0);
   }
-  return out;
+  ctx.globalCompositeOperation = "source-over";
+  return canvas;
 }
 
 // ============================================================================
 // 🔵 ENGINE 2 — ROUND CLEAN
 // ----------------------------------------------------------------------------
-// Math: Single grid, single user angle (NO per-channel rotation → no rosettes).
-// Dot radius is driven by luminance: dark = large, light = micro. There is a
-// hard floor on dot size (1.2 px) so highlights never become transparent holes.
+// MATH:
+//   cellSize = dpi / lpi
+//   Single rotated grid (user angle applied uniformly → ZERO rosettes).
+//   At each grid intersection on the image:
+//       luminance = (R + G + B) / 3 / 255
+//       r = (1 − luminance) * (cellSize * 0.45), with minRadius = 1.5
+//   Dot is filled with the SUBJECT color sampled at that point.
 //
-// Aura: outside the subject mask but within auraRadiusPx, dots fade in size
-// and opacity exponentially with distance, jittered by fBm noise to make an
-// organic splatter. Aura dot color is sampled from the nearest subject pixel
-// (here we use the local pixel — flood-filled background colors are excluded).
+// AURA:
+//   1) subject mask = (alpha-aware) flood-fill from 4 corners + tolerance
+//   2) dilate mask + simplex/value noise threshold → irregular splatter edge
+//   3) for grid points OUTSIDE mask, within auraRadiusPx (60px default):
+//        d        = chamfer distance to nearest mask pixel
+//        opacity  = max(0, 1 − d/auraRadius)^1.5
+//        radius   = baseRadius * opacity * 0.8
+//        color    = sampled from NEAREST subject pixel (inherits hue)
+//   4) Beyond aura → fully transparent.
 // ============================================================================
-function renderRoundClean(
-  img: ImageData,
+async function renderRoundClean(
+  src: ImageData,
   dpi: number,
   lpi: number,
   angleDeg: number,
-  dotGain: number,
   auraRadiusPx: number,
   bgTolerance: number,
-  seed = 1337,
-): ImageData {
-  const { width: w, height: h, data } = img;
-  const out = new ImageData(w, h);
-  const o = out.data;
-  const screen = makeScreen(angleDeg, dpi, lpi);
+  seed: number,
+  onProgress?: ProgressFn,
+): Promise<AnyCanvas> {
+  const { width: w, height: h, data } = src;
+  const cellSize = dpi / lpi;
 
-  // Coverage range — never let highlights drop to zero
-  const COVER_MIN = 0.04;
-  const COVER_MAX = 0.98;
-  const MIN_R_PX = 1.2;
-  const gain = 1 + dotGain;
+  const canvas = makeCanvas(w, h);
+  const ctx = ctx2d(canvas);
+  ctx.clearRect(0, 0, w, h);
 
-  // Subject mask only needed if aura is enabled
-  const wantAura = auraRadiusPx > 0.5;
-  let subj: Uint8Array | null = null;
-  let dist: Float32Array | null = null;
-  let noise: ((x: number, y: number, oct?: number, lac?: number, g?: number) => number) | null = null;
-  if (wantAura) {
-    subj = subjectMaskFromCorners(img, bgTolerance);
-    dist = distanceFromSubject(subj, w, h);
-    noise = makeValueNoise(seed);
-  }
+  // ----- Subject mask + irregular boundary --------------------------------
+  onProgress?.("Mask · subject", 28);
+  const subjRaw = subjectMaskFromCorners(src, bgTolerance);
+  // Slight dilation widens the body so dots near the silhouette aren't cut.
+  const subj = dilate(subjRaw, w, h, 1);
+  onProgress?.("Mask · distance transform", 40);
+  const { dist, nx, ny } = distanceFromSubjectWithNearest(subj, w, h);
+  const noise = makeValueNoise(seed);
 
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const p = y * w + x;
-      const i = p * 4;
-      const r = data[i], g = data[i + 1], b = data[i + 2];
+  // Single rotated grid — same angle for every dot.
+  const ang = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(ang), sin = Math.sin(ang);
+  const cx = w / 2, cy = h / 2;
+  const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
+  const half = Math.ceil(diag / 2);
 
-      // Identical screen for ALL pixels — guarantees zero rosettes
-      const xr = x * screen.cosI - y * screen.sinI;
-      const yr = x * screen.sinI + y * screen.cosI;
-      const cxr = (Math.floor(xr / screen.cellPx) + 0.5) * screen.cellPx;
-      const cyr = (Math.floor(yr / screen.cellPx) + 0.5) * screen.cellPx;
-      const dxr = xr - cxr;
-      const dyr = yr - cyr;
-      const distSq = dxr * dxr + dyr * dyr;
+  const rMax = cellSize * 0.45;
+  const MIN_R = 1.5;
 
-      const insideSubject = !wantAura || (subj && subj[p] === 1);
+  // Sample image rgb (with bilinear for stability)
+  const sampleRgb = (x: number, y: number): [number, number, number] | null => {
+    const xi = Math.round(x), yi = Math.round(y);
+    if (xi < 0 || xi >= w || yi < 0 || yi >= h) return null;
+    const di = (yi * w + xi) * 4;
+    return [data[di], data[di + 1], data[di + 2]];
+  };
+
+  onProgress?.(`Round Clean · ${lpi} LPI · ${angleDeg}°`, 55);
+
+  for (let gy = -half; gy <= half; gy += cellSize) {
+    for (let gx = -half; gx <= half; gx += cellSize) {
+      const px = cx + gx * cos - gy * sin;
+      const py = cy + gx * sin + gy * cos;
+      const xi = Math.round(px), yi = Math.round(py);
+      if (xi < 0 || xi >= w || yi < 0 || yi >= h) continue;
+      const p = yi * w + xi;
+      const insideSubject = subj[p] === 1;
 
       if (insideSubject) {
-        // Luma → coverage. Dark = large dot, light = micro dot (no holes).
-        const luma = rgbToLuma(r, g, b) / 255;
-        const density = (1 - luma) * gain;
-        const coverage = COVER_MIN + (COVER_MAX - COVER_MIN) * Math.max(0, Math.min(1, density));
-        let radius = Math.sqrt((coverage * screen.cellArea) / Math.PI);
-        if (radius < MIN_R_PX) radius = MIN_R_PX;
-        if (distSq > radius * radius) continue;
-        const edgeT = distSq / (radius * radius);
-        const aa = edgeT > 0.81 ? Math.max(0, 1 - (edgeT - 0.81) / 0.19) : 1;
-        o[i] = r; o[i + 1] = g; o[i + 2] = b;
-        o[i + 3] = Math.round(255 * aa);
+        const rgb = sampleRgb(px, py)!;
+        const luma = (rgb[0] + rgb[1] + rgb[2]) / 3 / 255;
+        let radius = (1 - luma) * rMax;
+        if (radius < MIN_R) radius = MIN_R; // highlight protection — never holes
+        ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+        ctx.beginPath();
+        ctx.arc(px, py, radius, 0, Math.PI * 2);
+        ctx.fill();
         continue;
       }
 
-      // ----- AURA region (outside subject) ---------------------------------
-      if (!wantAura || !dist || !noise) continue;
-      const dEdge = dist[p];
-      if (dEdge > auraRadiusPx) continue;
+      // Aura region
+      if (auraRadiusPx <= 0) continue;
+      const d = dist[p];
+      if (d > auraRadiusPx) continue;
 
-      const t = dEdge / auraRadiusPx;          // 0 at edge → 1 at outer rim
-      const falloff = Math.pow(1 - t, 1.8);    // exponential decay
-      const n = noise(x * 0.012, y * 0.012, 4, 2.1, 0.55);
-      // Splatter: the further from edge, the stronger the noise must be
-      const noiseGate = 0.22 + t * 0.55;
+      // Noise gate produces splatter (denser near edge, sparser far away).
+      const n = noise(px * 0.018, py * 0.018, 4, 2.1, 0.55);
+      const t = d / auraRadiusPx;
+      const noiseGate = 0.18 + t * 0.55;
       if (n < noiseGate) continue;
 
-      const lumaP = rgbToLuma(r, g, b) / 255;
-      const density = (1 - lumaP) * gain * (0.55 + 0.5 * n);
-      const coverage = (COVER_MIN + (COVER_MAX - COVER_MIN) * density) * falloff;
-      if (coverage <= 0.015) continue;
-      let radius = Math.sqrt((coverage * screen.cellArea) / Math.PI);
-      if (radius < 0.6) continue;              // no sub-pixel slivers in aura
-      if (distSq > radius * radius) continue;
+      // Sample color from NEAREST subject pixel
+      const sx = nx[p], sy = ny[p];
+      if (sx < 0) continue;
+      const di = (sy * w + sx) * 4;
+      const rS = data[di], gS = data[di + 1], bS = data[di + 2];
+      const lumaS = (rS + gS + bS) / 3 / 255;
+      const baseR = Math.max(MIN_R, (1 - lumaS) * rMax);
 
-      // Sample color from the subject — for the aura we keep the actual local
-      // pixel hue (already represents the subject silhouette since flood fill
-      // removed the background).
-      const edgeT = distSq / (radius * radius);
-      const aa = edgeT > 0.81 ? Math.max(0, 1 - (edgeT - 0.81) / 0.19) : 1;
-      const alpha = Math.round(255 * aa * Math.min(1, falloff * 1.4 + 0.05));
-      if (alpha <= 4) continue;
-      o[i] = r; o[i + 1] = g; o[i + 2] = b;
-      o[i + 3] = alpha;
+      const opacity = Math.pow(Math.max(0, 1 - t), 1.5);
+      const radius = baseR * opacity * 0.8;
+      if (radius < 0.6) continue;
+
+      const alpha = Math.min(1, opacity * 1.1 + 0.05);
+      ctx.fillStyle = `rgba(${rS}, ${gS}, ${bS}, ${alpha.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(px, py, radius, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
-  return out;
+  return canvas;
 }
 
 // ============================================================================
@@ -445,11 +514,10 @@ export interface HalftoneOptions {
   targetW?: number;
   targetH?: number;
   dpi?: number;
-  lpi?: number;            // 20..150
+  lpi?: number;            // 22..45 per spec
   baseAngleDeg?: number;   // 0..90
-  auraRadiusPx?: number;   // 0..80 — only in round_clean
-  dotGain?: number;        // -0.2 .. +0.2
-  bgTolerance?: number;    // for subject mask in round_clean
+  auraRadiusPx?: number;   // 0..120 — only in round_clean (spec default 60)
+  bgTolerance?: number;
   seed?: number;
 }
 
@@ -458,10 +526,9 @@ export const DEFAULT_OPTIONS: Required<HalftoneOptions> = {
   targetW: 3307,
   targetH: 4930,
   dpi: 300,
-  lpi: 55,                 // rosette default; UI swaps to 90 on round
+  lpi: 35,                 // spec default
   baseAngleDeg: 45,
-  auraRadiusPx: 30,
-  dotGain: 0,
+  auraRadiusPx: 60,        // spec
   bgTolerance: 38,
   seed: 1337,
 };
@@ -490,35 +557,24 @@ export async function processImage(
   const sctx = ctx2d(stage);
   const data = sctx.getImageData(0, 0, tw, th);
 
-  // Validation rule for the user's spec
+  let outCanvas: AnyCanvas;
   if (o.mode === "rosette_cmyk") {
-    onProgress?.(`🟠 Rosette CMYK · ${o.lpi} LPI · base ${o.baseAngleDeg}°`, 30);
+    outCanvas = await renderRosette(data, effectiveDpi, o.lpi, o.baseAngleDeg, onProgress);
   } else {
-    onProgress?.(`🔵 Round Clean · ${o.lpi} LPI · ${o.baseAngleDeg}° · aura ${o.auraRadiusPx}px`, 30);
-  }
-  await tick();
-
-  let halftone: ImageData;
-  if (o.mode === "rosette_cmyk") {
-    halftone = renderRosette(data, effectiveDpi, o.lpi, o.baseAngleDeg, o.dotGain);
-  } else {
-    halftone = renderRoundClean(
+    outCanvas = await renderRoundClean(
       data,
       effectiveDpi,
       o.lpi,
       o.baseAngleDeg,
-      o.dotGain,
       effectiveAura,
       o.bgTolerance,
       o.seed,
+      onProgress,
     );
   }
 
   onProgress?.("Encoding PNG-32", 92);
   await tick();
-  const outCanvas = makeCanvas(tw, th);
-  const octx = ctx2d(outCanvas);
-  octx.putImageData(halftone, 0, 0);
   const blob = await canvasToBlob(outCanvas);
 
   onProgress?.("Embedding 300 DPI metadata", 98);

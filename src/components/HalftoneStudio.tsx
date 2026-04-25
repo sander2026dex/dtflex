@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, ImageIcon, Loader2, Settings2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -23,10 +24,9 @@ interface ProcessedResult {
   sizeKB: number;
 }
 
-const MODE_DEFAULTS: Record<HalftoneMode, Partial<HalftoneOptions>> = {
-  rosette_cmyk: { lpi: 55, baseAngleDeg: 45, dotGain: 0 },
-  round_clean: { lpi: 90, baseAngleDeg: 45, auraRadiusPx: 30, dotGain: 0 },
-};
+const LPI_MIN = 22;
+const LPI_MAX = 45;
+const LPI_DEFAULT = 35;
 
 export function HalftoneStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -36,7 +36,7 @@ export function HalftoneStudio() {
   const [stage, setStage] = useState("");
   const [pct, setPct] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [opts, setOpts] = useState<HalftoneOptions>({ ...DEFAULT_OPTIONS });
+  const [opts, setOpts] = useState<HalftoneOptions>({ ...DEFAULT_OPTIONS, lpi: LPI_DEFAULT });
   const [livePreview, setLivePreview] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const cachedImg = useRef<HTMLImageElement | null>(null);
@@ -138,9 +138,16 @@ export function HalftoneStudio() {
 
   const currentOutput = busy ? null : fullResult?.url ?? previewResult?.url ?? null;
   const mode: HalftoneMode = opts.mode ?? "rosette_cmyk";
+  const lpi = opts.lpi ?? LPI_DEFAULT;
+
+  const setLpi = (raw: number) => {
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.max(LPI_MIN, Math.min(LPI_MAX, Math.round(raw)));
+    setOpts((o) => ({ ...o, lpi: clamped }));
+  };
 
   const switchMode = (newMode: HalftoneMode) => {
-    setOpts((o) => ({ ...o, mode: newMode, ...MODE_DEFAULTS[newMode] }));
+    setOpts((o) => ({ ...o, mode: newMode }));
   };
 
   return (
@@ -166,8 +173,8 @@ export function HalftoneStudio() {
                 🟠 Rosette CMYK · 🔵 Round Clean
               </h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
-                Duas pipelines matemáticas distintas. Rosette gera padrões de interferência CMYK
-                autênticos. Round produz pontos isolados limpos com aura orgânica em fundo
+                Vanilla Canvas · sem libs externas. Rosette gera padrões CMYK reais com 4 ângulos.
+                Round produz pontos circulares limpos com aura colorida orgânica em fundo
                 transparente.
               </p>
             </div>
@@ -293,62 +300,39 @@ export function HalftoneStudio() {
                 </ToggleGroup>
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {mode === "rosette_cmyk"
-                    ? "4 telas C/M/Y/K em ângulos diferentes geram padrões de roseta."
-                    : "Grade única, mesmo ângulo para todos os pixels — zero interferência."}
+                    ? "4 telas C/M/Y/K em ângulos diferentes (+15°, +75°, 0°, +45°) geram rosetas autênticas."
+                    : "Grade única, mesmo ângulo para todos os pontos. Aura colorida de 60px em volta do sujeito."}
                 </p>
               </div>
 
               <Separator />
 
-              <SliderRow
-                label="LPI (Lines per Inch)"
-                value={opts.lpi ?? 55}
-                min={20}
-                max={150}
-                step={1}
-                onChange={(v) => setOpts((o) => ({ ...o, lpi: v }))}
-              />
-              <SliderRow
-                label="Base Angle"
-                value={opts.baseAngleDeg ?? 45}
-                min={0}
-                max={90}
-                step={1}
-                format={(v) => `${v}°`}
-                onChange={(v) => setOpts((o) => ({ ...o, baseAngleDeg: v }))}
-              />
-              <SliderRow
-                label="Dot Gain"
-                value={opts.dotGain ?? 0}
-                min={-0.2}
-                max={0.2}
-                step={0.01}
-                format={(v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)}%`}
-                onChange={(v) => setOpts((o) => ({ ...o, dotGain: v }))}
-              />
-
-              {mode === "round_clean" && (
-                <>
-                  <Separator />
-                  <SliderRow
-                    label="Aura Radius"
-                    value={opts.auraRadiusPx ?? 30}
-                    min={0}
-                    max={80}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-sm text-foreground">LPI (Lines per Inch)</Label>
+                  <Input
+                    type="number"
+                    value={lpi}
+                    min={LPI_MIN}
+                    max={LPI_MAX}
                     step={1}
-                    format={(v) => `${v}px`}
-                    onChange={(v) => setOpts((o) => ({ ...o, auraRadiusPx: v }))}
+                    onChange={(e) => setLpi(parseInt(e.target.value, 10))}
+                    className="h-7 w-20 text-right font-mono text-xs"
                   />
-                  <SliderRow
-                    label="Background tolerance"
-                    value={opts.bgTolerance ?? 38}
-                    min={5}
-                    max={80}
-                    step={1}
-                    onChange={(v) => setOpts((o) => ({ ...o, bgTolerance: v }))}
-                  />
-                </>
-              )}
+                </div>
+                <Slider
+                  value={[lpi]}
+                  min={LPI_MIN}
+                  max={LPI_MAX}
+                  step={1}
+                  onValueChange={([v]) => setLpi(v)}
+                />
+                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                  <span>{LPI_MIN}</span>
+                  <span>default {LPI_DEFAULT}</span>
+                  <span>{LPI_MAX}</span>
+                </div>
+              </div>
 
               <Separator />
 
@@ -363,9 +347,7 @@ export function HalftoneStudio() {
                 variant="ghost"
                 size="sm"
                 className="w-full"
-                onClick={() =>
-                  setOpts({ ...DEFAULT_OPTIONS, mode, ...MODE_DEFAULTS[mode] })
-                }
+                onClick={() => setOpts({ ...DEFAULT_OPTIONS, lpi: LPI_DEFAULT })}
               >
                 Resetar parâmetros
               </Button>
@@ -373,34 +355,6 @@ export function HalftoneStudio() {
           </div>
         </section>
       </main>
-    </div>
-  );
-}
-
-function SliderRow({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  format,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-  format?: (v: number) => string;
-}) {
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <Label className="text-sm text-foreground">{label}</Label>
-        <span className="font-mono text-xs text-primary">{format ? format(value) : value}</span>
-      </div>
-      <Slider value={[value]} min={min} max={max} step={step} onValueChange={([v]) => onChange(v)} />
     </div>
   );
 }
