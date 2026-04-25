@@ -21,6 +21,7 @@
   .file{display:block;width:100%;padding:14px;background:#0b0f18;border:1px dashed #2a3346;border-radius:10px;text-align:center;cursor:pointer;color:#a8b2c5}
   .btn{display:block;width:100%;padding:14px;border:0;border-radius:10px;font-weight:800;letter-spacing:.5px;cursor:pointer;background:linear-gradient(135deg,#f5c451,#e89d2a);color:#1a1206;font-size:14px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
+  .tip{margin-top:10px;font-size:11px;color:#f5c451;line-height:1.4;padding:8px;background:#1a1206;border-radius:6px;border:1px solid #3a2a10}
   .stage{display:flex;align-items:center;justify-content:center;background:
     repeating-conic-gradient(#1a1f2c 0% 25%, #141826 0% 50%) 0 0/24px 24px;
     overflow:auto;padding:24px}
@@ -34,30 +35,33 @@
 <div class="app">
   <aside class="side">
     <div class="brand">RETICULA STUDIO</div>
-    <div class="sub">DTFLEXPRO · RGB Halftone · 300 DPI</div>
+    <div class="sub">DTFLEXPRO · Halftone DTF · 300 DPI</div>
 
     <div class="group">
       <div class="label">Modo</div>
       <div class="modes">
-        <div class="mode on" data-mode="clean">CLEAN RGB</div>
-        <div class="mode" data-mode="rosette">ROSETTE RGB</div>
+        <div class="mode on" data-mode="clean">CLEAN + AURA</div>
+        <div class="mode" data-mode="rosette">ROSETTE CMY</div>
       </div>
     </div>
 
     <div class="group">
-      <label class="file" for="file">📁 Carregar imagem (PNG/JPG)</label>
+      <label class="file" for="file">📁 Carregar imagem</label>
       <input id="file" type="file" accept="image/*" hidden />
+      <div class="tip">⚠ Use PNG <b>já recortado com fundo transparente</b> para aura precisa. JPG/imagem com fundo é aceito mas a detecção é aproximada.</div>
     </div>
 
     <div class="group">
       <div class="label">LPI <b id="lpiV">32</b></div>
       <input id="lpi" type="range" min="22" max="45" value="32" />
-      <div class="label" style="margin-top:12px">Ângulo <b id="angV">15°</b></div>
+      <div class="label" style="margin-top:12px">Ângulo grid <b id="angV">15°</b></div>
       <input id="ang" type="range" min="0" max="90" value="15" />
-      <div class="label" style="margin-top:12px">Aura (px) <b id="auraV">120</b></div>
-      <input id="aura" type="range" min="0" max="400" value="120" />
-      <div class="label" style="margin-top:12px">Contraste <b id="ctV">20</b>%</div>
-      <input id="ct" type="range" min="0" max="60" value="20" />
+      <div class="label" style="margin-top:12px">Raio aura (px) <b id="auraV">600</b></div>
+      <input id="aura" type="range" min="0" max="900" value="600" />
+      <div class="label" style="margin-top:12px">Partículas <b id="partV">5000</b></div>
+      <input id="part" type="range" min="0" max="12000" step="500" value="5000" />
+      <div class="label" style="margin-top:12px">Contraste <b id="ctV">25</b>%</div>
+      <input id="ct" type="range" min="0" max="60" value="25" />
     </div>
 
     <button id="go" class="btn" disabled>GERAR PNG 3307×4930</button>
@@ -79,15 +83,16 @@ let mode = 'clean';
 let img = null;
 
 const $ = id => document.getElementById(id);
-const lpiEl = $('lpi'), angEl = $('ang'), auraEl = $('aura'), ctEl = $('ct');
-const lpiV = $('lpiV'), angV = $('angV'), auraV = $('auraV'), ctV = $('ctV');
+const lpiEl = $('lpi'), angEl = $('ang'), auraEl = $('aura'), ctEl = $('ct'), partEl = $('part');
+const lpiV = $('lpiV'), angV = $('angV'), auraV = $('auraV'), ctV = $('ctV'), partV = $('partV');
 const msg = $('msg'), prog = $('prog');
 const preview = $('preview'), pctx = preview.getContext('2d');
 
 lpiEl.oninput = () => lpiV.textContent = lpiEl.value;
 angEl.oninput = () => angV.textContent = angEl.value + '°';
 auraEl.oninput = () => auraV.textContent = auraEl.value;
-ctEl.oninput = () => ctV.textContent = ctEl.value;
+ctEl.oninput  = () => ctV.textContent  = ctEl.value;
+partEl.oninput= () => partV.textContent= partEl.value;
 
 document.querySelectorAll('.mode').forEach(m=>{
   m.onclick = () => {
@@ -123,59 +128,63 @@ $('go').onclick = run;
 async function run(){
   if(!img) return;
   $('go').disabled = true;
+  const t0 = performance.now();
   try {
     setMsg('Preparando canvas...', 0.05);
     await yieldFrame();
 
-    // 1) Fit image into OUT canvas preserving aspect ratio (centered)
+    // Fit image into OUT canvas
     const src = document.createElement('canvas');
     src.width = OUT_W; src.height = OUT_H;
     const sctx = src.getContext('2d');
-    // transparent background
     const r = Math.min(OUT_W/img.width, OUT_H/img.height);
     const dw = img.width*r, dh = img.height*r;
     const dx = (OUT_W-dw)/2, dy = (OUT_H-dh)/2;
     sctx.drawImage(img, dx, dy, dw, dh);
 
-    setMsg('Aplicando contraste...', 0.12);
+    setMsg('Aplicando contraste...', 0.10);
     await yieldFrame();
     applyContrast(sctx, OUT_W, OUT_H, parseInt(ctEl.value,10));
 
-    setMsg('Calculando máscara do sujeito...', 0.20);
+    setMsg('Detectando sujeito...', 0.18);
     await yieldFrame();
     const srcData = sctx.getImageData(0,0,OUT_W,OUT_H);
-    const mask = buildMask(srcData); // Uint8Array (0 background, 255 subject)
+    const mask = buildMask(srcData);
 
-    setMsg('Calculando distância da borda...', 0.30);
+    setMsg('Calculando distância da borda...', 0.28);
     await yieldFrame();
-    const dist = distanceTransform(mask, OUT_W, OUT_H); // Float32Array, distance from subject edge (outside)
+    const dist = distanceTransform(mask, OUT_W, OUT_H);
 
-    // 2) Output canvas (transparent)
+    // Output
     const out = document.createElement('canvas');
     out.width = OUT_W; out.height = OUT_H;
     const octx = out.getContext('2d');
     octx.clearRect(0,0,OUT_W,OUT_H);
 
-    const lpi = parseInt(lpiEl.value,10);
-    const angle = parseInt(angEl.value,10) * Math.PI/180;
-    const auraW = parseInt(auraEl.value,10);
-    // Cell size in pixels: 300 DPI / LPI
-    const cell = Math.max(3, Math.round(300/lpi));
-    const maxR = cell * 0.55;
-    const minR = 1.5;
+    const lpi    = parseInt(lpiEl.value,10);
+    const angle  = parseInt(angEl.value,10) * Math.PI/180;
+    const auraW  = parseInt(auraEl.value,10);
+    const nPart  = parseInt(partEl.value,10);
+    const cell   = Math.max(3, Math.round(300/lpi));
+    const maxR   = cell * 0.55;
+    const minR   = 1.5;
 
-    setMsg('Renderizando halftone...', 0.40);
+    setMsg('Renderizando halftone...', 0.38);
     await yieldFrame();
 
     if(mode === 'clean'){
-      await renderClean(srcData, mask, dist, octx, cell, angle, maxR, minR, auraW);
+      await renderClean(srcData, mask, octx, cell, angle, maxR, minR);
+      if(auraW > 0 && nPart > 0){
+        setMsg('Explodindo aura ('+nPart+' partículas)...', 0.72);
+        await yieldFrame();
+        renderAuraParticles(srcData, mask, dist, octx, auraW, nPart);
+      }
     } else {
-      await renderRosette(srcData, mask, dist, octx, cell, maxR, minR, auraW);
+      await renderRosetteCMY(srcData, mask, octx, cell, maxR, minR);
     }
 
     setMsg('Gerando preview...', 0.92);
     await yieldFrame();
-    // Show preview
     const pr = Math.min(preview.width/OUT_W, preview.height/OUT_H);
     pctx.clearRect(0,0,preview.width,preview.height);
     pctx.drawImage(out, (preview.width-OUT_W*pr)/2, (preview.height-OUT_H*pr)/2, OUT_W*pr, OUT_H*pr);
@@ -188,7 +197,8 @@ async function run(){
       a.download = 'dtflexpro-'+mode+'-'+Date.now()+'.png';
       a.click();
       setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
-      setMsg('Concluído ✔  PNG 3307×4930 baixado.', 1);
+      const dt = ((performance.now()-t0)/1000).toFixed(1);
+      setMsg('✔ PNG 3307×4930 baixado em '+dt+'s', 1);
       $('go').disabled = false;
     }, 'image/png');
   } catch(err){
@@ -213,19 +223,18 @@ function applyContrast(ctx, w, h, pct){
 }
 function clamp(v){ return v<0?0:v>255?255:v; }
 
-// Build subject mask from alpha (loaded image alpha) OR from non-white pixels
+// CORREÇÃO 2: prioriza alpha; cai para detecção de fundo claro só se não houver alpha
 function buildMask(imgData){
   const {width:w, height:h, data:d} = imgData;
   const mask = new Uint8Array(w*h);
-  // Decide: if image has any transparent pixels, use alpha. Otherwise treat near-white as background.
-  let hasAlpha = false;
-  for(let i=3;i<d.length;i+=4){ if(d[i]<250){ hasAlpha = true; break; } }
+  let transparentPixels = 0;
+  for(let i=3;i<d.length;i+=4){ if(d[i]<200){ transparentPixels++; if(transparentPixels>500) break; } }
+  const hasAlpha = transparentPixels > 500;
   if(hasAlpha){
-    for(let p=0,i=0;i<d.length;i+=4,p++) mask[p] = d[i+3]>32 ? 255 : 0;
+    for(let p=0,i=0;i<d.length;i+=4,p++) mask[p] = d[i+3]>40 ? 255 : 0;
   } else {
     for(let p=0,i=0;i<d.length;i+=4,p++){
       const r=d[i],g=d[i+1],b=d[i+2];
-      // background = very bright AND low saturation
       const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
       const isBg = mx>240 && (mx-mn)<14;
       mask[p] = isBg ? 0 : 255;
@@ -234,13 +243,12 @@ function buildMask(imgData){
   return mask;
 }
 
-// 2-pass chamfer distance transform (outside subject only)
+// 2-pass chamfer distance transform
 function distanceTransform(mask, w, h){
   const INF = 1e9;
   const d = new Float32Array(w*h);
   for(let i=0;i<d.length;i++) d[i] = mask[i] ? 0 : INF;
   const a = 1, b = Math.SQRT2;
-  // forward
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const i = y*w+x; let v = d[i];
@@ -251,7 +259,6 @@ function distanceTransform(mask, w, h){
       d[i] = v;
     }
   }
-  // backward
   for(let y=h-1;y>=0;y--){
     for(let x=w-1;x>=0;x--){
       const i = y*w+x; let v = d[i];
@@ -265,135 +272,136 @@ function distanceTransform(mask, w, h){
   return d;
 }
 
-// CLEAN RGB: single rotated grid; sample the source RGB, draw colored dot.
-// Radius from luminance: black -> max, white -> min.
-// Aura: continues the dot grid outside subject, fading by distance.
-async function renderClean(srcData, mask, dist, octx, cell, angle, maxR, minR, auraW){
+// CLEAN: halftone com cores RGB originais, só dentro do sujeito (fundo fica transparente).
+async function renderClean(srcData, mask, octx, cell, angle, maxR, minR){
   const w = srcData.width, h = srcData.height, d = srcData.data;
-  // Rotated grid: iterate in rotated coordinate system
   const cosA = Math.cos(angle), sinA = Math.sin(angle);
   const diag = Math.ceil(Math.hypot(w,h));
-  const startU = -diag, endU = diag;
-  const startV = -diag, endV = diag;
-
   let row = 0;
-  const rows = Math.ceil((endV-startV)/cell);
+  const rows = Math.ceil((2*diag)/cell);
 
-  for(let v = startV; v < endV; v += cell){
-    for(let u = startU; u < endU; u += cell){
-      // jittered grid not needed; pure grid
+  for(let v=-diag; v<diag; v+=cell){
+    for(let u=-diag; u<diag; u+=cell){
       const x = Math.round(u*cosA - v*sinA + w/2);
       const y = Math.round(u*sinA + v*cosA + h/2);
       if(x<0||y<0||x>=w||y>=h) continue;
       const idx = y*w + x;
+      if(!mask[idx]) continue;
       const i = idx*4;
-      const a = d[i+3];
-
-      let r,g,b,L,radius,opacity=1;
-      if(mask[idx]){
-        // subject pixel
-        r=d[i]; g=d[i+1]; b=d[i+2];
-        L = 0.299*r + 0.587*g + 0.114*b;
-        const t = 1 - (L/255); // 0 white -> 0, black -> 1
-        radius = minR + (maxR - minR) * t;
-        opacity = 1;
-      } else if(auraW > 0 && dist[idx] < auraW){
-        // aura: sample nearest subject pixel color along gradient (use current pixel color if alpha exists, else find nearest)
-        const near = nearestSubjectColor(d, mask, w, h, x, y, dist[idx]);
-        if(!near) continue;
-        r = near[0]; g = near[1]; b = near[2];
-        L = 0.299*r + 0.587*g + 0.114*b;
-        const t = 1 - (L/255);
-        const fade = 1 - (dist[idx]/auraW); // linear fade
-        radius = (minR + (maxR - minR) * t) * fade;
-        opacity = fade;
-        if(radius < 0.6) continue;
-      } else {
-        continue;
-      }
-
-      octx.fillStyle = `rgba(${r|0},${g|0},${b|0},${opacity.toFixed(3)})`;
+      const r=d[i], g=d[i+1], b=d[i+2];
+      const L = 0.299*r + 0.587*g + 0.114*b;
+      const t = 1 - (L/255);
+      const radius = minR + (maxR-minR)*t;
+      if(radius < 0.6) continue;
+      octx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
       octx.beginPath();
       octx.arc(x, y, radius, 0, Math.PI*2);
       octx.fill();
     }
     row++;
     if((row & 31) === 0){
-      setMsg('Renderizando halftone... '+Math.round(40 + 50*row/rows)+'%', 0.40 + 0.5*row/rows);
+      setMsg('Halftone... '+Math.round(100*row/rows)+'%', 0.38 + 0.32*row/rows);
       await yieldFrame();
     }
   }
 }
 
-// Find nearest subject pixel color by stepping toward subject (cheap: sample a few directions)
-function nearestSubjectColor(d, mask, w, h, x, y, distVal){
-  // step toward gradient using simple search radius up to distVal+2 in 8 directions
-  const steps = Math.max(2, Math.ceil(distVal));
-  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
-  for(let s=1; s<=steps+2; s++){
-    for(const [dx,dy] of dirs){
-      const nx = x + dx*s, ny = y + dy*s;
-      if(nx<0||ny<0||nx>=w||ny>=h) continue;
-      const idx = ny*w+nx;
-      if(mask[idx]){
-        const i = idx*4;
-        return [d[i], d[i+1], d[i+2]];
+// CORREÇÃO 1: AURA EXPLOSIVA — partículas concretas, falloff EXPONENCIAL,
+// cor amostrada da imagem original na borda mais próxima, raio definido pelo slider.
+function renderAuraParticles(srcData, mask, dist, octx, auraW, nPart){
+  const w = srcData.width, h = srcData.height, d = srcData.data;
+  // 1) coletar pixels de borda do sujeito (onde mask=1 e pelo menos um vizinho=0)
+  const edges = [];
+  const step = 3; // amostra a cada 3px para velocidade
+  for(let y=1;y<h-1;y+=step){
+    for(let x=1;x<w-1;x+=step){
+      const idx = y*w+x;
+      if(!mask[idx]) continue;
+      if(!mask[idx-1] || !mask[idx+1] || !mask[idx-w] || !mask[idx+w]){
+        edges.push(idx);
       }
     }
   }
-  return null;
-}
+  if(edges.length === 0) return;
 
-// ROSETTE RGB: 3 rotated grids (R 15°, G 75°, B 0°) each modulated by that channel intensity (inverted: dark channel -> big dot)
-async function renderRosette(srcData, mask, dist, octx, cell, maxR, minR, auraW){
-  const w = srcData.width, h = srcData.height;
-  const channels = [
-    { name:'R', color:[230,40,60],  angle: 15 * Math.PI/180, idx:0 },
-    { name:'G', color:[30,180,90],  angle: 75 * Math.PI/180, idx:1 },
-    { name:'B', color:[40,90,220],  angle:  0,                idx:2 },
-  ];
-  octx.globalCompositeOperation = 'multiply';
-  // fill with white base for multiply? No — we need transparent. Use 'screen'-like additive instead.
-  octx.globalCompositeOperation = 'lighter';
-
-  let chCount = 0;
-  for(const ch of channels){
-    await renderRosetteChannel(srcData, mask, dist, octx, cell, ch, maxR, minR, auraW);
-    chCount++;
-    setMsg('Rosette canal '+ch.name+' ok', 0.40 + 0.18*chCount);
-    await yieldFrame();
+  // 2) emitir partículas a partir de pontos de borda aleatórios
+  octx.globalCompositeOperation = 'lighter'; // aditivo: aura brilha sobre fundo transparente
+  for(let p=0;p<nPart;p++){
+    const eidx = edges[(Math.random()*edges.length)|0];
+    const ex = eidx % w, ey = (eidx/w)|0;
+    const i = eidx*4;
+    const r = d[i], g = d[i+1], b = d[i+2];
+    // direção: para fora (gradiente da distância). Aproximação: vetor radial aleatório.
+    const ang = Math.random()*Math.PI*2;
+    // distância: bias exponencial — maioria perto, alguns longe (efeito explosivo)
+    const u = Math.random();
+    const distOut = auraW * Math.pow(u, 1.8); // exponencial: concentra perto da borda mas alcança longe
+    const px = ex + Math.cos(ang)*distOut;
+    const py = ey + Math.sin(ang)*distOut;
+    if(px<0||py<0||px>=w||py>=h) continue;
+    // não desenha sobre o sujeito
+    const pidx = ((py|0)*w + (px|0));
+    if(mask[pidx]) continue;
+    // tamanho: maior perto, menor longe (médio-grande para drama)
+    const fade = 1 - (distOut/auraW);
+    const size = 2 + Math.random()*8 * fade;
+    const alpha = 0.25 + 0.55*fade;
+    octx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+    octx.beginPath();
+    octx.arc(px, py, size, 0, Math.PI*2);
+    octx.fill();
   }
   octx.globalCompositeOperation = 'source-over';
 }
 
-async function renderRosetteChannel(srcData, mask, dist, octx, cell, ch, maxR, minR, auraW){
+// CORREÇÃO 3: ROSETTE CMY (sem K, preto vazado) sobre fundo TRANSPARENTE.
+// Sobre transparente, multiply quebra (escurece para preto). Solução correta:
+// desenhar cada canal com cor pura CMY e alpha proporcional à TINTA daquele canal
+// (ink = 1 - channelValue). Áreas sem cor ficam vazadas. Sem composite especial.
+async function renderRosetteCMY(srcData, mask, octx, cell, maxR, minR){
+  const w = srcData.width, h = srcData.height, d = srcData.data;
+  const channels = [
+    { name:'C', color:'0,180,220', angle: 15*Math.PI/180, idx:0 }, // cyan da ausência de R
+    { name:'M', color:'230,30,140',angle: 75*Math.PI/180, idx:1 }, // magenta da ausência de G
+    { name:'Y', color:'250,210,0', angle:  0,             idx:2 }, // yellow da ausência de B
+  ];
+  // composite normal: as cores se sobrepõem traduzindo o efeito roseta visual
+  octx.globalCompositeOperation = 'source-over';
+  let n = 0;
+  for(const ch of channels){
+    await renderRosetteChannel(srcData, mask, octx, cell, ch, maxR, minR);
+    n++;
+    setMsg('Rosette '+ch.name+' ✔', 0.38 + 0.18*n);
+    await yieldFrame();
+  }
+}
+
+async function renderRosetteChannel(srcData, mask, octx, cell, ch, maxR, minR){
   const w = srcData.width, h = srcData.height, d = srcData.data;
   const cosA = Math.cos(ch.angle), sinA = Math.sin(ch.angle);
   const diag = Math.ceil(Math.hypot(w,h));
+  let row = 0;
+  const rows = Math.ceil((2*diag)/cell);
   for(let v=-diag; v<diag; v+=cell){
     for(let u=-diag; u<diag; u+=cell){
       const x = Math.round(u*cosA - v*sinA + w/2);
       const y = Math.round(u*sinA + v*cosA + h/2);
       if(x<0||y<0||x>=w||y>=h) continue;
       const idx = y*w+x;
+      if(!mask[idx]) continue;
       const i = idx*4;
-      let val, opacity=1, fade=1;
-      if(mask[idx]){
-        val = d[i+ch.idx];
-      } else if(auraW>0 && dist[idx]<auraW){
-        const near = nearestSubjectColor(d, mask, w, h, x, y, dist[idx]);
-        if(!near) continue;
-        val = near[ch.idx];
-        fade = 1 - (dist[idx]/auraW);
-      } else continue;
-      const t = 1 - (val/255);
-      const radius = (minR + (maxR-minR)*t) * fade;
+      // tinta CMY = 1 - canal RGB correspondente
+      const ink = 1 - (d[i+ch.idx]/255);
+      if(ink < 0.06) continue; // vazado: pouca tinta = sem ponto
+      const radius = minR + (maxR-minR)*ink;
       if(radius < 0.6) continue;
-      octx.fillStyle = `rgba(${ch.color[0]},${ch.color[1]},${ch.color[2]},${(0.85*fade).toFixed(3)})`;
+      octx.fillStyle = `rgba(${ch.color},${(0.85*ink).toFixed(3)})`;
       octx.beginPath();
       octx.arc(x,y,radius,0,Math.PI*2);
       octx.fill();
     }
+    row++;
+    if((row & 63) === 0) await yieldFrame();
   }
 }
 </script>
