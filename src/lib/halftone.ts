@@ -620,7 +620,7 @@ export async function processImage(
 
   let outCanvas: AnyCanvas;
   if (o.mode === "rosette_cmyk") {
-    outCanvas = await renderRosette(data, effectiveDpi, o.lpi, o.baseAngleDeg, onProgress);
+    outCanvas = await renderRosette(data, effectiveDpi, o.lpi, o.baseAngleDeg, o.whiteBackground, onProgress);
   } else {
     outCanvas = await renderRoundClean(
       data,
