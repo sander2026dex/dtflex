@@ -87,10 +87,11 @@ export function HalftoneStudio() {
     [handleFile],
   );
 
-  const mode: HalftoneMode = opts.mode ?? "rosette_cmyk";
+  const mode: HalftoneMode = opts.mode ?? "spot_white_cmyk";
   const lpi = opts.lpi ?? LPI_DEFAULT;
   const angle = opts.baseAngleDeg ?? ANGLE_DEFAULT;
   const rosetteIntensity = Math.round((opts.rosetteIntensity ?? 0.5) * 100);
+  const whiteThreshold = Math.round((opts.whiteThreshold ?? 0.4) * 100);
 
   const setLpi = (raw: number) => {
     if (Number.isNaN(raw)) return;
