@@ -222,21 +222,26 @@ function erode(mask: Uint8Array, w: number, h: number, r: number): Uint8Array {
   return out;
 }
 
-// Builds a "large white area" mask: pixels that are near-white AND belong to a
-// big contiguous white region (small white specks inside the subject are NOT
-// flagged, so detail is preserved). Used to skip halftone entirely in those
-// areas → clean transparent ("vazado") whites without speckled "holes".
+// Builds a "light area" mask: pixels that are LIGHT (high luminance, including
+// light yellow / light gray / off-white — not just pure white) AND belong to a
+// big contiguous light region. Small light specks inside the subject are NOT
+// flagged, so detail is preserved. Used to skip halftone entirely in those
+// areas → clean transparent ("vazado") whites/lights without speckled holes.
 function largeWhiteMask(img: ImageData, erodeRadius = 6): Uint8Array {
   const { width: w, height: h, data } = img;
   const total = w * h;
-  const white = new Uint8Array(total);
+  const light = new Uint8Array(total);
   for (let i = 0, di = 0; i < total; i++, di += 4) {
     const r = data[di], g = data[di + 1], b = data[di + 2];
-    // Near-white threshold (post-curve): RGB all > 235
-    if (r > 235 && g > 235 && b > 235) white[i] = 1;
+    // LIGHT threshold: perceptual luminance > 0.82 catches light yellow shirts,
+    // light blue jeans highlights, off-white sneakers, light gray, etc.
+    const lum = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255;
+    // Also require min channel > 180 so saturated mids (pure red/blue) survive.
+    const minCh = Math.min(r, g, b);
+    if (lum > 0.82 && minCh > 180) light[i] = 1;
   }
-  // Erosion isolates only LARGE white regions (radius ~ small dot footprint).
-  return erode(white, w, h, erodeRadius);
+  // Erosion isolates only LARGE light regions (radius ~ small dot footprint).
+  return erode(light, w, h, erodeRadius);
 }
 
 function dilate(subj: Uint8Array, w: number, h: number, r: number): Uint8Array {
