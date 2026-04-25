@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { HalftoneStudio } from "@/components/HalftoneStudio";
 
 function AppError() {
   return (
@@ -12,34 +11,31 @@ function AppError() {
   );
 }
 
-function AppNotFound() {
-  return <AppError />;
-}
-
 export const Route = createFileRoute("/app")({
   head: () => ({
     meta: [
-      { title: "DTFLEXPRO | Área da plataforma" },
-      { name: "description", content: "Ferramenta profissional DTFLEXPRO Halftone Engine para retículas DTF." },
+      { title: "DTFLEXPRO Halftone Engine" },
+      { name: "description", content: "Ferramenta profissional DTFLEXPRO Halftone Engine para retículas DTF — Rosette CMYK e Round Clean." },
     ],
   }),
   errorComponent: AppError,
-  notFoundComponent: AppNotFound,
+  notFoundComponent: AppError,
   component: AppPage,
 });
 
 function AppPage() {
   return (
-    <div>
-      <div className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">DTFLEXPRO</p>
-            <p className="text-sm text-foreground">Halftone Engine profissional</p>
-          </div>
-        </div>
-      </div>
-      <HalftoneStudio />
-    </div>
+    <iframe
+      src="/dtflexpro-halftone-engine.html"
+      title="DTFLEXPRO Halftone Engine"
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100vh",
+        border: "none",
+        background: "#0a0c10",
+      }}
+    />
   );
 }
