@@ -65,33 +65,7 @@
     color: #aaa;
     margin-top: 4px;
   }
-  .mode-toggle {
-    display: flex;
-    gap: 0;
-    margin-bottom: 20px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid #2a2a2a;
-  }
-  .mode-toggle button {
-    flex: 1;
-    padding: 12px;
-    background: #1a1a1a;
-    color: #888;
-    border: none;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    transition: all 0.2s;
-  }
-  .mode-toggle button.active {
-    background: linear-gradient(135deg, #ff3366, #ff6b35);
-    color: #fff;
-  }
-  .file-input {
-    margin-bottom: 20px;
-  }
+  .file-input { margin-bottom: 20px; }
   .file-input label {
     display: block;
     padding: 12px;
@@ -155,18 +129,18 @@
     color: #aaa;
     text-align: center;
     min-height: 14px;
+    line-height: 1.35;
   }
   #previewCanvas {
     max-width: 100%;
     max-height: 70vh;
-    background:
-      repeating-conic-gradient(#222 0% 25%, #2a2a2a 0% 50%) 50%/20px 20px;
+    background: repeating-conic-gradient(#222 0% 25%, #2a2a2a 0% 50%) 50%/20px 20px;
     border: 1px solid #333;
     box-shadow: 0 8px 30px rgba(0,0,0,0.5);
   }
   .info-text {
     font-size: 11px;
-    color: #666;
+    color: #777;
     margin-top: 6px;
     line-height: 1.4;
   }
@@ -175,30 +149,25 @@
 <body>
 <header>
   <h1>🎨 RETICULA STUDIO — DTFLEXPRO</h1>
-  <p>RGB Halftone Engine • Sem preto • Retícula vazada transparente • 3307×4930px</p>
+  <p>ROUND CLEAN RGB • Sem roseta • Preto transparente • Branco/texto sólido • 3307×4930px</p>
 </header>
 
 <div class="container">
   <aside class="sidebar">
-    <div class="mode-toggle">
-      <button id="modeClean" class="active" data-mode="clean">CLEAN RGB</button>
-      <button id="modeRosette" data-mode="rosette">ROSETTE RGB</button>
-    </div>
-
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Preto vira transparente. Branco vira retícula branca real (sem buraco). Alta definição para DTF têxtil.</p>
+      <p class="info-text">Modo único: halftone normal RGB. Preto não imprime. Branco, frases e áreas brancas grandes ficam sólidos, sem retícula e sem buraco.</p>
     </div>
 
     <div class="control-group">
       <label>LPI (linhas/polegada)</label>
-      <input type="range" id="lpi" min="22" max="55" value="32" />
-      <div class="value" id="lpiVal">32 LPI</div>
+      <input type="range" id="lpi" min="26" max="42" value="34" />
+      <div class="value" id="lpiVal">34 LPI</div>
     </div>
 
     <div class="control-group">
-      <label>Ângulo Base</label>
+      <label>Ângulo</label>
       <input type="range" id="angle" min="0" max="90" value="45" />
       <div class="value" id="angleVal">45°</div>
     </div>
@@ -211,12 +180,12 @@
 
     <div class="control-group">
       <label>Contraste (+%)</label>
-      <input type="range" id="contrast" min="0" max="60" value="20" />
-      <div class="value" id="contrastVal">20%</div>
+      <input type="range" id="contrast" min="0" max="40" value="18" />
+      <div class="value" id="contrastVal">18%</div>
     </div>
 
-    <button id="processBtn" class="btn-process" disabled>⚡ Processar</button>
-    <button id="downloadBtn" class="btn-download" disabled>⬇ Download PNG</button>
+    <button id="processBtn" class="btn-process" disabled>⚡ Processar e Baixar PNG</button>
+    <button id="downloadBtn" class="btn-download" disabled>⬇ Baixar Novamente</button>
 
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
     <div class="status" id="statusText">Aguardando imagem...</div>
@@ -229,17 +198,17 @@
 
 <script>
 const OUT_W = 3307, OUT_H = 4930;
-const BLACK_LUMA_CUTOFF = 38;
-const BLACK_CHANNEL_CUTOFF = 50;
+const BLACK_LUMA_CUTOFF = 42;
+const BLACK_CHANNEL_CUTOFF = 54;
+const WHITE_LUMA_CUTOFF = 226;
+const WHITE_SAT_CUTOFF = 44;
 let sourceImage = null;
-let mode = 'clean';
 let outputBlob = null;
 
 const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-// === Sliders ===
 ['lpi','angle','aura','contrast'].forEach(id => {
   const el = $(id);
   el.addEventListener('input', () => {
@@ -248,16 +217,6 @@ const pctx = previewCanvas.getContext('2d');
   });
 });
 
-// === Mode toggle ===
-document.querySelectorAll('.mode-toggle button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-toggle button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    mode = btn.dataset.mode;
-  });
-});
-
-// === File input ===
 $('imageInput').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -265,8 +224,11 @@ $('imageInput').addEventListener('change', e => {
   img.onload = () => {
     sourceImage = img;
     $('processBtn').disabled = false;
+    $('downloadBtn').disabled = true;
+    outputBlob = null;
     $('statusText').textContent = `Imagem carregada: ${img.width}×${img.height}`;
     drawPreviewSource(img);
+    URL.revokeObjectURL(img.src);
   };
   img.src = URL.createObjectURL(file);
 });
@@ -277,7 +239,6 @@ function drawPreviewSource(img){
   previewCanvas.width = maxW;
   previewCanvas.height = maxH;
   pctx.clearRect(0,0,maxW,maxH);
-  // fit-cover
   const ir = img.width / img.height;
   let dw = maxW, dh = maxW / ir;
   if (dh < maxH) { dh = maxH; dw = maxH * ir; }
@@ -285,7 +246,7 @@ function drawPreviewSource(img){
 }
 
 function setProgress(p, msg){
-  $('progressFill').style.width = (p*100)+'%';
+  $('progressFill').style.width = Math.round(p*100)+'%';
   if (msg) $('statusText').textContent = msg;
 }
 
@@ -293,52 +254,63 @@ function lumaAt(data, i){
   return 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
 }
 
+function saturationAt(data, i){
+  const r = data[i], g = data[i+1], b = data[i+2];
+  return Math.max(r,g,b) - Math.min(r,g,b);
+}
+
 function isBlackPixel(data, i){
   const r = data[i], g = data[i+1], b = data[i+2];
   const l = 0.299*r + 0.587*g + 0.114*b;
-  return l <= BLACK_LUMA_CUTOFF && r <= BLACK_CHANNEL_CUTOFF && g <= BLACK_CHANNEL_CUTOFF && b <= BLACK_CHANNEL_CUTOFF;
+  const neutralDark = l <= BLACK_LUMA_CUTOFF && (Math.max(r,g,b) - Math.min(r,g,b)) <= 28;
+  const deepBlack = r <= BLACK_CHANNEL_CUTOFF && g <= BLACK_CHANNEL_CUTOFF && b <= BLACK_CHANNEL_CUTOFF;
+  return neutralDark || deepBlack;
 }
 
-function dotRadiusForLuma(luma, cell){
-  // Mapeia luminância (0=preto, 255=branco) para raio do ponto.
-  // Preto já foi descartado (transparente). Branco gera ponto PEQUENO mas real (sem buraco).
-  // Para DTF têxtil: dots robustos, alta definição, mínimo imprimível ~1.4px.
-  const maxR = cell * 0.48;   // sombras (escuro = ponto grande)
-  const minR = Math.max(1.4, cell * 0.16); // luzes/branco = ponto pequeno mas visível
-  // Inverter: quanto menor a luma (mais escuro), maior o raio
-  const t = 1 - (luma / 255); // 0 = branco, 1 = preto
-  // curva suave
-  const eased = Math.pow(t, 0.85);
-  return minR + eased * (maxR - minR);
+function isProtectedWhite(data, i){
+  if (data[i+3] < 30) return false;
+  const r = data[i], g = data[i+1], b = data[i+2];
+  const l = 0.299*r + 0.587*g + 0.114*b;
+  const sat = Math.max(r,g,b) - Math.min(r,g,b);
+  return l >= WHITE_LUMA_CUTOFF && sat <= WHITE_SAT_CUTOFF;
 }
 
-function triggerDownload(){
-  if (!outputBlob) return;
-  const url = URL.createObjectURL(outputBlob);
+function dotRadiusForLuma(luma, cell, coverage){
+  const maxR = cell * 0.47;
+  const minR = Math.max(1.55, cell * 0.18);
+  const density = 1 - (luma / 255);
+  const tonal = Math.pow(Math.max(0, density), 0.78);
+  const coverBoost = 0.82 + Math.min(1, coverage) * 0.18;
+  return (minR + tonal * (maxR - minR)) * coverBoost;
+}
+
+function triggerDownload(blob = outputBlob){
+  if (!blob) return false;
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `dtflex-reticula-sem-preto-${mode}-${Date.now()}.png`;
+  a.download = `dtflex-round-clean-rgb-${Date.now()}.png`;
+  a.style.display = 'none';
+  a.rel = 'noopener';
   document.body.appendChild(a);
-  a.click();
+  a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
   document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  return true;
 }
 
-// === Process ===
 $('processBtn').addEventListener('click', async () => {
   if (!sourceImage) return;
   $('processBtn').disabled = true;
   $('downloadBtn').disabled = true;
   outputBlob = null;
 
-  setProgress(0.05, 'Preparando canvas...');
-  await new Promise(r => requestAnimationFrame(r));
+  setProgress(0.04, 'Preparando canvas 3307×4930...');
+  await nextFrame();
 
-  // Source canvas at output resolution
   const src = document.createElement('canvas');
   src.width = OUT_W; src.height = OUT_H;
-  const sctx = src.getContext('2d');
-  // Fit image cover
+  const sctx = src.getContext('2d', { willReadFrequently: true });
   const ir = sourceImage.width / sourceImage.height;
   const or = OUT_W / OUT_H;
   let dw, dh, dx, dy;
@@ -346,111 +318,112 @@ $('processBtn').addEventListener('click', async () => {
   else { dw = OUT_W; dh = OUT_W / ir; dx = 0; dy = (OUT_H-dh)/2; }
   sctx.drawImage(sourceImage, dx, dy, dw, dh);
 
-  setProgress(0.15, 'Aplicando contraste...');
-  await new Promise(r => requestAnimationFrame(r));
+  setProgress(0.14, 'Corrigindo contraste RGB sem inverter cores...');
+  await nextFrame();
 
   const imgData = sctx.getImageData(0,0,OUT_W,OUT_H);
   const data = imgData.data;
-  const cBoost = parseInt($('contrast').value)/100;
-  // Simple contrast boost around 128
-  const f = (1 + cBoost);
+  const cBoost = parseInt($('contrast').value, 10)/100;
+  const f = 1 + cBoost;
   for (let i=0;i<data.length;i+=4){
-    data[i]   = Math.max(0, Math.min(255, (data[i]  -128)*f + 128));
-    data[i+1] = Math.max(0, Math.min(255, (data[i+1]-128)*f + 128));
-    data[i+2] = Math.max(0, Math.min(255, (data[i+2]-128)*f + 128));
+    data[i]   = clamp((data[i]  -128)*f + 128);
+    data[i+1] = clamp((data[i+1]-128)*f + 128);
+    data[i+2] = clamp((data[i+2]-128)*f + 128);
   }
-  sctx.putImageData(imgData, 0, 0);
 
-  setProgress(0.3, 'Detectando máscara...');
-  await new Promise(r => requestAnimationFrame(r));
+  setProgress(0.26, 'Separando preto transparente e branco sólido...');
+  await nextFrame();
 
-  // Máscara do sujeito: tudo que não é preto puro nem totalmente transparente.
-  // Branco entra na máscara — vira retícula branca real (não buraco).
   const mask = new Uint8Array(OUT_W * OUT_H);
+  const whiteMask = new Uint8Array(OUT_W * OUT_H);
   let alphaCount = 0;
-  for (let i=3; i<data.length; i+=4){
-    if (data[i] < 250) alphaCount++;
-  }
+  for (let i=3; i<data.length; i+=4) if (data[i] < 250) alphaCount++;
   const useAlpha = alphaCount > 5000;
+
   for (let i=0,p=0; p<mask.length; i+=4, p++){
-    if (isBlackPixel(data, i)) {
+    if (useAlpha && data[i+3] <= 30) {
       data[i+3] = 0;
-      mask[p] = 0;
       continue;
     }
-    if (useAlpha){
-      mask[p] = data[i+3] > 30 ? 1 : 0;
-    } else {
-      mask[p] = 1; // sem canal alpha confiável: tudo que não é preto vira sujeito
+    if (isBlackPixel(data, i)) {
+      data[i+3] = 0;
+      continue;
     }
+    mask[p] = 1;
+    if (isProtectedWhite(data, i)) whiteMask[p] = 1;
   }
 
-  setProgress(0.45, 'Calculando aura (distância)...');
-  await new Promise(r => requestAnimationFrame(r));
+  setProgress(0.42, 'Calculando área da aura...');
+  await nextFrame();
 
-  const auraPx = parseInt($('aura').value);
-  // Distance transform: distance from each background pixel to nearest subject pixel (in px)
-  const dist = computeDistanceOutside(mask, OUT_W, OUT_H, auraPx);
+  const auraPx = parseInt($('aura').value, 10);
+  const dist = computeDistanceOutside(mask, OUT_W, OUT_H);
 
-  setProgress(0.6, 'Renderizando reticula...');
-  await new Promise(r => requestAnimationFrame(r));
+  setProgress(0.58, 'Renderizando ROUND CLEAN em alta definição...');
+  await nextFrame();
 
-  // Output canvas (transparent)
   const out = document.createElement('canvas');
   out.width = OUT_W; out.height = OUT_H;
   const octx = out.getContext('2d');
   octx.clearRect(0,0,OUT_W,OUT_H);
 
-  const lpi = parseInt($('lpi').value);
+  const lpi = parseInt($('lpi').value, 10);
   const dpi = 300;
-  const cell = Math.max(4, Math.round(dpi / lpi)); // cell size px
-  const baseAngle = parseInt($('angle').value);
+  const cell = Math.max(7, Math.round(dpi / lpi));
+  const angle = parseInt($('angle').value, 10);
 
-  if (mode === 'clean'){
-    await renderCleanRGB(octx, data, mask, dist, OUT_W, OUT_H, cell, baseAngle, auraPx);
-  } else {
-    await renderRosetteRGB(octx, data, mask, dist, OUT_W, OUT_H, cell, baseAngle, auraPx);
-  }
+  await renderRoundCleanRGB(octx, data, mask, whiteMask, dist, OUT_W, OUT_H, cell, angle, auraPx);
+  restoreProtectedWhites(octx, data, whiteMask, OUT_W, OUT_H);
 
-  setProgress(0.95, 'Gerando PNG...');
-  await new Promise(r => requestAnimationFrame(r));
+  setProgress(0.96, 'Gerando PNG transparente...');
+  await nextFrame();
 
   out.toBlob(blob => {
+    if (!blob) {
+      setProgress(1, 'Erro ao gerar PNG. Tente com outra imagem.');
+      $('processBtn').disabled = false;
+      return;
+    }
     outputBlob = blob;
-    setProgress(1, '✅ Pronto! Download iniciado.');
     $('downloadBtn').disabled = false;
     $('processBtn').disabled = false;
 
-    // Preview
     const ratio = OUT_W / OUT_H;
     const maxW = 600, maxH = 600/ratio;
     previewCanvas.width = maxW;
     previewCanvas.height = maxH;
     pctx.clearRect(0,0,maxW,maxH);
     pctx.drawImage(out, 0, 0, maxW, maxH);
-    triggerDownload();
+
+    const started = triggerDownload(blob);
+    setProgress(1, started ? '✅ Pronto! Download automático iniciado.' : '✅ Pronto! Clique em Baixar Novamente.');
   }, 'image/png');
 });
 
-// === Distance transform (two-pass chamfer) — distance OUTSIDE subject only ===
-function computeDistanceOutside(mask, W, H, maxDist){
+function clamp(v){
+  return Math.max(0, Math.min(255, Math.round(v)));
+}
+
+function nextFrame(){
+  return new Promise(resolve => requestAnimationFrame(resolve));
+}
+
+function computeDistanceOutside(mask, W, H){
   const INF = 1e9;
   const d = new Float32Array(W*H);
   for (let i=0;i<d.length;i++) d[i] = mask[i] ? 0 : INF;
-  // forward pass
   for (let y=0; y<H; y++){
     for (let x=0; x<W; x++){
       const i = y*W+x;
       if (d[i] === 0) continue;
       let v = d[i];
-      if (x>0)   v = Math.min(v, d[i-1]+1);
-      if (y>0)   v = Math.min(v, d[i-W]+1);
+      if (x>0) v = Math.min(v, d[i-1]+1);
+      if (y>0) v = Math.min(v, d[i-W]+1);
       if (x>0 && y>0) v = Math.min(v, d[i-W-1]+1.414);
       if (x<W-1 && y>0) v = Math.min(v, d[i-W+1]+1.414);
       d[i] = v;
     }
   }
-  // backward pass
   for (let y=H-1; y>=0; y--){
     for (let x=W-1; x>=0; x--){
       const i = y*W+x;
@@ -466,128 +439,99 @@ function computeDistanceOutside(mask, W, H, maxDist){
   return d;
 }
 
-// (removido) restoreProtectedWhites — branco agora vira ponto branco real via halftone.
+function sampleCellColor(data, mask, whiteMask, W, H, cx, cy, cell){
+  const half = Math.max(2, Math.floor(cell * 0.46));
+  const step = Math.max(1, Math.floor(cell / 4));
+  let r=0, g=0, b=0, count=0, covered=0;
+  for (let y=cy-half; y<=cy+half; y+=step){
+    if (y<0 || y>=H) continue;
+    for (let x=cx-half; x<=cx+half; x+=step){
+      if (x<0 || x>=W) continue;
+      const p = y*W + x;
+      if (!mask[p]) continue;
+      covered++;
+      if (whiteMask[p]) continue;
+      const i = p*4;
+      if (data[i+3] <= 30 || isBlackPixel(data, i)) continue;
+      r += data[i]; g += data[i+1]; b += data[i+2];
+      count++;
+    }
+  }
+  if (count === 0) return null;
+  const inv = 1 / count;
+  const coverage = covered / Math.max(1, Math.pow(Math.floor((half*2)/step)+1, 2));
+  return {
+    r: r * inv,
+    g: g * inv,
+    b: b * inv,
+    l: 0.299*(r*inv) + 0.587*(g*inv) + 0.114*(b*inv),
+    coverage
+  };
+}
 
-// === CLEAN RGB: single rotated grid sampling colors ===
-async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraPx){
+async function renderRoundCleanRGB(ctx, data, mask, whiteMask, dist, W, H, cell, angleDeg, auraPx){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
-  // iterate in rotated grid space
-  // get bounding box of rotated grid covering W×H
   const diag = Math.ceil(Math.sqrt(W*W + H*H));
   const half = diag / 2;
   const cx = W/2, cy = H/2;
-
   ctx.globalCompositeOperation = 'source-over';
 
   for (let gy = -half; gy <= half; gy += cell){
     for (let gx = -half; gx <= half; gx += cell){
-      // rotate (gx,gy) back to image coords
       const ix = Math.round(cx + gx*cosA - gy*sinA);
       const iy = Math.round(cy + gx*sinA + gy*cosA);
-      if (ix<0||iy<0||ix>=W||iy>=H) continue;
+      if (ix<0 || iy<0 || ix>=W || iy>=H) continue;
 
       const p = iy*W + ix;
       const inside = mask[p] === 1;
-      const distOut = dist[p]; // 0 if inside, else distance to subject
-
-      // skip pure background outside aura
+      const distOut = dist[p];
       if (!inside && distOut > auraPx) continue;
+      if (whiteMask[p]) continue;
 
-      const di = p*4;
-      if (isBlackPixel(data, di)) continue; // preto = transparente
-      const r = data[di], g = data[di+1], b = data[di+2];
-      const L = lumaAt(data, di);
+      const avg = sampleCellColor(data, mask, whiteMask, W, H, ix, iy, cell);
+      if (!avg) continue;
 
-      // Branco vira ponto branco PEQUENO (alta definição, sem buraco). Preto descartado.
-      let radius = dotRadiusForLuma(L, cell);
-      if (radius <= 0) continue;
-      let alpha = 1.0;
-
+      let radius = dotRadiusForLuma(avg.l, cell, avg.coverage);
+      let alpha = 1;
       if (!inside){
-        // aura fade: linear shrink + alpha fade
-        const fade = 1 - (distOut / auraPx); // 1 at edge → 0 at end
+        const fade = auraPx > 0 ? 1 - (distOut / auraPx) : 0;
         radius *= fade;
         alpha = fade;
-        if (radius < 0.6 || alpha < 0.05) continue;
       }
+      if (radius < 0.8 || alpha < 0.05) continue;
 
-      ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha.toFixed(3)})`;
+      ctx.fillStyle = `rgba(${avg.r|0},${avg.g|0},${avg.b|0},${alpha.toFixed(3)})`;
       ctx.beginPath();
       ctx.arc(ix, iy, radius, 0, Math.PI*2);
       ctx.fill();
     }
-    if (gy % (cell*40) === 0) {
-      const prog = 0.6 + 0.3 * ((gy+half)/diag);
-      setProgress(prog, 'Renderizando reticula...');
+    if (Math.round((gy + half) / cell) % 28 === 0) {
+      const prog = 0.58 + 0.34 * ((gy+half)/diag);
+      setProgress(prog, 'Renderizando retícula normal RGB...');
       await new Promise(r => setTimeout(r, 0));
     }
   }
 }
 
-// === ROSETTE RGB: 3 channels at classic-ish angles, additive blend ===
-async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, auraPx){
-  const channels = [
-    { idx: 0, angle: 15, color: [255,0,0] },
-    { idx: 1, angle: 75, color: [0,255,0] },
-    { idx: 2, angle: 0,  color: [0,0,255] },
-  ];
-
-  ctx.globalCompositeOperation = 'lighter'; // additive
-
-  for (let ch=0; ch<channels.length; ch++){
-    const { idx, angle, color } = channels[ch];
-    const rad = (angle + baseAngle - 45) * Math.PI/180;
-    const cosA = Math.cos(rad), sinA = Math.sin(rad);
-    const maxR = cell * 0.46;
-    const minR = Math.max(1.2, cell * 0.14);
-    const diag = Math.ceil(Math.sqrt(W*W + H*H));
-    const half = diag/2;
-    const cx = W/2, cy = H/2;
-
-    for (let gy=-half; gy<=half; gy+=cell){
-      for (let gx=-half; gx<=half; gx+=cell){
-        const ix = Math.round(cx + gx*cosA - gy*sinA);
-        const iy = Math.round(cy + gx*sinA + gy*cosA);
-        if (ix<0||iy<0||ix>=W||iy>=H) continue;
-        const p = iy*W + ix;
-        const inside = mask[p] === 1;
-        const distOut = dist[p];
-        if (!inside && distOut > auraPx) continue;
-
-        const di = p*4;
-        if (isBlackPixel(data, di)) continue; // preto = transparente
-        // Para Rosette: cada canal RGB gera ponto proporcional ao seu valor invertido
-        // (canal escuro = ponto grande). Branco puro produz pontos pequenos em todos canais.
-        const v = data[di + idx]; // 0..255
-        const density = 1 - (v / 255); // 0 = canal cheio (branco no canal), 1 = canal vazio
-        const t = Math.max(0.08, Math.pow(density, 0.85));
-        let radius = minR + t * (maxR - minR);
-        let alpha = 0.78;
-
-        if (!inside){
-          const fade = 1 - (distOut/auraPx);
-          radius *= fade;
-          alpha *= fade;
-          if (radius < 0.5 || alpha < 0.05) continue;
-        }
-
-        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)})`;
-        ctx.beginPath();
-        ctx.arc(ix, iy, radius, 0, Math.PI*2);
-        ctx.fill();
-      }
-      if (gy % (cell*40) === 0){
-        const prog = 0.6 + 0.3 * ((ch + (gy+half)/diag)/channels.length);
-        setProgress(prog, `Renderizando canal ${'RGB'[ch]}...`);
-        await new Promise(r => setTimeout(r, 0));
-      }
-    }
+function restoreProtectedWhites(ctx, data, whiteMask, W, H){
+  const whiteCanvas = document.createElement('canvas');
+  whiteCanvas.width = W;
+  whiteCanvas.height = H;
+  const wctx = whiteCanvas.getContext('2d');
+  const whiteData = wctx.createImageData(W, H);
+  const out = whiteData.data;
+  for (let p=0, i=0; p<whiteMask.length; p++, i+=4){
+    if (!whiteMask[p]) continue;
+    out[i] = data[i];
+    out[i+1] = data[i+1];
+    out[i+2] = data[i+2];
+    out[i+3] = data[i+3];
   }
-  ctx.globalCompositeOperation = 'source-over';
+  wctx.putImageData(whiteData, 0, 0);
+  ctx.drawImage(whiteCanvas, 0, 0);
 }
 
-// === Download ===
 $('downloadBtn').addEventListener('click', () => {
   triggerDownload();
 });
