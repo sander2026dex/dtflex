@@ -215,8 +215,11 @@
 const OUT_W = 3307, OUT_H = 4930;
 const BLACK_LUMA_CUTOFF = 42;
 const BLACK_CHANNEL_CUTOFF = 54;
-const WHITE_LUMA_CUTOFF = 226;
-const WHITE_SAT_CUTOFF = 44;
+const WHITE_LUMA_CUTOFF = 232;
+const WHITE_SAT_CUTOFF = 28;
+// Tamanho mínimo (em pixels) de uma região branca para ser considerada
+// "branco sólido" (texto, partes brancas grandes). Abaixo disso é reflexo isolado.
+const FLAT_WHITE_MIN_AREA = 900;
 let sourceImage = null;
 let outputBlob = null;
 
