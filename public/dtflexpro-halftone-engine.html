@@ -779,30 +779,28 @@ function exportPNG() {
   if (!state.lastCanvas) return;
   setStatus('Gerando PNG 3307×4930…', 'busy');
 
-  // Yield UI
-  setTimeout(() => {
-    const final = document.createElement('canvas');
-    final.width = FINAL_W;
-    final.height = FINAL_H;
-    const fctx = final.getContext('2d');
-    fctx.imageSmoothingEnabled = true;
-    fctx.imageSmoothingQuality = 'high';
-    fctx.clearRect(0, 0, FINAL_W, FINAL_H);
-    fctx.drawImage(state.lastCanvas, 0, 0, FINAL_W, FINAL_H);
+  // Download imediato — sem delay artificial
+  const final = document.createElement('canvas');
+  final.width = FINAL_W;
+  final.height = FINAL_H;
+  const fctx = final.getContext('2d');
+  fctx.imageSmoothingEnabled = true;
+  fctx.imageSmoothingQuality = 'high';
+  fctx.clearRect(0, 0, FINAL_W, FINAL_H);
+  fctx.drawImage(state.lastCanvas, 0, 0, FINAL_W, FINAL_H);
 
-    final.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const tag = state.mode === 'rosette' ? 'rosette-cmyk' : 'round-clean';
-      a.href = url;
-      a.download = `dtflexpro-${tag}-${state.lpi}lpi-3307x4930.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      setStatus('PNG exportado com sucesso.', 'ok');
-    }, 'image/png');
-  }, 30);
+  final.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const tag = state.mode === 'rosette' ? 'rosette-cmy' : 'round-clean';
+    a.href = url;
+    a.download = `dtflexpro-${tag}-${state.lpi}lpi-3307x4930.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setStatus('PNG exportado com sucesso (preto vazado / transparente).', 'ok');
+  }, 'image/png');
 }
 
 /* ============================================================================
