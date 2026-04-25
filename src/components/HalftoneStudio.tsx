@@ -294,6 +294,43 @@ export function HalftoneStudio() {
 
               <Separator />
 
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-sm text-foreground">
+                    Ângulo {mode === "rosette_cmyk" ? "(fixo CMYK)" : "(grade única)"}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={angle}
+                    min={ANGLE_MIN}
+                    max={ANGLE_MAX}
+                    step={1}
+                    disabled={busy || mode === "rosette_cmyk"}
+                    onChange={(e) => setAngle(parseInt(e.target.value, 10))}
+                    className="h-7 w-20 text-right font-mono text-xs"
+                  />
+                </div>
+                <Slider
+                  value={[angle]}
+                  min={ANGLE_MIN}
+                  max={ANGLE_MAX}
+                  step={1}
+                  disabled={busy || mode === "rosette_cmyk"}
+                  onValueChange={([v]) => setAngle(v)}
+                />
+                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                  <span>{ANGLE_MIN}°</span>
+                  <span>
+                    {mode === "rosette_cmyk"
+                      ? "C15° M75° Y0° K45°"
+                      : `default ${ANGLE_DEFAULT}°`}
+                  </span>
+                  <span>{ANGLE_MAX}°</span>
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
                 <strong className="text-foreground">Regra DTF:</strong> dot mínimo 1.5px (~0.5mm).
                 Sem buracos brancos no sujeito. Fundo 100% alpha 0.
