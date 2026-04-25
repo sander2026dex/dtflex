@@ -27,7 +27,7 @@ const LPI_MIN = 22;
 const LPI_MAX = 45;
 const LPI_DEFAULT = 35;
 const ANGLE_MIN = 0;
-const ANGLE_MAX = 90;
+const ANGLE_MAX = 360;
 const ANGLE_DEFAULT = 45;
 
 
@@ -87,10 +87,11 @@ export function HalftoneStudio() {
     [handleFile],
   );
 
-  const mode: HalftoneMode = opts.mode ?? "rosette_cmyk";
+  const mode: HalftoneMode = opts.mode ?? "spot_white_cmyk";
   const lpi = opts.lpi ?? LPI_DEFAULT;
   const angle = opts.baseAngleDeg ?? ANGLE_DEFAULT;
   const rosetteIntensity = Math.round((opts.rosetteIntensity ?? 0.5) * 100);
+  const whiteThreshold = Math.round((opts.whiteThreshold ?? 0.4) * 100);
 
   const setLpi = (raw: number) => {
     if (Number.isNaN(raw)) return;
@@ -108,6 +109,12 @@ export function HalftoneStudio() {
     if (Number.isNaN(raw)) return;
     const clamped = Math.max(0, Math.min(100, Math.round(raw)));
     setOpts((o) => ({ ...o, rosetteIntensity: clamped / 100 }));
+  };
+
+  const setWhiteThreshold = (raw: number) => {
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.max(0, Math.min(100, Math.round(raw)));
+    setOpts((o) => ({ ...o, whiteThreshold: clamped / 100 }));
   };
 
   const switchMode = (newMode: HalftoneMode) => {
@@ -134,12 +141,11 @@ export function HalftoneStudio() {
                 </span>
               </div>
               <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-                🟠 Rosette CMYK · 🔵 Round Clean
+                ⚪ Spot White + CMYK · Pro DTF Engine
               </h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
-                Fundo 100% transparente (vazado), pontos mínimos de 1.5px (~0.5mm) — sem buracos
-                brancos. Processamento em OffscreenCanvas; o resultado só aparece quando 100%
-                pronto.
+                Underbase branca (Spot Channel) + CMYK por cima — densidade real para tecido escuro.
+                Rostos e camisas brancas ficam sólidos; preto puro vazado; fundo 100% transparente.
               </p>
             </div>
             <div className="rounded-md border border-border bg-card/50 px-4 py-2 text-sm backdrop-blur">
@@ -252,9 +258,12 @@ export function HalftoneStudio() {
                   type="single"
                   value={mode}
                   onValueChange={(v) => v && switchMode(v as HalftoneMode)}
-                  className="grid grid-cols-3 gap-1"
+                  className="grid grid-cols-2 gap-1"
                   disabled={busy}
                 >
+                  <ToggleGroupItem value="spot_white_cmyk" variant="outline" className="text-[11px]">
+                    ⚪ Spot White
+                  </ToggleGroupItem>
                   <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-[11px]">
                     🟠 Rosette
                   </ToggleGroupItem>
@@ -266,11 +275,13 @@ export function HalftoneStudio() {
                   </ToggleGroupItem>
                 </ToggleGroup>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {mode === "rosette_cmyk"
-                    ? "4 telas C/M/Y/K em ângulos fixos (15°/75°/0°/45°). Fundo vazado para DTF."
-                    : mode === "round_clean"
-                      ? "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."
-                      : "Mix entre Circular e Rosette. Slider de intensidade controla a interferência."}
+                  {mode === "spot_white_cmyk"
+                    ? "Underbase branca + CMYK por cima. Padrão profissional para tecido escuro — rostos e camisas brancas ficam densos, não fantasmas."
+                    : mode === "rosette_cmyk"
+                      ? "4 telas C/M/Y/K em ângulos fixos (15°/75°/0°/45°). Sem underbase — light areas vazadas."
+                      : mode === "round_clean"
+                        ? "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."
+                        : "Mix entre Circular e Rosette. Slider de intensidade controla a interferência."}
                 </p>
               </div>
 
@@ -310,7 +321,11 @@ export function HalftoneStudio() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <Label className="text-sm text-foreground">
-                    Ângulo {mode === "rosette_cmyk" ? "(fixo CMYK)" : "(grade única)"}
+                    Ângulo {mode === "rosette_cmyk"
+                      ? "(fixo CMYK)"
+                      : mode === "spot_white_cmyk"
+                        ? "(rotação global)"
+                        : "(grade única)"}
                   </Label>
                   <Input
                     type="number"
@@ -339,6 +354,39 @@ export function HalftoneStudio() {
                       : `default ${ANGLE_DEFAULT}°`}
                   </span>
                   <span>{ANGLE_MAX}°</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-sm text-foreground">
+                    White Threshold {mode !== "spot_white_cmyk" ? "(somente Spot White)" : ""}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={whiteThreshold}
+                    min={0}
+                    max={100}
+                    step={1}
+                    disabled={busy || mode !== "spot_white_cmyk"}
+                    onChange={(e) => setWhiteThreshold(parseInt(e.target.value, 10))}
+                    className="h-7 w-20 text-right font-mono text-xs"
+                  />
+                </div>
+                <Slider
+                  value={[whiteThreshold]}
+                  min={0}
+                  max={100}
+                  step={1}
+                  disabled={busy || mode !== "spot_white_cmyk"}
+                  onValueChange={([v]) => setWhiteThreshold(v)}
+                />
+                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                  <span>0% (mais branca)</span>
+                  <span>40% default</span>
+                  <span>100% (sem branca)</span>
                 </div>
               </div>
 
@@ -379,7 +427,7 @@ export function HalftoneStudio() {
 
               <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
                 <strong className="text-foreground">Regras DTF:</strong> preto puro (lum&lt;5%) é vazado.
-                Branco puro (lum&gt;95%) imprime ponto 1.5px @ 40% opacidade. Fundo 100% alpha 0.
+                Spot White desenha base branca onde lum&gt;{whiteThreshold}% e CMYK por cima. Fundo 100% alpha 0.
               </div>
 
               <Button
