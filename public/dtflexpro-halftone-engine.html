@@ -213,7 +213,7 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','aura','contrast','bgTol'].forEach(id => {
+['lpi','angle','aura','contrast'].forEach(id => {
   const el = $(id);
   el.addEventListener('input', () => {
     const suffix = id === 'lpi' ? ' LPI' : id === 'angle' ? '°' : id === 'aura' ? ' px' : id === 'contrast' ? '%' : '';
