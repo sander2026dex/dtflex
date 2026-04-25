@@ -665,7 +665,7 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
         avg = sampled;
       }
 
-      let radius = isHL ? dotRadiusHighlight(cell) : dotRadiusForLuma(avg.l, cell, avg.coverage);
+      let radius = isHL ? dotRadiusHighlight(cell) : dotRadiusForLuma(avg.l, cell, avg.coverage, avg.sat);
       let alpha = 1;
       if (!inside){
         const fade = auraPx > 0 ? 1 - (distOut / auraPx) : 0;
