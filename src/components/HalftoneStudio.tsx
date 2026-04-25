@@ -90,11 +90,10 @@ export function HalftoneStudio() {
     [handleFile],
   );
 
-  const mode: HalftoneMode = opts.mode ?? "spot_white_cmyk";
+  const mode: HalftoneMode = opts.mode ?? "clean_organic";
   const lpi = opts.lpi ?? LPI_DEFAULT;
   const angle = opts.baseAngleDeg ?? ANGLE_DEFAULT;
-  const rosetteIntensity = Math.round((opts.rosetteIntensity ?? 0.5) * 100);
-  const whiteThreshold = Math.round((opts.whiteThreshold ?? 0.4) * 100);
+  const aura = opts.auraWidth ?? AURA_DEFAULT;
 
   const setLpi = (raw: number) => {
     if (Number.isNaN(raw)) return;
@@ -108,16 +107,10 @@ export function HalftoneStudio() {
     setOpts((o) => ({ ...o, baseAngleDeg: clamped }));
   };
 
-  const setRosetteIntensity = (raw: number) => {
+  const setAura = (raw: number) => {
     if (Number.isNaN(raw)) return;
-    const clamped = Math.max(0, Math.min(100, Math.round(raw)));
-    setOpts((o) => ({ ...o, rosetteIntensity: clamped / 100 }));
-  };
-
-  const setWhiteThreshold = (raw: number) => {
-    if (Number.isNaN(raw)) return;
-    const clamped = Math.max(0, Math.min(100, Math.round(raw)));
-    setOpts((o) => ({ ...o, whiteThreshold: clamped / 100 }));
+    const clamped = Math.max(AURA_MIN, Math.min(AURA_MAX, Math.round(raw)));
+    setOpts((o) => ({ ...o, auraWidth: clamped }));
   };
 
   const switchMode = (newMode: HalftoneMode) => {
