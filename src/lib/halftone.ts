@@ -222,16 +222,14 @@ function renderClean(
   opts: HalftoneOptions,
   progress: Progress,
 ) {
-  const { w, h, rgba, lum, alpha } = prep;
-  // LPI is defined relative to the final 300 DPI output. Working canvas is a
-  // downscaled proxy; convert step into working pixels by the same scale ratio
-  // so dot pitch survives the final upscale and matches the requested LPI.
-  // Floor of 3px keeps the dot grid render-safe on small/tall images.
-  const workScale = w / Math.max(1, w); // placeholder, real ratio computed below
-  const stepOut = 300 / opts.lpi;
-  const step = Math.max(3, stepOut * (Math.min(w, h) / Math.max(1, Math.min(w, h))));
+  const { w, h, rgba, lum, alpha, workScale } = prep;
+  // LPI is defined relative to the final 300 DPI output. Multiply the output
+  // step (300 / LPI) by workScale (≤1) to convert into working pixels so the
+  // dot pitch survives the final upscale and matches the requested LPI.
+  // Floor of 3 working px keeps the grid bounded for huge images.
+  const step = Math.max(3, (300 / opts.lpi) * workScale);
   const angle = (opts.baseAngleDeg * Math.PI) / 180;
-  const auraWidth = Math.max(0, opts.auraWidth);
+  const auraWidth = Math.max(0, opts.auraWidth) * workScale;
 
   // ---------- Subject binary mask (L > 20 OR alpha > 32) -------------------
   // Used both for skip-no-subject decisions and for aura distance computation.
