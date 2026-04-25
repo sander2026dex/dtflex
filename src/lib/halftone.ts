@@ -115,6 +115,55 @@ function rgbToCmyk(r: number, g: number, b: number): [number, number, number, nu
   return [c, m, y, k];
 }
 
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+function heavyInkCurve(v: number): number {
+  // Print-style curves: set a small black point, add hard contrast, then use an
+  // S-curve that pushes shadows down while keeping bright detail printable.
+  let x = clamp01((v - 0.025) / 0.94);
+  x = clamp01((x - 0.5) * 1.48 + 0.5);
+  if (x < 0.5) return Math.pow(x * 2, 1.22) * 0.5;
+  return 1 - Math.pow((1 - x) * 2, 0.84) * 0.5;
+}
+
+function preprocessHeavyInk(img: ImageData): ImageData {
+  const { width, height, data } = img;
+  const out = new ImageData(new Uint8ClampedArray(data), width, height);
+  const d = out.data;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = heavyInkCurve(d[i] / 255);
+    let g = heavyInkCurve(d[i + 1] / 255);
+    let b = heavyInkCurve(d[i + 2] / 255);
+
+    // Saturation +40% around perceptual luma for the vibrant shirt-print look.
+    const l = r * 0.2126 + g * 0.7152 + b * 0.0722;
+    r = clamp01(l + (r - l) * 1.4);
+    g = clamp01(l + (g - l) * 1.4);
+    b = clamp01(l + (b - l) * 1.4);
+
+    // Extra shadow density: rich blacks instead of a faded watermark result.
+    const l2 = r * 0.2126 + g * 0.7152 + b * 0.0722;
+    const shadow = clamp01((0.62 - l2) / 0.62);
+    const darken = 1 - shadow * shadow * 0.24;
+    d[i] = Math.round(clamp01(r * darken) * 255);
+    d[i + 1] = Math.round(clamp01(g * darken) * 255);
+    d[i + 2] = Math.round(clamp01(b * darken) * 255);
+  }
+  return out;
+}
+
+function coverageHeavy(cov: number): number {
+  // AM halftone area must track coverage. Radius therefore uses sqrt(coverage),
+  // and this dot-gain curve intentionally packs more ink into mids/shadows.
+  const c = clamp01(cov);
+  if (c <= 0.002) return 0;
+  return clamp01(Math.pow(c, 0.58) * 1.18 + 0.035);
+}
+
+function luma255(r: number, g: number, b: number): number {
+  return r * 0.2126 + g * 0.7152 + b * 0.0722;
+}
+
 // ---------------------------------------------------------------------------
 // Value-noise (fBm) for ROUND aura splatter
 // ---------------------------------------------------------------------------
@@ -338,7 +387,8 @@ async function renderRosette(
   const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
   const half = Math.ceil(diag / 2);
   const cx = w / 2, cy = h / 2;
-  const rMax = cellSize * 0.45;
+  const rMax = cellSize * 0.53;
+  const minInkRadius = Math.max(0.65, cellSize * 0.055);
 
   const sampleCmyk = (x: number, y: number): [number, number, number, number] | null => {
     const xi = Math.round(x), yi = Math.round(y);
@@ -366,10 +416,11 @@ async function renderRosette(
         const py = cy + gx * s.sin + gy * s.cos;
         const cmyk = sampleCmyk(px, py);
         if (!cmyk) continue;
-        const cov = cmyk[s.channel];
-        if (cov <= 0.01) continue;
-        const r = cov * rMax;
-        if (r < 0.4) continue;
+        const rawCov = cmyk[s.channel];
+        const cov = coverageHeavy(rawCov);
+        if (cov <= 0.002) continue;
+        const r = Math.max(minInkRadius, Math.sqrt(cov) * rMax);
+        if (r < 0.45) continue;
         lctx.beginPath();
         lctx.arc(px, py, r, 0, Math.PI * 2);
         lctx.fill();
@@ -442,8 +493,9 @@ async function renderRoundClean(
   const diag = Math.ceil(Math.sqrt(w * w + h * h)) + cellSize * 2;
   const half = Math.ceil(diag / 2);
 
-  const rMax = cellSize * 0.45;
-  const MIN_R = 1.5;
+  const rMax = cellSize * 0.54;
+  const MIN_R = Math.max(1.5, cellSize * 0.13);
+  const HIGHLIGHT_CLUSTER_R = Math.max(MIN_R, cellSize * 0.19);
 
   // Sample image rgb (with bilinear for stability)
   const sampleRgb = (x: number, y: number): [number, number, number] | null => {
@@ -466,9 +518,13 @@ async function renderRoundClean(
 
       if (insideSubject) {
         const rgb = sampleRgb(px, py)!;
-        const luma = (rgb[0] + rgb[1] + rgb[2]) / 3 / 255;
-        let radius = (1 - luma) * rMax;
-        if (radius < MIN_R) radius = MIN_R; // highlight protection — never holes
+        const luma = luma255(rgb[0], rgb[1], rgb[2]) / 255;
+        const ink = coverageHeavy(1 - luma);
+        // White/bright subject areas are NOT transparent: they become dense,
+        // opaque micro-dot clusters, while shadows become near-solid ink.
+        let radius = Math.sqrt(ink) * rMax;
+        if (luma > 0.72) radius = Math.max(radius, HIGHLIGHT_CLUSTER_R);
+        if (radius < MIN_R) radius = MIN_R;
         ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
         ctx.beginPath();
         ctx.arc(px, py, radius, 0, Math.PI * 2);
@@ -492,14 +548,14 @@ async function renderRoundClean(
       if (sx < 0) continue;
       const di = (sy * w + sx) * 4;
       const rS = data[di], gS = data[di + 1], bS = data[di + 2];
-      const lumaS = (rS + gS + bS) / 3 / 255;
-      const baseR = Math.max(MIN_R, (1 - lumaS) * rMax);
+      const lumaS = luma255(rS, gS, bS) / 255;
+      const baseR = Math.max(MIN_R, Math.sqrt(coverageHeavy(1 - lumaS)) * rMax);
 
-      const opacity = Math.pow(Math.max(0, 1 - t), 1.5);
-      const radius = baseR * opacity * 0.8;
+      const opacity = Math.pow(Math.max(0, 1 - t), 1.35);
+      const radius = baseR * opacity * 0.92;
       if (radius < 0.6) continue;
 
-      const alpha = Math.min(1, opacity * 1.1 + 0.05);
+      const alpha = Math.min(1, opacity * 1.35 + 0.08);
       ctx.fillStyle = `rgba(${rS}, ${gS}, ${bS}, ${alpha.toFixed(3)})`;
       ctx.beginPath();
       ctx.arc(px, py, radius, 0, Math.PI * 2);
@@ -558,7 +614,11 @@ export async function processImage(
   await tick();
   const stage = resizeTo(source, tw, th);
   const sctx = ctx2d(stage);
-  const data = sctx.getImageData(0, 0, tw, th);
+  const rawData = sctx.getImageData(0, 0, tw, th);
+
+  onProgress?.("Heavy Ink curves · contrast + saturation", 18);
+  await tick();
+  const data = preprocessHeavyInk(rawData);
 
   let outCanvas: AnyCanvas;
   if (o.mode === "rosette_cmyk") {
