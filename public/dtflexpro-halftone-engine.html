@@ -548,26 +548,56 @@ function sampleCellColor(data, mask, blackMask, W, H, cx, cy, cell){
   };
 }
 
-function paintSolidBlack(ctx, blackMask, W, H){
-  // Pinta os pixels da máscara como #000000 sólido
-  const blackCanvas = document.createElement('canvas');
-  blackCanvas.width = W;
-  blackCanvas.height = H;
-  const bctx = blackCanvas.getContext('2d');
-  const imgData = bctx.createImageData(W, H);
+function paintSolidWhite(ctx, flatWhiteMask, W, H){
+  // Pinta branco sólido (#FFFFFF opaco) em texto e áreas brancas grandes
+  const wCanvas = document.createElement('canvas');
+  wCanvas.width = W;
+  wCanvas.height = H;
+  const wctx = wCanvas.getContext('2d');
+  const imgData = wctx.createImageData(W, H);
   const out = imgData.data;
-  for (let p=0, i=0; p<blackMask.length; p++, i+=4){
-    if (!blackMask[p]) continue;
-    out[i] = 0;
-    out[i+1] = 0;
-    out[i+2] = 0;
+  for (let p=0, i=0; p<flatWhiteMask.length; p++, i+=4){
+    if (!flatWhiteMask[p]) continue;
+    out[i] = 255;
+    out[i+1] = 255;
+    out[i+2] = 255;
     out[i+3] = 255;
   }
-  bctx.putImageData(imgData, 0, 0);
-  ctx.drawImage(blackCanvas, 0, 0);
+  wctx.putImageData(imgData, 0, 0);
+  ctx.drawImage(wCanvas, 0, 0);
 }
 
-async function renderRoundCleanRGB(ctx, data, mask, blackMask, highlightMask, dist, W, H, cell, angleDeg, auraPx){
+function classifyWhiteRegions(whiteMask, W, H, minArea){
+  // Connected-components (4-vizinhos). Regiões grandes -> flat (sólido).
+  // Regiões pequenas/isoladas -> highlight (reflexo, recebe poucas retículas).
+  const flat = new Uint8Array(W*H);
+  const highlight = new Uint8Array(W*H);
+  const visited = new Uint8Array(W*H);
+  const stack = new Int32Array(W*H);
+  const region = new Int32Array(W*H);
+
+  for (let p=0; p<whiteMask.length; p++){
+    if (!whiteMask[p] || visited[p]) continue;
+    let top = 0;
+    stack[top++] = p;
+    visited[p] = 1;
+    let count = 0;
+    while (top > 0){
+      const q = stack[--top];
+      region[count++] = q;
+      const x = q % W, y = (q / W) | 0;
+      if (x>0){ const n=q-1; if (whiteMask[n] && !visited[n]){ visited[n]=1; stack[top++]=n; } }
+      if (x<W-1){ const n=q+1; if (whiteMask[n] && !visited[n]){ visited[n]=1; stack[top++]=n; } }
+      if (y>0){ const n=q-W; if (whiteMask[n] && !visited[n]){ visited[n]=1; stack[top++]=n; } }
+      if (y<H-1){ const n=q+W; if (whiteMask[n] && !visited[n]){ visited[n]=1; stack[top++]=n; } }
+    }
+    const target = (count >= minArea) ? flat : highlight;
+    for (let k=0; k<count; k++) target[region[k]] = 1;
+  }
+  return { flatWhiteMask: flat, highlightMask: highlight };
+}
+
+async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, highlightMask, dist, W, H, cell, angleDeg, auraPx){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const diag = Math.ceil(Math.sqrt(W*W + H*H));
@@ -585,15 +615,15 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, highlightMask, di
       const inside = mask[p] === 1;
       const distOut = dist[p];
       if (!inside && distOut > auraPx) continue;
-      if (blackMask[p]) continue; // preto já foi pintado sólido
+      if (blackMask[p]) continue;       // preto fica VAZADO (transparente)
+      if (flatWhiteMask[p]) continue;   // branco sólido já pintado, não cobrir com dots
 
       const avg = sampleCellColor(data, mask, blackMask, W, H, ix, iy, cell);
       if (!avg) continue;
 
       const isHL = highlightMask[p] === 1;
-      // Branco com reflexo: poucas e pequenas retículas, em frequência reduzida
+      // Reflexo branco isolado: poucas retículas pequenas (1 a cada 4 células)
       if (isHL) {
-        // Reduz frequência: aplica só em ~1 a cada 4 células
         const cellIx = Math.round((gx + half) / cell);
         const cellIy = Math.round((gy + half) / cell);
         if (((cellIx + cellIy) & 3) !== 0) continue;
@@ -614,7 +644,7 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, highlightMask, di
       ctx.fill();
     }
     if (Math.round((gy + half) / cell) % 28 === 0) {
-      const prog = 0.55 + 0.36 * ((gy+half)/diag);
+      const prog = 0.58 + 0.36 * ((gy+half)/diag);
       setProgress(prog, 'Renderizando retícula em alta definição...');
       await new Promise(r => setTimeout(r, 0));
     }
