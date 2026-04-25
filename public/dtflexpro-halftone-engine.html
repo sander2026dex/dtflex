@@ -188,13 +188,13 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Preto sai 100% transparente. Escritas e brancos ficam limpos, sem retícula.</p>
+      <p class="info-text">Preto vira transparente. Branco vira retícula branca real (sem buraco). Alta definição para DTF têxtil.</p>
     </div>
 
     <div class="control-group">
       <label>LPI (linhas/polegada)</label>
-      <input type="range" id="lpi" min="35" max="75" value="55" />
-      <div class="value" id="lpiVal">55 LPI</div>
+      <input type="range" id="lpi" min="22" max="55" value="32" />
+      <div class="value" id="lpiVal">32 LPI</div>
     </div>
 
     <div class="control-group">
@@ -229,11 +229,8 @@
 
 <script>
 const OUT_W = 3307, OUT_H = 4930;
-const BLACK_LUMA_CUTOFF = 58;
-const BLACK_CHANNEL_CUTOFF = 72;
-const WHITE_LUMA_KEEP = 226;
-const WHITE_CHANNEL_KEEP = 210;
-const WHITE_SATURATION_MAX = 48;
+const BLACK_LUMA_CUTOFF = 38;
+const BLACK_CHANNEL_CUTOFF = 50;
 let sourceImage = null;
 let mode = 'clean';
 let outputBlob = null;
@@ -302,19 +299,17 @@ function isBlackPixel(data, i){
   return l <= BLACK_LUMA_CUTOFF && r <= BLACK_CHANNEL_CUTOFF && g <= BLACK_CHANNEL_CUTOFF && b <= BLACK_CHANNEL_CUTOFF;
 }
 
-function isProtectedWhite(data, i){
-  if (data[i+3] <= 30) return false;
-  const r = data[i], g = data[i+1], b = data[i+2];
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const l = 0.299*r + 0.587*g + 0.114*b;
-  return l >= WHITE_LUMA_KEEP && r >= WHITE_CHANNEL_KEEP && g >= WHITE_CHANNEL_KEEP && b >= WHITE_CHANNEL_KEEP && (max - min) <= WHITE_SATURATION_MAX;
-}
-
 function dotRadiusForLuma(luma, cell){
-  if (luma >= WHITE_LUMA_KEEP) return 0;
-  if (luma >= 205) return Math.max(0.38, cell * 0.045);
-  const density = Math.max(0, Math.min(1, (WHITE_LUMA_KEEP - luma) / (WHITE_LUMA_KEEP - BLACK_LUMA_CUTOFF)));
-  return Math.max(0.42, cell * (0.06 + Math.pow(density, 0.82) * 0.34));
+  // Mapeia luminância (0=preto, 255=branco) para raio do ponto.
+  // Preto já foi descartado (transparente). Branco gera ponto PEQUENO mas real (sem buraco).
+  // Para DTF têxtil: dots robustos, alta definição, mínimo imprimível ~1.4px.
+  const maxR = cell * 0.48;   // sombras (escuro = ponto grande)
+  const minR = Math.max(1.4, cell * 0.16); // luzes/branco = ponto pequeno mas visível
+  // Inverter: quanto menor a luma (mais escuro), maior o raio
+  const t = 1 - (luma / 255); // 0 = branco, 1 = preto
+  // curva suave
+  const eased = Math.pow(t, 0.85);
+  return minR + eased * (maxR - minR);
 }
 
 function triggerDownload(){
@@ -369,14 +364,12 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.3, 'Detectando máscara...');
   await new Promise(r => requestAnimationFrame(r));
 
-  // Build print mask: alpha/subject minus black and protected white/text areas.
+  // Máscara do sujeito: tudo que não é preto puro nem totalmente transparente.
+  // Branco entra na máscara — vira retícula branca real (não buraco).
   const mask = new Uint8Array(OUT_W * OUT_H);
-  const whiteMask = new Uint8Array(OUT_W * OUT_H);
   let alphaCount = 0;
-  for (let y=0,i=0,p=0; y<OUT_H; y++){
-    for (let x=0; x<OUT_W; x++, i+=4, p++){
-      if (data[i+3] < 250) alphaCount++;
-    }
+  for (let i=3; i<data.length; i+=4){
+    if (data[i] < 250) alphaCount++;
   }
   const useAlpha = alphaCount > 5000;
   for (let i=0,p=0; p<mask.length; i+=4, p++){
@@ -385,16 +378,10 @@ $('processBtn').addEventListener('click', async () => {
       mask[p] = 0;
       continue;
     }
-    if (isProtectedWhite(data, i)) {
-      whiteMask[p] = 1;
-      mask[p] = 0;
-      continue;
-    }
     if (useAlpha){
       mask[p] = data[i+3] > 30 ? 1 : 0;
     } else {
-      const L = lumaAt(data, i);
-      mask[p] = L < WHITE_LUMA_KEEP ? 1 : 0; // white/text is preserved, not halftoned
+      mask[p] = 1; // sem canal alpha confiável: tudo que não é preto vira sujeito
     }
   }
 
@@ -424,7 +411,6 @@ $('processBtn').addEventListener('click', async () => {
   } else {
     await renderRosetteRGB(octx, data, mask, dist, OUT_W, OUT_H, cell, baseAngle, auraPx);
   }
-  restoreProtectedWhites(octx, data, whiteMask, OUT_W, OUT_H);
 
   setProgress(0.95, 'Gerando PNG...');
   await new Promise(r => requestAnimationFrame(r));
@@ -480,19 +466,7 @@ function computeDistanceOutside(mask, W, H, maxDist){
   return d;
 }
 
-function restoreProtectedWhites(ctx, data, whiteMask, W, H){
-  const white = ctx.createImageData(W, H);
-  const out = white.data;
-  for (let p=0,i=0; p<whiteMask.length; p++, i+=4){
-    if (!whiteMask[p]) continue;
-    out[i] = data[i];
-    out[i+1] = data[i+1];
-    out[i+2] = data[i+2];
-    out[i+3] = data[i+3];
-  }
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.putImageData(white, 0, 0);
-}
+// (removido) restoreProtectedWhites — branco agora vira ponto branco real via halftone.
 
 // === CLEAN RGB: single rotated grid sampling colors ===
 async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraPx){
@@ -521,21 +495,21 @@ async function renderCleanRGB(ctx, data, mask, dist, W, H, cell, angleDeg, auraP
       if (!inside && distOut > auraPx) continue;
 
       const di = p*4;
-      if (isBlackPixel(data, di) || isProtectedWhite(data, di)) continue;
+      if (isBlackPixel(data, di)) continue; // preto = transparente
       const r = data[di], g = data[di+1], b = data[di+2];
       const L = lumaAt(data, di);
 
-      // Black is never printed. Whites/text are restored later without halftone.
+      // Branco vira ponto branco PEQUENO (alta definição, sem buraco). Preto descartado.
       let radius = dotRadiusForLuma(L, cell);
       if (radius <= 0) continue;
-      let alpha = L >= 205 ? 0.8 : 1.0;
+      let alpha = 1.0;
 
       if (!inside){
         // aura fade: linear shrink + alpha fade
         const fade = 1 - (distOut / auraPx); // 1 at edge → 0 at end
         radius *= fade;
         alpha = fade;
-        if (radius < 0.35 || alpha < 0.05) continue;
+        if (radius < 0.6 || alpha < 0.05) continue;
       }
 
       ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha.toFixed(3)})`;
@@ -565,8 +539,8 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
     const { idx, angle, color } = channels[ch];
     const rad = (angle + baseAngle - 45) * Math.PI/180;
     const cosA = Math.cos(rad), sinA = Math.sin(rad);
-    const maxR = cell * 0.38;
-    const minR = Math.max(0.32, cell * 0.04);
+    const maxR = cell * 0.46;
+    const minR = Math.max(1.2, cell * 0.14);
     const diag = Math.ceil(Math.sqrt(W*W + H*H));
     const half = diag/2;
     const cx = W/2, cy = H/2;
@@ -582,19 +556,20 @@ async function renderRosetteRGB(ctx, data, mask, dist, W, H, cell, baseAngle, au
         if (!inside && distOut > auraPx) continue;
 
         const di = p*4;
-        if (isBlackPixel(data, di) || isProtectedWhite(data, di)) continue;
-        const L = lumaAt(data, di);
-        const v = data[di + idx]; // channel value 0..255
-        if (L >= WHITE_LUMA_KEEP) continue;
-        const t = Math.max(0.05, v / 255);
+        if (isBlackPixel(data, di)) continue; // preto = transparente
+        // Para Rosette: cada canal RGB gera ponto proporcional ao seu valor invertido
+        // (canal escuro = ponto grande). Branco puro produz pontos pequenos em todos canais.
+        const v = data[di + idx]; // 0..255
+        const density = 1 - (v / 255); // 0 = canal cheio (branco no canal), 1 = canal vazio
+        const t = Math.max(0.08, Math.pow(density, 0.85));
         let radius = minR + t * (maxR - minR);
-        let alpha = L >= 205 ? 0.42 : 0.74;
+        let alpha = 0.78;
 
         if (!inside){
           const fade = 1 - (distOut/auraPx);
           radius *= fade;
           alpha *= fade;
-          if (radius < 0.35 || alpha < 0.05) continue;
+          if (radius < 0.5 || alpha < 0.05) continue;
         }
 
         ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)})`;
