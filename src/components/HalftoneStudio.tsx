@@ -29,7 +29,7 @@ const LPI_DEFAULT = 35;
 const ANGLE_MIN = 0;
 const ANGLE_MAX = 90;
 const ANGLE_DEFAULT = 45;
-const ROSETTE_INTENSITY_DEFAULT = 50;
+
 
 export function HalftoneStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
