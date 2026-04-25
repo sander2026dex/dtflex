@@ -427,14 +427,33 @@ async function renderRosette(
       }
     }
 
-    if (si === 0 && !whiteBackground) {
-      ctx.globalCompositeOperation = "source-over";
-    } else {
-      ctx.globalCompositeOperation = "multiply";
-    }
-    ctx.drawImage(layer as CanvasImageSource, 0, 0);
+    // Always multiply onto the white work canvas — produces correct CMYK overlap.
+    wctx.globalCompositeOperation = "multiply";
+    wctx.drawImage(layer as CanvasImageSource, 0, 0);
   }
-  ctx.globalCompositeOperation = "source-over";
+  wctx.globalCompositeOperation = "source-over";
+
+  // Blit work → final canvas. If transparent BG requested, convert near-white
+  // pixels to alpha=0 so only the inked area survives (DTF requirement).
+  if (whiteBackground) {
+    ctx.drawImage(work as CanvasImageSource, 0, 0);
+  } else {
+    const id = wctx.getImageData(0, 0, w, h);
+    const d = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      // Distance from white (0..255). Pure white → alpha 0. Otherwise fade in.
+      const distFromWhite = 255 - Math.min(r, g, b);
+      if (distFromWhite < 6) {
+        d[i + 3] = 0; // fully transparent
+      } else if (distFromWhite < 24) {
+        // Soft edge: avoid harsh white halos around dots.
+        d[i + 3] = Math.round((distFromWhite - 6) * (255 / 18));
+      }
+      // else keep alpha 255
+    }
+    ctx.putImageData(id, 0, 0);
+  }
   return canvas;
 }
 
