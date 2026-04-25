@@ -324,8 +324,29 @@ function distanceFromSubjectWithNearest(
 //   Angle offsets (degrees): Cyan +15, Magenta +75, Yellow +0, Black +45.
 // ============================================================================
 
+interface RosetteScreen {
+  ang: number;
+  cos: number; sin: number;
+  cellSize: number;
+  ink: { r: number; g: number; b: number };
+  channel: 0 | 1 | 2 | 3;
+}
+
+const INK = {
+  C: { r: 0,   g: 174, b: 239 },
+  M: { r: 236, g: 0,   b: 140 },
+  Y: { r: 255, g: 237, b: 0   },
+  K: { r: 18,  g: 18,  b: 18  },
+};
+
+// Backwards-compat helper used by aura code; kept linear so dot area tracks
+// coverage without re-introducing the old "washed out" gamma.
+function coverageHeavy(cov: number): number {
+  return clamp01(cov);
+}
+
 export interface RosetteOpts {
-  whiteBackground?: boolean; // true = pure white bg, false = transparent
+  whiteBackground?: boolean;
 }
 
 async function renderRosette(
