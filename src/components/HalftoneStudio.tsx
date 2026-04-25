@@ -141,12 +141,11 @@ export function HalftoneStudio() {
                 </span>
               </div>
               <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-                🟠 Rosette CMYK · 🔵 Round Clean
+                ⚪ Spot White + CMYK · Pro DTF Engine
               </h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
-                Fundo 100% transparente (vazado), pontos mínimos de 1.5px (~0.5mm) — sem buracos
-                brancos. Processamento em OffscreenCanvas; o resultado só aparece quando 100%
-                pronto.
+                Underbase branca (Spot Channel) + CMYK por cima — densidade real para tecido escuro.
+                Rostos e camisas brancas ficam sólidos; preto puro vazado; fundo 100% transparente.
               </p>
             </div>
             <div className="rounded-md border border-border bg-card/50 px-4 py-2 text-sm backdrop-blur">
