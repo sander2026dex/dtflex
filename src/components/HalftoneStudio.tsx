@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, ImageIcon, Loader2, Settings2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -13,7 +12,7 @@ import {
   DEFAULT_OPTIONS,
   loadImage,
   processImage,
-  type DotShape,
+  type HalftoneMode,
   type HalftoneOptions,
 } from "@/lib/halftone";
 
@@ -23,6 +22,11 @@ interface ProcessedResult {
   filename: string;
   sizeKB: number;
 }
+
+const MODE_DEFAULTS: Record<HalftoneMode, Partial<HalftoneOptions>> = {
+  rosette_cmyk: { lpi: 55, baseAngleDeg: 45, dotGain: 0 },
+  round_clean: { lpi: 90, baseAngleDeg: 45, auraRadiusPx: 30, dotGain: 0 },
+};
 
 export function HalftoneStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -43,9 +47,7 @@ export function HalftoneStudio() {
     const runId = ++previewRunId.current;
     setBusy(true);
     try {
-      if (!cachedImg.current) {
-        cachedImg.current = await loadImage(file);
-      }
+      if (!cachedImg.current) cachedImg.current = await loadImage(file);
       const img = cachedImg.current;
       const blob = await processImage(
         img,
@@ -84,9 +86,7 @@ export function HalftoneStudio() {
       setPreviewResult(null);
       const url = URL.createObjectURL(file);
       setSourcePreview(url);
-      if (livePreview) {
-        runPreview(file, opts);
-      }
+      if (livePreview) runPreview(file, opts);
     },
     [livePreview, opts, runPreview],
   );
@@ -137,14 +137,10 @@ export function HalftoneStudio() {
   );
 
   const currentOutput = busy ? null : fullResult?.url ?? previewResult?.url ?? null;
+  const mode: HalftoneMode = opts.mode ?? "rosette_cmyk";
 
-  const updateLpi = (raw: string) => {
-    const n = Math.max(20, Math.min(100, Math.round(Number(raw) || 0)));
-    setOpts((o) => ({ ...o, lpi: n }));
-  };
-  const updateAngle = (raw: string) => {
-    const n = Math.max(0, Math.min(90, Math.round(Number(raw) || 0)));
-    setOpts((o) => ({ ...o, angleDeg: n }));
+  const switchMode = (newMode: HalftoneMode) => {
+    setOpts((o) => ({ ...o, mode: newMode, ...MODE_DEFAULTS[newMode] }));
   };
 
   return (
@@ -163,24 +159,25 @@ export function HalftoneStudio() {
                   <ImageIcon className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Real AM Halftone Generator
+                  Dual-Mode Halftone Engine
                 </span>
               </div>
               <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-                Manual LPI · Angle · Dot Shape
+                🟠 Rosette CMYK · 🔵 Round Clean
               </h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
-                Reconstrução matemática por amplitude modulation. Highlights nunca viram buracos —
-                pontos pequenos preservam toda a área. Aura preta opcional para "splatter" reticulado.
+                Duas pipelines matemáticas distintas. Rosette gera padrões de interferência CMYK
+                autênticos. Round produz pontos isolados limpos com aura orgânica em fundo
+                transparente.
               </p>
             </div>
             <div className="rounded-md border border-border bg-card/50 px-4 py-2 text-sm backdrop-blur">
               <span className="text-muted-foreground">Output </span>
-              <span className="font-mono text-primary">3307 × 4930 px · 300 DPI · PNG α</span>
+              <span className="font-mono text-primary">3307 × 4930 px · 300 DPI · PNG-32</span>
             </div>
           </header>
 
-          <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+          <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
             <div className="space-y-6">
               {!sourcePreview ? (
                 <Card
@@ -239,9 +236,18 @@ export function HalftoneStudio() {
 
               {sourceFile && (
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button size="lg" onClick={runFullExport} disabled={busy} className="shadow-[var(--shadow-glow)]">
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
-                    Gerar arquivo print-ready
+                  <Button
+                    size="lg"
+                    onClick={runFullExport}
+                    disabled={busy}
+                    className="shadow-[var(--shadow-glow)]"
+                  >
+                    {busy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Settings2 className="h-4 w-4" />
+                    )}
+                    Generate &amp; Download
                   </Button>
                   {fullResult && (
                     <Button asChild size="lg" variant="secondary">
@@ -270,110 +276,79 @@ export function HalftoneStudio() {
             <Card className="h-fit space-y-5 bg-card/70 p-5 backdrop-blur lg:sticky lg:top-6">
               <div>
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Manual Settings
+                  Render Mode
                 </h3>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="lpi-input" className="text-xs text-muted-foreground">
-                        LPI (20–100)
-                      </Label>
-                      <Input
-                        id="lpi-input"
-                        type="number"
-                        min={20}
-                        max={100}
-                        value={opts.lpi ?? 65}
-                        onChange={(e) => updateLpi(e.target.value)}
-                        className="mt-1 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="angle-input" className="text-xs text-muted-foreground">
-                        Angle ° (0–90)
-                      </Label>
-                      <Input
-                        id="angle-input"
-                        type="number"
-                        min={0}
-                        max={90}
-                        value={opts.angleDeg ?? 45}
-                        onChange={(e) => updateAngle(e.target.value)}
-                        className="mt-1 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="mb-2 block text-xs text-muted-foreground">Dot Shape</Label>
-                    <ToggleGroup
-                      type="single"
-                      value={opts.dotShape ?? "circular"}
-                      onValueChange={(v) => {
-                        if (!v) return;
-                        setOpts((o) => ({ ...o, dotShape: v as DotShape }));
-                      }}
-                      className="grid grid-cols-2 gap-1"
-                    >
-                      <ToggleGroupItem value="circular" variant="outline" className="text-xs">
-                        Circular
-                      </ToggleGroupItem>
-                      <ToggleGroupItem value="elliptical" variant="outline" className="text-xs">
-                        Elliptical
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                  </div>
-                </div>
+                <ToggleGroup
+                  type="single"
+                  value={mode}
+                  onValueChange={(v) => v && switchMode(v as HalftoneMode)}
+                  className="grid grid-cols-2 gap-1"
+                >
+                  <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-xs">
+                    🟠 Rosette CMYK
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="round_clean" variant="outline" className="text-xs">
+                    🔵 Round Clean
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {mode === "rosette_cmyk"
+                    ? "4 telas C/M/Y/K em ângulos diferentes geram padrões de roseta."
+                    : "Grade única, mesmo ângulo para todos os pixels — zero interferência."}
+                </p>
               </div>
 
               <Separator />
 
-              <div className="space-y-3 rounded-md border border-border/60 bg-background/40 p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="aura-toggle" className="text-sm text-foreground">
-                      Enable Outer Aura
-                    </Label>
-                    <p className="text-[11px] text-muted-foreground">Black halftone splatter atrás do sujeito</p>
-                  </div>
-                  <Switch
-                    id="aura-toggle"
-                    checked={!!opts.outerAura}
-                    onCheckedChange={(on) => setOpts((o) => ({ ...o, outerAura: on }))}
-                  />
-                </div>
+              <SliderRow
+                label="LPI (Lines per Inch)"
+                value={opts.lpi ?? 55}
+                min={20}
+                max={150}
+                step={1}
+                onChange={(v) => setOpts((o) => ({ ...o, lpi: v }))}
+              />
+              <SliderRow
+                label="Base Angle"
+                value={opts.baseAngleDeg ?? 45}
+                min={0}
+                max={90}
+                step={1}
+                format={(v) => `${v}°`}
+                onChange={(v) => setOpts((o) => ({ ...o, baseAngleDeg: v }))}
+              />
+              <SliderRow
+                label="Dot Gain"
+                value={opts.dotGain ?? 0}
+                min={-0.2}
+                max={0.2}
+                step={0.01}
+                format={(v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)}%`}
+                onChange={(v) => setOpts((o) => ({ ...o, dotGain: v }))}
+              />
 
-                {opts.outerAura && (
-                  <>
-                    <SliderRow
-                      label="Aura width (px)"
-                      value={opts.auraWidthPx ?? 280}
-                      min={60}
-                      max={600}
-                      step={10}
-                      onChange={(v) => setOpts((o) => ({ ...o, auraWidthPx: v }))}
-                    />
-                    <SliderRow
-                      label="Aura intensity"
-                      value={opts.auraIntensity ?? 0.85}
-                      min={0.2}
-                      max={1}
-                      step={0.05}
-                      format={(v) => `${(v * 100).toFixed(0)}%`}
-                      onChange={(v) => setOpts((o) => ({ ...o, auraIntensity: v }))}
-                    />
-                    <SliderRow
-                      label="Background tolerance"
-                      value={opts.bgTolerance ?? 38}
-                      min={5}
-                      max={80}
-                      step={1}
-                      onChange={(v) => setOpts((o) => ({ ...o, bgTolerance: v }))}
-                    />
-                  </>
-                )}
-              </div>
+              {mode === "round_clean" && (
+                <>
+                  <Separator />
+                  <SliderRow
+                    label="Aura Radius"
+                    value={opts.auraRadiusPx ?? 30}
+                    min={0}
+                    max={80}
+                    step={1}
+                    format={(v) => `${v}px`}
+                    onChange={(v) => setOpts((o) => ({ ...o, auraRadiusPx: v }))}
+                  />
+                  <SliderRow
+                    label="Background tolerance"
+                    value={opts.bgTolerance ?? 38}
+                    min={5}
+                    max={80}
+                    step={1}
+                    onChange={(v) => setOpts((o) => ({ ...o, bgTolerance: v }))}
+                  />
+                </>
+              )}
 
               <Separator />
 
@@ -384,49 +359,13 @@ export function HalftoneStudio() {
                 <Switch id="live-preview" checked={livePreview} onCheckedChange={setLivePreview} />
               </div>
 
-              <SliderRow
-                label="Vibrance"
-                value={opts.vibrance ?? 0.15}
-                min={0}
-                max={0.5}
-                step={0.05}
-                format={(v) => `+${(v * 100).toFixed(0)}%`}
-                onChange={(v) => setOpts((o) => ({ ...o, vibrance: v }))}
-              />
-              <SliderRow
-                label="Black point"
-                value={opts.blackPoint ?? 0}
-                min={0}
-                max={60}
-                step={1}
-                onChange={(v) => setOpts((o) => ({ ...o, blackPoint: v }))}
-              />
-              <SliderRow
-                label="Midtone gamma"
-                value={opts.midtoneGamma ?? 1.0}
-                min={0.5}
-                max={1.5}
-                step={0.05}
-                format={(v) => v.toFixed(2)}
-                onChange={(v) => setOpts((o) => ({ ...o, midtoneGamma: v }))}
-              />
-              <SliderRow
-                label="Unsharp"
-                value={opts.unsharpAmount ?? 0.5}
-                min={0}
-                max={1.5}
-                step={0.1}
-                format={(v) => v.toFixed(1)}
-                onChange={(v) => setOpts((o) => ({ ...o, unsharpAmount: v }))}
-              />
-
-              <Separator />
-
               <Button
                 variant="ghost"
                 size="sm"
                 className="w-full"
-                onClick={() => setOpts({ ...DEFAULT_OPTIONS })}
+                onClick={() =>
+                  setOpts({ ...DEFAULT_OPTIONS, mode, ...MODE_DEFAULTS[mode] })
+                }
               >
                 Resetar parâmetros
               </Button>
@@ -484,7 +423,9 @@ function PreviewCard({
   stage?: string;
 }) {
   return (
-    <Card className={`bg-card/70 p-4 backdrop-blur transition-all ${highlight ? "ring-1 ring-primary shadow-[var(--shadow-glow)]" : ""}`}>
+    <Card
+      className={`bg-card/70 p-4 backdrop-blur transition-all ${highlight ? "ring-1 ring-primary shadow-[var(--shadow-glow)]" : ""}`}
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
         <span className="text-xs uppercase tracking-wider text-muted-foreground">{title}</span>
         <span className="ml-2 truncate font-mono text-xs text-muted-foreground/80">{meta}</span>
@@ -501,8 +442,12 @@ function PreviewCard({
         {busy ? (
           <div className="flex flex-col items-center gap-3 px-6 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <div className="text-xs font-medium text-foreground/80">Processando retícula em 300 DPI…</div>
-            <div className="font-mono text-[10px] text-muted-foreground">{stage || "iniciando"} · {pct ?? 0}%</div>
+            <div className="text-xs font-medium text-foreground/80">
+              Processando retícula em 300 DPI…
+            </div>
+            <div className="font-mono text-[10px] text-muted-foreground">
+              {stage || "iniciando"} · {pct ?? 0}%
+            </div>
             <div className="w-full max-w-[200px]">
               <Progress value={pct ?? 0} className="h-1" />
             </div>
