@@ -119,11 +119,18 @@ function rgbToCmyk(r: number, g: number, b: number): [number, number, number, nu
   return [c, m, y, k];
 }
 
-// Pre-press contrast curve: anchors blacks, protects highlights, +30% sat.
+// Pre-press curve: anchors blacks, AGGRESSIVELY protects highlights so light
+// colors (light yellow shirts, gray sneakers, off-white) don't get speckled.
+// Light tones (>0.78) are pushed near-white so the highlight-skip logic can
+// catch them and leave those areas clean.
 function curve(v: number): number {
-  if (v < 0.10) return 0;
-  if (v > 0.90) return 0.92;
-  return clamp01(0.5 + (v - 0.5) * 1.4);
+  if (v < 0.08) return 0;
+  if (v > 0.78) {
+    // Stretch [0.78..1] → [0.92..1] so all light values count as highlights.
+    return clamp01(0.92 + (v - 0.78) * (0.08 / 0.22));
+  }
+  // Mild midtone contrast (1.15 instead of 1.4) — avoids crushing light colors.
+  return clamp01(0.5 + (v - 0.5) * 1.15);
 }
 function preprocess(img: ImageData): ImageData {
   const { width, height, data } = img;
@@ -134,9 +141,11 @@ function preprocess(img: ImageData): ImageData {
     let g = curve(d[i + 1] / 255);
     let b = curve(d[i + 2] / 255);
     const l = r * 0.2126 + g * 0.7152 + b * 0.0722;
-    r = clamp01(l + (r - l) * 1.3);
-    g = clamp01(l + (g - l) * 1.3);
-    b = clamp01(l + (b - l) * 1.3);
+    // Light saturation boost ONLY in midtones; skip near-whites to keep clean.
+    const satBoost = l > 0.85 ? 1.0 : 1.2;
+    r = clamp01(l + (r - l) * satBoost);
+    g = clamp01(l + (g - l) * satBoost);
+    b = clamp01(l + (b - l) * satBoost);
     d[i] = Math.round(r * 255);
     d[i + 1] = Math.round(g * 255);
     d[i + 2] = Math.round(b * 255);
