@@ -319,11 +319,14 @@ async function renderRosette(
   // Start transparent
   ctx.clearRect(0, 0, w, h);
 
+  // Spec-mandated FIXED angles (absolute, not offset from base) for true rosette
+  // interference patterns: C=15°, M=75°, Y=0°, K=45°.
+  void baseAngleDeg; // intentionally unused in rosette mode (angles are fixed)
   const screens: RosetteScreen[] = [
-    { ang: ((baseAngleDeg + 15) * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.C, channel: 0 },
-    { ang: ((baseAngleDeg + 75) * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.M, channel: 1 },
-    { ang: ((baseAngleDeg + 0)  * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.Y, channel: 2 },
-    { ang: ((baseAngleDeg + 45) * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.K, channel: 3 },
+    { ang: (15 * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.C, channel: 0 },
+    { ang: (75 * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.M, channel: 1 },
+    { ang: (0  * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.Y, channel: 2 },
+    { ang: (45 * Math.PI) / 180, cos: 0, sin: 0, cellSize, ink: INK.K, channel: 3 },
   ];
   for (const s of screens) { s.cos = Math.cos(s.ang); s.sin = Math.sin(s.ang); }
 
