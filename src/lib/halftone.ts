@@ -542,19 +542,26 @@ function plotChannel(
 
       const L = lum[idx];
       // Pure black knockout (vazado) — skip dot on extreme darks.
+      // With K removed, dark areas are naturally vazado (empty reticle).
       if (L < 6) continue;
 
       const cov = ink[idx];
       if (cov <= 0.01) continue;
 
       // DOT SIZING per spec: radius = 1.5 + cov * (step*0.4 - 1.5)
-      // (cov plays the role of 1 - L/255 at the channel level).
       let radius = 1.5 + cov * (step * 0.4 - 1.5);
       let dotAlpha = 1;
 
-      // HIGHLIGHT PROTECTION — extreme highlights → micro dot @ 40% alpha.
-      if (L > 242) {
-        radius = 1.5;
+      // WHITE / HIGHLIGHT REDUCTION — for bright pixels (L>200) shrink dots
+      // significantly so white areas show smaller, finer reticles instead of
+      // dense color. The brighter the pixel, the smaller the dot.
+      if (L > 200) {
+        const t = (L - 200) / 55; // 0..1 across L 200..255
+        const shrink = 1 - t * 0.75; // shrink down to 25% of computed size
+        radius = Math.max(1.0, Math.min(step * 0.22, radius * shrink));
+        dotAlpha = 1 - t * 0.4; // also fade slightly
+      } else if (L > 242) {
+        radius = 1.0;
         dotAlpha = 0.4;
       } else {
         radius = Math.min(step * 0.4, Math.max(1.5, radius));
