@@ -632,15 +632,20 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
       if (blackMask[p]) continue;       // preto fica VAZADO (transparente)
       if (flatWhiteMask[p]) continue;   // branco sólido já pintado, não cobrir com dots
 
-      const avg = sampleCellColor(data, mask, blackMask, W, H, ix, iy, cell);
-      if (!avg) continue;
-
       const isHL = highlightMask[p] === 1;
-      // Reflexo branco isolado: poucas retículas pequenas (1 a cada 4 células)
+
+      let avg;
       if (isHL) {
-        const cellIx = Math.round((gx + half) / cell);
-        const cellIy = Math.round((gy + half) / cell);
-        if (((cellIx + cellIy) & 3) !== 0) continue;
+        // REFLEXO: amostra cor da vizinhança (vermelho do chapéu, pele, etc.)
+        // para que os pontinhos preservem a forma e o brilho com a cor real,
+        // sem virar buracos brancos. Densidade total (sem pular células).
+        const neigh = sampleNeighborhoodColor(data, mask, blackMask, flatWhiteMask, highlightMask, W, H, ix, iy, cell);
+        if (!neigh) continue;
+        avg = neigh;
+      } else {
+        const sampled = sampleCellColor(data, mask, blackMask, W, H, ix, iy, cell);
+        if (!sampled) continue;
+        avg = sampled;
       }
 
       let radius = isHL ? dotRadiusHighlight(cell) : dotRadiusForLuma(avg.l, cell, avg.coverage);
