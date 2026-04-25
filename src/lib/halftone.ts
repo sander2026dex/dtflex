@@ -149,6 +149,34 @@ function preprocessHeavyInk(img: ImageData): ImageData {
   return out;
 }
 
+function rosetteInkCurve(v: number): number {
+  if (v < 0.10) return 0;
+  if (v > 0.985) return 1;
+  if (v > 0.90) return 0.96 + ((v - 0.90) / 0.085) * 0.04;
+  return clamp01(0.5 + (v - 0.5) * 1.35);
+}
+
+function preprocessRosetteCmyk(img: ImageData): ImageData {
+  const { width, height, data } = img;
+  const out = new ImageData(new Uint8ClampedArray(data), width, height);
+  const d = out.data;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = rosetteInkCurve(d[i] / 255);
+    let g = rosetteInkCurve(d[i + 1] / 255);
+    let b = rosetteInkCurve(d[i + 2] / 255);
+
+    const l = r * 0.2126 + g * 0.7152 + b * 0.0722;
+    r = clamp01(l + (r - l) * 1.3);
+    g = clamp01(l + (g - l) * 1.3);
+    b = clamp01(l + (b - l) * 1.3);
+
+    d[i] = Math.round(r * 255);
+    d[i + 1] = Math.round(g * 255);
+    d[i + 2] = Math.round(b * 255);
+  }
+  return out;
+}
+
 function luma255(r: number, g: number, b: number): number {
   return r * 0.2126 + g * 0.7152 + b * 0.0722;
 }
@@ -316,10 +344,10 @@ function distanceFromSubjectWithNearest(
 // MATH:
 //   cellSize = dpi / lpi
 //   For each ink, iterate its OWN rotated grid in steps of cellSize. At each
-//   grid intersection, sample the channel coverage at that point (in image
-//   space), then draw one disc of radius:
-//       r = (1 − luminance_channel) * (cellSize * 0.45)
-//   Channels overlap subtractively; full rectangular canvas coverage.
+//   grid intersection, sample TRUE CMYK channel coverage at that point, then
+//   draw one disc of radius:
+//       r = (Channel_Value / 255) * Max_Radius
+//   Low CMYK values in whites/highlights produce tiny/no dots — no dirty mesh.
 //
 //   Angle offsets (degrees): Cyan +15, Magenta +75, Yellow +0, Black +45.
 // ============================================================================
@@ -387,9 +415,12 @@ async function renderRosette(
   const half = Math.ceil(diag / 2);
   const cx = w / 2, cy = h / 2;
 
-  // GOLDEN RULE: DotSize = (1 - Brightness) * (MaxSize - MinSize) + MinSize
+  // STRICT CMYK DOT SIZING: radius = Channel_Value * Max_Radius.
+  // White/highlight CMYK coverage must stay tiny or zero to avoid gray mesh.
   const MAX_SIZE = cellSize * 0.50;
-  const MIN_SIZE = 1.5;
+  const MIN_VISIBLE_DOT = 1.0;
+  const PURE_WHITE_RGB = 252;
+  const WHITE_CHANNEL_SKIP = 0.015;
 
   const sampleCmyk = (x: number, y: number): [number, number, number, number] | null => {
     const xi = Math.round(x), yi = Math.round(y);
@@ -412,21 +443,13 @@ async function renderRosette(
         const py = cy + gx * s.sin + gy * s.cos;
         const cmyk = sampleCmyk(px, py);
         if (!cmyk) continue;
-        // Per-channel "brightness" = 1 - ink coverage. (Brightness 1 → no ink.)
-        const inkCoverage = cmyk[s.channel]; // 0..1
-        // ----- HIGHLIGHT PROTECTION (faces / white art must stay clean) -----
-        // Pure white in this channel → SKIP. Don't dirty white skin/paper.
-        if (inkCoverage < 0.05) continue;
-        // Highlight band (>90% brightness on this channel) → minimum structural dot.
-        let r: number;
-        if (inkCoverage < 0.10) {
-          r = 1.0; // minimum 1px structural dot in highlights
-        } else {
-          // GOLDEN RULE (linear): r = (1 - brightness) * (MAX - MIN) + MIN
-          const brightness = 1 - inkCoverage;
-          r = (1 - brightness) * (MAX_SIZE - MIN_SIZE) + MIN_SIZE;
-        }
-        if (r < 0.45) continue;
+        const xi = Math.round(px), yi = Math.round(py);
+        const di = (yi * w + xi) * 4;
+        if (data[di] >= PURE_WHITE_RGB && data[di + 1] >= PURE_WHITE_RGB && data[di + 2] >= PURE_WHITE_RGB) continue;
+        const inkCoverage = cmyk[s.channel]; // TRUE CMYK channel coverage, 0..1
+        if (inkCoverage <= WHITE_CHANNEL_SKIP) continue;
+        const r = inkCoverage * MAX_SIZE;
+        if (r < MIN_VISIBLE_DOT) continue;
         lctx.beginPath();
         lctx.arc(px, py, r, 0, Math.PI * 2);
         lctx.fill();
@@ -652,9 +675,9 @@ export async function processImage(
   const sctx = ctx2d(stage);
   const rawData = sctx.getImageData(0, 0, tw, th);
 
-  onProgress?.("Heavy Ink curves · contrast + saturation", 18);
+  onProgress?.("Print curves · contrast + saturation", 18);
   await tick();
-  const data = preprocessHeavyInk(rawData);
+  const data = o.mode === "rosette_cmyk" ? preprocessRosetteCmyk(rawData) : preprocessHeavyInk(rawData);
 
   let outCanvas: AnyCanvas;
   if (o.mode === "rosette_cmyk") {
