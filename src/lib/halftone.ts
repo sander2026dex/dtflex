@@ -119,36 +119,52 @@ function rgbToCmyk(r: number, g: number, b: number): [number, number, number, nu
   return [c, m, y, k];
 }
 
-// Pre-press curve: anchors blacks, AGGRESSIVELY protects highlights so light
-// colors (light yellow shirts, gray sneakers, off-white) don't get speckled.
-// Light tones (>0.78) are pushed near-white so the highlight-skip logic can
-// catch them and leave those areas clean.
-function curve(v: number): number {
-  if (v < 0.08) return 0;
-  if (v > 0.78) {
-    // Stretch [0.78..1] → [0.92..1] so all light values count as highlights.
-    return clamp01(0.92 + (v - 0.78) * (0.08 / 0.22));
+// ============================================================================
+// 🔥 PRINT PRE-PROCESS — "Secret Sauce" applied BEFORE halftone.
+// ----------------------------------------------------------------------------
+// STEP 1 · LEVELS ADJUSTMENT  (Input Levels 80 / 1.00 / 255)
+//   Per channel (R,G,B):
+//     if (v < 80)  → 0                                        (crush shadows)
+//     else         → (v - 80) * (255 / (255 - 80))            (linear stretch)
+//   Gamma = 1.00 (linear remap of the surviving range).
+//
+// STEP 2 · MIDTONES DARKENING  (Gamma 0.85)
+//   Apply gamma 0.85 to the post-levels value:
+//     v' = 255 * pow(v / 255, 1 / 0.85)
+//   This deepens midtones — mimics Photoshop's "Midtones Darker".
+//
+// Result: deep blacks, punchy contrast, no washed-out grays. Halftone math
+// later receives a print-ready luminance distribution.
+// ============================================================================
+const LEVELS_BLACK = 80;
+const LEVELS_SCALE = 255 / (255 - LEVELS_BLACK); // ≈ 1.4571
+const GAMMA_MID = 0.85;
+const GAMMA_EXP = 1 / GAMMA_MID;                  // ≈ 1.1765
+
+// LUT for performance — 256-entry table applied to every R/G/B byte.
+const LEVELS_GAMMA_LUT: Uint8ClampedArray = (() => {
+  const lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v++) {
+    // STEP 1 — Levels 80/1.00/255
+    let post = v < LEVELS_BLACK ? 0 : (v - LEVELS_BLACK) * LEVELS_SCALE;
+    if (post > 255) post = 255;
+    // STEP 2 — Gamma 0.85 (midtone darkening)
+    const norm = post / 255;
+    const gam = Math.pow(norm, GAMMA_EXP) * 255;
+    lut[v] = Math.round(gam);
   }
-  // Mild midtone contrast (1.15 instead of 1.4) — avoids crushing light colors.
-  return clamp01(0.5 + (v - 0.5) * 1.15);
-}
+  return lut;
+})();
+
 function preprocess(img: ImageData): ImageData {
   const { width, height, data } = img;
   const out = new ImageData(new Uint8ClampedArray(data), width, height);
   const d = out.data;
+  // Apply LUT to R, G, B (alpha untouched). Per-channel — preserves color cast.
   for (let i = 0; i < d.length; i += 4) {
-    let r = curve(d[i] / 255);
-    let g = curve(d[i + 1] / 255);
-    let b = curve(d[i + 2] / 255);
-    const l = r * 0.2126 + g * 0.7152 + b * 0.0722;
-    // Light saturation boost ONLY in midtones; skip near-whites to keep clean.
-    const satBoost = l > 0.85 ? 1.0 : 1.2;
-    r = clamp01(l + (r - l) * satBoost);
-    g = clamp01(l + (g - l) * satBoost);
-    b = clamp01(l + (b - l) * satBoost);
-    d[i] = Math.round(r * 255);
-    d[i + 1] = Math.round(g * 255);
-    d[i + 2] = Math.round(b * 255);
+    d[i]     = LEVELS_GAMMA_LUT[d[i]];
+    d[i + 1] = LEVELS_GAMMA_LUT[d[i + 1]];
+    d[i + 2] = LEVELS_GAMMA_LUT[d[i + 2]];
   }
   return out;
 }
@@ -757,7 +773,7 @@ export async function processImage(
   const sctx = ctx2d(stage);
   const rawData = sctx.getImageData(0, 0, o.targetW, o.targetH);
 
-  onProgress?.("Print curves · contrast + saturation", 18);
+  onProgress?.("Pre-process · Levels 80/255 + Gamma 0.85", 18);
   await tick();
   const data = preprocess(rawData);
 
