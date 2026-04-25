@@ -429,6 +429,8 @@ function renderRosette(
   prep: Prepared,
   opts: HalftoneOptions,
   progress: Progress,
+  dw: number,
+  dh: number,
 ) {
   const { w, h, rgba, lum, alpha, workScale } = prep;
   // Step in working pixels (see renderClean for derivation).
@@ -461,18 +463,45 @@ function renderRosette(
     K[i] = k;
   }
 
-  // Render each channel with multiply so dots blend optically.
-  ctx.globalCompositeOperation = "multiply";
+  // ------------------------------------------------------------------
+  // FIX: `multiply` blending only works against an opaque destination.
+  // On a transparent canvas, multiplying yellow * alpha=0 = invisible.
+  // Solution: render channels onto a temp WHITE canvas using multiply,
+  // then knock out the white background back to alpha and composite
+  // the result onto the (transparent) output ctx.
+  // ------------------------------------------------------------------
+  const temp = new OffscreenCanvas(dw, dh);
+  const tctx = temp.getContext("2d", { alpha: true })!;
+  tctx.fillStyle = "#ffffff";
+  tctx.fillRect(0, 0, dw, dh);
+  tctx.globalCompositeOperation = "multiply";
 
   let done = 0;
   for (const ch of channels) {
     const data = ch.name === "C" ? C : ch.name === "M" ? M : ch.name === "Y" ? Y : K;
-    plotChannel(ctx, data, lum, alpha, w, h, step, ch.deg, ch.hex);
+    plotChannel(tctx, data, lum, alpha, w, h, step, ch.deg, ch.hex);
     done++;
     progress(`Rosette · screen ${done}/4 (${ch.name})`, 35 + done * 12);
   }
 
-  ctx.globalCompositeOperation = "source-over";
+  tctx.globalCompositeOperation = "source-over";
+
+  // Knockout pure-white background → transparent. Anything that was touched
+  // by ink is darker than 250 and survives. Subject mask (alpha>32) is also
+  // honored so background outside the art stays fully transparent.
+  const td = tctx.getImageData(0, 0, dw, dh);
+  const px = td.data;
+  for (let i = 0, p = 0; i < len; i++, p += 4) {
+    const r = px[p], g = px[p + 1], b = px[p + 2];
+    // Outside the original subject → fully transparent.
+    if (alpha[i] < 32) { px[p + 3] = 0; continue; }
+    // Pure white (untouched by any channel) → transparent.
+    if (r > 248 && g > 248 && b > 248) { px[p + 3] = 0; continue; }
+    px[p + 3] = 255;
+  }
+  tctx.putImageData(td, 0, 0);
+
+  ctx.drawImage(temp, 0, 0);
 }
 
 /* Plot a single CMYK channel on its rotated grid. */
