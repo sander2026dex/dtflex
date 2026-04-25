@@ -223,10 +223,10 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','aura','contrast'].forEach(id => {
+['lpi','angle','aura','contrast','bgTol'].forEach(id => {
   const el = $(id);
   el.addEventListener('input', () => {
-    const suffix = id === 'lpi' ? ' LPI' : id === 'angle' ? '°' : id === 'aura' ? ' px' : '%';
+    const suffix = id === 'lpi' ? ' LPI' : id === 'angle' ? '°' : id === 'aura' ? ' px' : id === 'contrast' ? '%' : '';
     $(id+'Val').textContent = el.value + suffix;
   });
 });
