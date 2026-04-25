@@ -541,7 +541,7 @@ function plotChannel(
 
       const L = lum[idx];
       // Pure black knockout (vazado) — skip dot on extreme darks.
-      if (L < 12) continue;
+      if (L < 6) continue;
 
       const cov = ink[idx];
       if (cov <= 0.01) continue;
