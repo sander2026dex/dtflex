@@ -123,7 +123,7 @@ export async function processImage(
   const imgData = wctx.getImageData(0, 0, dw, dh);
 
   // 3. Apply pre-processing LUT + build luminance + alpha maps in one pass.
-  const prep = preProcessLevels(imgData);
+  const prep = preProcessLevels(imgData, finalW > 0 ? dw / finalW : 1);
   progress("Building luminance map", 18);
 
   // 4. Resolve mode (legacy aliases route to the two real engines).
