@@ -98,7 +98,7 @@ export async function processImage(
 ): Promise<Blob> {
   const progress = onProgress ?? (() => {});
   dotCache.clear(); // fresh cache per run keeps memory bounded across uploads
-  progress("Pre-process · Levels 80/255 + Gamma 0.88", 5);
+  progress("Pre-process · Levels 30/255 + Gamma 0.92", 5);
 
   // 1. Fit source into output canvas (preserve aspect, center).
   const out = new OffscreenCanvas(OUTPUT_WIDTH, OUTPUT_HEIGHT);
