@@ -762,7 +762,11 @@ export async function processImage(
   const data = preprocess(rawData);
 
   let outCanvas: AnyCanvas;
-  if (o.mode === "rosette_cmyk") {
+  if (o.mode === "spot_white_cmyk") {
+    outCanvas = await renderSpotWhiteCmyk(
+      data, o.dpi, o.lpi, o.whiteThreshold, o.baseAngleDeg, onProgress,
+    );
+  } else if (o.mode === "rosette_cmyk") {
     outCanvas = await renderRosette(data, o.dpi, o.lpi, onProgress, 25, 65);
   } else if (o.mode === "round_clean") {
     outCanvas = await renderCircular(
