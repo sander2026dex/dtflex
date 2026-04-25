@@ -30,6 +30,7 @@ const ANGLE_MIN = 0;
 const ANGLE_MAX = 90;
 const ANGLE_DEFAULT = 45;
 
+
 export function HalftoneStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourcePreview, setSourcePreview] = useState<string | null>(null);
@@ -89,6 +90,7 @@ export function HalftoneStudio() {
   const mode: HalftoneMode = opts.mode ?? "rosette_cmyk";
   const lpi = opts.lpi ?? LPI_DEFAULT;
   const angle = opts.baseAngleDeg ?? ANGLE_DEFAULT;
+  const rosetteIntensity = Math.round((opts.rosetteIntensity ?? 0.5) * 100);
 
   const setLpi = (raw: number) => {
     if (Number.isNaN(raw)) return;
@@ -100,6 +102,12 @@ export function HalftoneStudio() {
     if (Number.isNaN(raw)) return;
     const clamped = Math.max(ANGLE_MIN, Math.min(ANGLE_MAX, Math.round(raw)));
     setOpts((o) => ({ ...o, baseAngleDeg: clamped }));
+  };
+
+  const setRosetteIntensity = (raw: number) => {
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.max(0, Math.min(100, Math.round(raw)));
+    setOpts((o) => ({ ...o, rosetteIntensity: clamped / 100 }));
   };
 
   const switchMode = (newMode: HalftoneMode) => {
@@ -244,20 +252,25 @@ export function HalftoneStudio() {
                   type="single"
                   value={mode}
                   onValueChange={(v) => v && switchMode(v as HalftoneMode)}
-                  className="grid grid-cols-2 gap-1"
+                  className="grid grid-cols-3 gap-1"
                   disabled={busy}
                 >
-                  <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-xs">
-                    🟠 Rosette CMYK
+                  <ToggleGroupItem value="rosette_cmyk" variant="outline" className="text-[11px]">
+                    🟠 Rosette
                   </ToggleGroupItem>
-                  <ToggleGroupItem value="round_clean" variant="outline" className="text-xs">
-                    🔵 Round Clean
+                  <ToggleGroupItem value="round_clean" variant="outline" className="text-[11px]">
+                    🔵 Circular
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="hybrid" variant="outline" className="text-[11px]">
+                    🟣 Hybrid
                   </ToggleGroupItem>
                 </ToggleGroup>
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {mode === "rosette_cmyk"
                     ? "4 telas C/M/Y/K em ângulos fixos (15°/75°/0°/45°). Fundo vazado para DTF."
-                    : "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."}
+                    : mode === "round_clean"
+                      ? "Grade única + aura colorida orgânica em volta do sujeito. Fundo vazado."
+                      : "Mix entre Circular e Rosette. Slider de intensidade controla a interferência."}
                 </p>
               </div>
 
@@ -331,9 +344,42 @@ export function HalftoneStudio() {
 
               <Separator />
 
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-sm text-foreground">
+                    Rosette Intensity {mode !== "hybrid" ? "(somente Hybrid)" : ""}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={rosetteIntensity}
+                    min={0}
+                    max={100}
+                    step={1}
+                    disabled={busy || mode !== "hybrid"}
+                    onChange={(e) => setRosetteIntensity(parseInt(e.target.value, 10))}
+                    className="h-7 w-20 text-right font-mono text-xs"
+                  />
+                </div>
+                <Slider
+                  value={[rosetteIntensity]}
+                  min={0}
+                  max={100}
+                  step={1}
+                  disabled={busy || mode !== "hybrid"}
+                  onValueChange={([v]) => setRosetteIntensity(v)}
+                />
+                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                  <span>0% circular</span>
+                  <span>50% mix</span>
+                  <span>100% rosette</span>
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="rounded-md border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                <strong className="text-foreground">Regra DTF:</strong> dot mínimo 1.5px (~0.5mm).
-                Sem buracos brancos no sujeito. Fundo 100% alpha 0.
+                <strong className="text-foreground">Regras DTF:</strong> preto puro (lum&lt;5%) é vazado.
+                Branco puro (lum&gt;95%) imprime ponto 1.5px @ 40% opacidade. Fundo 100% alpha 0.
               </div>
 
               <Button
