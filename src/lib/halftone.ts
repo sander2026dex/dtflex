@@ -149,6 +149,34 @@ function preprocessHeavyInk(img: ImageData): ImageData {
   return out;
 }
 
+function rosetteInkCurve(v: number): number {
+  if (v < 0.10) return 0;
+  if (v > 0.985) return 1;
+  if (v > 0.90) return 0.96 + ((v - 0.90) / 0.085) * 0.04;
+  return clamp01(0.5 + (v - 0.5) * 1.35);
+}
+
+function preprocessRosetteCmyk(img: ImageData): ImageData {
+  const { width, height, data } = img;
+  const out = new ImageData(new Uint8ClampedArray(data), width, height);
+  const d = out.data;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = rosetteInkCurve(d[i] / 255);
+    let g = rosetteInkCurve(d[i + 1] / 255);
+    let b = rosetteInkCurve(d[i + 2] / 255);
+
+    const l = r * 0.2126 + g * 0.7152 + b * 0.0722;
+    r = clamp01(l + (r - l) * 1.3);
+    g = clamp01(l + (g - l) * 1.3);
+    b = clamp01(l + (b - l) * 1.3);
+
+    d[i] = Math.round(r * 255);
+    d[i + 1] = Math.round(g * 255);
+    d[i + 2] = Math.round(b * 255);
+  }
+  return out;
+}
+
 function luma255(r: number, g: number, b: number): number {
   return r * 0.2126 + g * 0.7152 + b * 0.0722;
 }
