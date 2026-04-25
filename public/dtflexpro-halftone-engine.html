@@ -490,29 +490,27 @@ function processRosetteCMYK(image, lpi) {
   // canal num buffer próprio com fundo BRANCO, multiplicamos entre eles,
   // depois removemos o branco -> alpha.
 
-  // Ângulos clássicos
+  // Ângulos clássicos (sem K — preto vazado/transparente para DTF)
   const angles = {
     C: 15  * Math.PI / 180,
     M: 75  * Math.PI / 180,
     Y: 0   * Math.PI / 180,
-    K: 45  * Math.PI / 180,
   };
   const colors = {
     C: '#00B8E8',
     M: '#E6007E',
     Y: '#FFE600',
-    K: '#000000',
   };
 
-  // --- Função: amostra a média do canal CMYK em (x,y) num raio de step/2
+  // --- Função: amostra a média do canal CMY em (x,y) num raio de step/2
+  // O canal K é REMOVIDO (knockout) e sua densidade redistribuída em CMY
+  // para manter a profundidade da imagem sem imprimir preto.
   function sampleChannel(cx, cy, channel) {
-    // converte região para CMYK e devolve cobertura 0..1 do canal
     const r0 = Math.max(0, Math.floor(cx - step/2));
     const r1 = Math.min(w-1, Math.ceil(cx + step/2));
     const c0 = Math.max(0, Math.floor(cy - step/2));
     const c1 = Math.min(h-1, Math.ceil(cy + step/2));
     let sum = 0, n = 0;
-    // Subsample (limita a 4x4 dentro da célula)
     const sx = Math.max(1, Math.floor((r1 - r0) / 4));
     const sy = Math.max(1, Math.floor((c1 - c0) / 4));
     for (let y = c0; y <= c1; y += sy) {
@@ -521,20 +519,19 @@ function processRosetteCMYK(image, lpi) {
         const a = data[i+3] / 255;
         if (a < 0.05) continue;
         const r = data[i] / 255, g = data[i+1] / 255, b = data[i+2] / 255;
-        // Conversão RGB -> CMYK
-        const k = 1 - Math.max(r, g, b);
-        let c, m, yC;
-        if (k >= 0.999) { c = m = yC = 0; }
-        else {
-          c  = (1 - r - k) / (1 - k);
-          m  = (1 - g - k) / (1 - k);
-          yC = (1 - b - k) / (1 - k);
-        }
+        // Conversão RGB -> CMY puro (sem K) — preto vira mistura CMY
+        // Isso garante que áreas escuras ainda tenham cor (não preta) ou
+        // fiquem transparentes onde luminância é muito baixa.
+        const lum = 0.299*r + 0.587*g + 0.114*b;
+        // Knockout total para sombras profundas / preto puro -> transparente
+        if (lum < 0.06) continue;
+        const c  = 1 - r;
+        const m  = 1 - g;
+        const yC = 1 - b;
         let v = 0;
         if (channel === 'C') v = c;
         else if (channel === 'M') v = m;
         else if (channel === 'Y') v = yC;
-        else if (channel === 'K') v = k;
         sum += v * a;
         n++;
       }
