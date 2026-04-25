@@ -98,11 +98,21 @@ export async function processImage(
   const octx = out.getContext("2d", { alpha: true })!;
   octx.clearRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT); // background fully transparent
 
-  const scale = Math.min(OUTPUT_WIDTH / img.naturalWidth, OUTPUT_HEIGHT / img.naturalHeight);
-  const dw = Math.round(img.naturalWidth * scale);
-  const dh = Math.round(img.naturalHeight * scale);
-  const dx = Math.round((OUTPUT_WIDTH - dw) / 2);
-  const dy = Math.round((OUTPUT_HEIGHT - dh) / 2);
+  // Final placement size on the 300 DPI canvas (preserves aspect, centered).
+  const finalScale = Math.min(OUTPUT_WIDTH / img.naturalWidth, OUTPUT_HEIGHT / img.naturalHeight);
+  const finalW = Math.round(img.naturalWidth * finalScale);
+  const finalH = Math.round(img.naturalHeight * finalScale);
+  const dx = Math.round((OUTPUT_WIDTH - finalW) / 2);
+  const dy = Math.round((OUTPUT_HEIGHT - finalH) / 2);
+
+  // PERFORMANCE CAP — the halftone is rendered at a smaller working resolution
+  // (≤ MAX_WORK_EDGE px on the long edge), then upscaled with high-quality
+  // smoothing into the 3307×4930 output. This keeps total dot count bounded
+  // (~250k max) so the whole pipeline finishes well under 10s.
+  const MAX_WORK_EDGE = 1600;
+  const workScale = Math.min(1, MAX_WORK_EDGE / Math.max(finalW, finalH));
+  const dw = Math.max(1, Math.round(finalW * workScale));
+  const dh = Math.max(1, Math.round(finalH * workScale));
 
   // 2. Sample pixels into a working buffer the same size as the placed art.
   const work = new OffscreenCanvas(dw, dh);
