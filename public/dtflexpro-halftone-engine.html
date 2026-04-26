@@ -528,10 +528,11 @@ $('processBtn').addEventListener('click', async () => {
     $('processBtn').disabled = false;
 
     const ratio = OUT_W / OUT_H;
-    const maxW = 600, maxH = 600/ratio;
+    const maxW = 540;
+    const maxH = Math.round(maxW / ratio);
     previewCanvas.width = maxW;
     previewCanvas.height = maxH;
-    pctx.clearRect(0,0,maxW,maxH);
+    pctx.clearRect(0, 0, maxW, maxH);
     pctx.drawImage(out, 0, 0, maxW, maxH);
 
     setProgress(1, '✅ Pronto! Clique em "Baixar PNG" para salvar.');
