@@ -475,10 +475,10 @@ $('processBtn').addEventListener('click', async () => {
     whitePixelMask, OUT_W, OUT_H, FLAT_WHITE_MIN_AREA
   );
 
-  setProgress(0.46, 'Calculando área da aura...');
+  setProgress(0.46, 'Calculando área de borda...');
   await nextFrame();
 
-  const auraPx = parseInt($('aura').value, 10);
+  const auraPx = 180;
   const dist = computeDistanceOutside(mask, OUT_W, OUT_H);
 
   setProgress(0.58, 'Renderizando halftone em alta definição...');
