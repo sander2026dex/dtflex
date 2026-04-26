@@ -480,7 +480,7 @@ $('processBtn').addEventListener('click', async () => {
 
   // EDGE DETECTION (Sobel simplificado) para preservar texto, contornos finos e logos.
   // Bordas fortes ficam sólidas (sem retícula), com a cor original do pixel.
-  const edgeMask = computeEdgeMask(data, mask, OUT_W, OUT_H, 70);
+  const edgeMask = computeEdgeMask(data, mask, OUT_W, OUT_H, 48);
   for (let p=0, i=0; p<edgeMask.length; p++, i+=4){
     if (edgeMask[p] && mask[p] && !blackMask[p]) {
       const k = p*3;
