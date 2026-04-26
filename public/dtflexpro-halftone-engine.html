@@ -431,6 +431,8 @@ $('processBtn').addEventListener('click', async () => {
   const mask = new Uint8Array(OUT_W * OUT_H);            // pixel imprimível
   const blackMask = new Uint8Array(OUT_W * OUT_H);       // preto -> vazado (transparente)
   const whitePixelMask = new Uint8Array(OUT_W * OUT_H);  // todos os pixels brancos
+  const vibrantMask = new Uint8Array(OUT_W * OUT_H);     // cores vibrantes -> sólido
+  const solidColor = new Uint8ClampedArray(OUT_W * OUT_H * 3); // cor sólida a pintar
 
   for (let i=0,p=0; p<mask.length; i+=4, p++){
     if (data[i+3] <= 30) continue;
@@ -441,6 +443,30 @@ $('processBtn').addEventListener('click', async () => {
     }
     mask[p] = 1;
     if (isWhitePixel(data, i)) whitePixelMask[p] = 1;
+    // PROTEÇÃO DE CORES VIBRANTES: saturação alta + brilho médio/alto
+    // Amarelo puro, dourado, laranja forte, verde neon, etc. ficam SÓLIDOS.
+    const r = data[i], g = data[i+1], b = data[i+2];
+    const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+    const sat = mx === 0 ? 0 : (mx - mn) / mx;     // saturação HSV (0..1)
+    const val = mx / 255;                           // brilho HSV (0..1)
+    if (sat >= 0.78 && val >= 0.55) {
+      vibrantMask[p] = 1;
+      const k = p*3;
+      solidColor[k] = r; solidColor[k+1] = g; solidColor[k+2] = b;
+    }
+  }
+
+  setProgress(0.32, 'Detectando bordas finas (texto/logos/contornos)...');
+  await nextFrame();
+
+  // EDGE DETECTION (Sobel simplificado) para preservar texto, contornos finos e logos.
+  // Bordas fortes ficam sólidas (sem retícula), com a cor original do pixel.
+  const edgeMask = computeEdgeMask(data, mask, OUT_W, OUT_H, 70);
+  for (let p=0, i=0; p<edgeMask.length; p++, i+=4){
+    if (edgeMask[p] && mask[p] && !blackMask[p]) {
+      const k = p*3;
+      solidColor[k] = data[i]; solidColor[k+1] = data[i+1]; solidColor[k+2] = data[i+2];
+    }
   }
 
   setProgress(0.36, 'Separando branco sólido (texto/áreas grandes) de reflexos...');
