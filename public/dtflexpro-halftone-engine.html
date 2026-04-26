@@ -304,25 +304,23 @@ function isWhitePixel(data, i){
 }
 
 function dotRadiusForLuma(luma, cell, coverage, sat){
-  // Retícula DENSA estilo profissional: pontos grandes para preservar
-  // a saturação e a riqueza de cor (igual ao output de softwares pro de DTF).
-  // Pixels coloridos (amarelo, verde, azul) ficam com pontos GRANDES mesmo
-  // tendo luma alta, porque o que importa é a presença da cor, não só o brilho.
-  const maxR = cell * 0.54;          // pontos podem encostar na vizinha
-  const minR = Math.max(2.0, cell * 0.30);
-  // density combina escuridão + saturação: cor saturada = ponto cheio
+  // Retícula de alta fidelidade: range maior entre min e max para reproduzir
+  // mais variação tonal. Em luma alto, ponto fica MUITO fino (preserva detalhe);
+  // em luma baixo/cor saturada, ponto fica cheio (preserva cor).
+  const maxR = cell * 0.55;
+  const minR = Math.max(0.9, cell * 0.16);
   const lumaDensity = 1 - (luma / 255);
   const satDensity = sat ? Math.min(1, sat / 140) : 0;
   const density = Math.max(lumaDensity, satDensity * 0.85);
-  const tonal = Math.pow(Math.max(0, density), 0.55);  // curva mais densa
-  const coverBoost = 0.9 + Math.min(1, coverage) * 0.1;
+  // gamma menor = curva mais linear = preserva meios-tons (mais detalhe)
+  const tonal = Math.pow(Math.max(0, density), 0.78);
+  const coverBoost = 0.92 + Math.min(1, coverage) * 0.08;
   return (minR + tonal * (maxR - minR)) * coverBoost;
 }
 
 function dotRadiusHighlight(cell){
-  // Retícula SUPER FINA para reflexos: pontinhos discretos que preservam
-  // a forma e o brilho sem criar buracos. Mínimo imprimível em DTF (~1.3px).
-  return Math.max(1.3, cell * 0.18);
+  // Reflexos: pontinho super fino, mas mínimo imprimível em DTF (~1.0px)
+  return Math.max(1.0, cell * 0.16);
 }
 
 function sampleNeighborhoodColor(data, mask, blackMask, flatWhiteMask, highlightMask, W, H, cx, cy, cell){
