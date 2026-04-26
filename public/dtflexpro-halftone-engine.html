@@ -678,6 +678,9 @@ function classifyWhiteRegions(whiteMask, W, H, minArea){
     const target = (count >= minArea) ? flat : highlight;
     for (let k=0; k<count; k++) target[region[k]] = 1;
   }
+  return { flatWhiteMask: flat, highlightMask: highlight };
+}
+
 function paintSolidColors(ctx, vibrantMask, edgeMask, mask, blackMask, flatWhiteMask, solidColor, W, H){
   // Pinta cores vibrantes saturadas (amarelo, dourado, laranja, verde neon...)
   // e bordas finas (texto, contornos, logos) com a cor original sólida.
