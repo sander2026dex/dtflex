@@ -500,8 +500,11 @@ $('processBtn').addEventListener('click', async () => {
   // 1) Branco sólido (texto/áreas grandes brancas) — pintado sólido FFFFFF
   paintSolidWhite(octx, flatWhiteMask, OUT_W, OUT_H);
 
+  // 1b) Áreas protegidas (cores vibrantes + bordas finas/texto/logos) — pintadas sólidas
+  paintSolidColors(octx, vibrantMask, edgeMask, mask, blackMask, flatWhiteMask, solidColor, OUT_W, OUT_H);
+
   // 2) Halftone RGB nas demais áreas (preto fica vazado, reflexos com poucas retículas)
-  await renderRoundCleanRGB(octx, data, mask, blackMask, flatWhiteMask, highlightMask, dist, OUT_W, OUT_H, cell, angle, auraPx);
+  await renderRoundCleanRGB(octx, data, mask, blackMask, flatWhiteMask, highlightMask, vibrantMask, edgeMask, dist, OUT_W, OUT_H, cell, angle, auraPx);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
