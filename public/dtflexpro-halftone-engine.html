@@ -657,7 +657,65 @@ function classifyWhiteRegions(whiteMask, W, H, minArea){
     const target = (count >= minArea) ? flat : highlight;
     for (let k=0; k<count; k++) target[region[k]] = 1;
   }
-  return { flatWhiteMask: flat, highlightMask: highlight };
+function paintSolidColors(ctx, vibrantMask, edgeMask, mask, blackMask, flatWhiteMask, solidColor, W, H){
+  // Pinta cores vibrantes saturadas (amarelo, dourado, laranja, verde neon...)
+  // e bordas finas (texto, contornos, logos) com a cor original sólida.
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const cx = c.getContext('2d');
+  const img = cx.createImageData(W, H);
+  const out = img.data;
+  for (let p=0, i=0, k=0; p<mask.length; p++, i+=4, k+=3){
+    if (!mask[p]) continue;
+    if (blackMask[p] || flatWhiteMask[p]) continue;
+    const useV = vibrantMask && vibrantMask[p];
+    const useE = edgeMask && edgeMask[p];
+    if (!useV && !useE) continue;
+    out[i]   = solidColor[k];
+    out[i+1] = solidColor[k+1];
+    out[i+2] = solidColor[k+2];
+    out[i+3] = 255;
+  }
+  cx.putImageData(img, 0, 0);
+  ctx.drawImage(c, 0, 0);
+}
+
+function computeEdgeMask(data, mask, W, H, threshold){
+  // Sobel rápido em luminância para detectar bordas fortes (texto/contornos/logos).
+  // Dilata 1px para fechar traços finos. Retorna Uint8Array onde 1 = borda.
+  const lum = new Float32Array(W*H);
+  for (let p=0, i=0; p<lum.length; p++, i+=4){
+    if (data[i+3] <= 30) { lum[p] = -1; continue; }
+    lum[p] = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+  }
+  const edge = new Uint8Array(W*H);
+  for (let y=1; y<H-1; y++){
+    for (let x=1; x<W-1; x++){
+      const p = y*W+x;
+      if (!mask[p]) continue;
+      const a = lum[p-W-1], b = lum[p-W], c = lum[p-W+1];
+      const d = lum[p-1],                 f = lum[p+1];
+      const g = lum[p+W-1], h = lum[p+W], i2 = lum[p+W+1];
+      if (a<0||b<0||c<0||d<0||f<0||g<0||h<0||i2<0) continue;
+      const gx = -a -2*d -g + c + 2*f + i2;
+      const gy = -a -2*b -c + g + 2*h + i2;
+      const mag = Math.abs(gx) + Math.abs(gy);
+      if (mag >= threshold) edge[p] = 1;
+    }
+  }
+  // Dilata 1px (3x3) para preservar o traço inteiro, não só o gradiente
+  const dil = new Uint8Array(W*H);
+  for (let y=1; y<H-1; y++){
+    for (let x=1; x<W-1; x++){
+      const p = y*W+x;
+      if (!mask[p]) continue;
+      if (edge[p] || edge[p-1] || edge[p+1] || edge[p-W] || edge[p+W] ||
+          edge[p-W-1] || edge[p-W+1] || edge[p+W-1] || edge[p+W+1]) {
+        dil[p] = 1;
+      }
+    }
+  }
+  return dil;
 }
 
 async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, highlightMask, vibrantMask, edgeMask, dist, W, H, cell, angleDeg, auraPx){
