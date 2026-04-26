@@ -213,10 +213,10 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','aura','contrast'].forEach(id => {
+['lpi','angle','contrast'].forEach(id => {
   const el = $(id);
   el.addEventListener('input', () => {
-    const suffix = id === 'lpi' ? ' LPI' : id === 'angle' ? '°' : id === 'aura' ? ' px' : id === 'contrast' ? '%' : '';
+    const suffix = id === 'lpi' ? ' LPI' : id === 'angle' ? '°' : id === 'contrast' ? '%' : '';
     $(id+'Val').textContent = el.value + suffix;
   });
 });
