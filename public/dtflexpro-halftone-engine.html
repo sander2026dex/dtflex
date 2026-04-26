@@ -224,6 +224,8 @@ const pctx = previewCanvas.getContext('2d');
 $('imageInput').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
+  $('statusText').textContent = 'Carregando imagem...';
+  const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
     sourceImage = img;
@@ -232,21 +234,30 @@ $('imageInput').addEventListener('change', e => {
     outputBlob = null;
     $('statusText').textContent = `Imagem carregada: ${img.width}×${img.height}`;
     drawPreviewSource(img);
-    URL.revokeObjectURL(img.src);
+    URL.revokeObjectURL(url);
   };
-  img.src = URL.createObjectURL(file);
+  img.onerror = () => {
+    $('statusText').textContent = 'Erro ao carregar a imagem. Tente outro arquivo.';
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
 });
 
 function drawPreviewSource(img){
-  const ratio = OUT_W / OUT_H;
-  const maxW = 600, maxH = 600 / ratio;
+  // Mantém proporção 3307x4930 (A4 retrato 300dpi) e encaixa imagem inteira (contain) sem corte
+  const ratio = OUT_W / OUT_H; // ~0.671
+  const maxW = 540;
+  const maxH = Math.round(maxW / ratio); // canvas com proporção do output
   previewCanvas.width = maxW;
   previewCanvas.height = maxH;
-  pctx.clearRect(0,0,maxW,maxH);
+  pctx.clearRect(0, 0, maxW, maxH);
+  // contain: imagem inteira dentro do quadrante, centralizada
   const ir = img.width / img.height;
-  let dw = maxW, dh = maxW / ir;
-  if (dh < maxH) { dh = maxH; dw = maxH * ir; }
-  pctx.drawImage(img, (maxW-dw)/2, (maxH-dh)/2, dw, dh);
+  const cr = maxW / maxH;
+  let dw, dh;
+  if (ir > cr) { dw = maxW; dh = maxW / ir; }
+  else { dh = maxH; dw = maxH * ir; }
+  pctx.drawImage(img, (maxW - dw) / 2, (maxH - dh) / 2, dw, dh);
 }
 
 function setProgress(p, msg){
