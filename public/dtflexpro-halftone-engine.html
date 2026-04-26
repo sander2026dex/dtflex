@@ -394,11 +394,14 @@ $('processBtn').addEventListener('click', async () => {
   const src = document.createElement('canvas');
   src.width = OUT_W; src.height = OUT_H;
   const sctx = src.getContext('2d', { willReadFrequently: true });
+  // CONTAIN (não cover): encaixa a imagem inteira no quadrante 3307×4930
+  // a 300 DPI cravado, sem cortar nada. Sobra fica transparente.
+  sctx.clearRect(0, 0, OUT_W, OUT_H);
   const ir = sourceImage.width / sourceImage.height;
   const or = OUT_W / OUT_H;
   let dw, dh, dx, dy;
-  if (ir > or) { dh = OUT_H; dw = OUT_H * ir; dx = (OUT_W-dw)/2; dy = 0; }
-  else { dw = OUT_W; dh = OUT_W / ir; dx = 0; dy = (OUT_H-dh)/2; }
+  if (ir > or) { dw = OUT_W; dh = OUT_W / ir; dx = 0; dy = (OUT_H-dh)/2; }
+  else { dh = OUT_H; dw = OUT_H * ir; dx = (OUT_W-dw)/2; dy = 0; }
   sctx.drawImage(sourceImage, dx, dy, dw, dh);
 
   setProgress(0.10, 'Removendo fundo automaticamente...');
