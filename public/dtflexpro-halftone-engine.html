@@ -660,7 +660,7 @@ function classifyWhiteRegions(whiteMask, W, H, minArea){
   return { flatWhiteMask: flat, highlightMask: highlight };
 }
 
-async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, highlightMask, dist, W, H, cell, angleDeg, auraPx){
+async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, highlightMask, vibrantMask, edgeMask, dist, W, H, cell, angleDeg, auraPx){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const diag = Math.ceil(Math.sqrt(W*W + H*H));
@@ -680,6 +680,8 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
       if (!inside && distOut > auraPx) continue;
       if (blackMask[p]) continue;       // preto fica VAZADO (transparente)
       if (flatWhiteMask[p]) continue;   // branco sólido já pintado, não cobrir com dots
+      if (vibrantMask && vibrantMask[p]) continue; // cor vibrante já pintada sólida
+      if (edgeMask && edgeMask[p]) continue;       // borda fina já pintada sólida
 
       const isHL = highlightMask[p] === 1;
 
