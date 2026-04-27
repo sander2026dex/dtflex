@@ -215,11 +215,10 @@ const BLACK_CHANNEL_CUTOFF = 54;
 const WHITE_LUMA_CUTOFF = 232;
 const WHITE_SAT_CUTOFF = 28;
 // Tamanho mínimo (em pixels) de uma região branca para ser considerada
-// "branco sólido" (texto, partes brancas grandes). Abaixo disso é reflexo isolado.
-// Só áreas brancas MUITO grandes (camisa, luva, fundos brancos da arte) viram sólido.
-// Reflexos no cabelo/chapéu/rosto ficam como highlight e recebem retículas super finas
-// com a COR DA VIZINHANÇA (não branco), preservando o brilho sem virar buraco.
-const FLAT_WHITE_MIN_AREA = 4500;
+// "branco sólido" de fundo/área grande. Áreas claras dentro do sujeito (rosto,
+// roupa) viram highlight e recebem retículas finas com a cor da vizinhança.
+// Valor alto evita confundir pele clara/áreas vermelhas com branco sólido.
+const FLAT_WHITE_MIN_AREA = 18000;
 let sourceImage = null;
 let outputBlob = null;
 
