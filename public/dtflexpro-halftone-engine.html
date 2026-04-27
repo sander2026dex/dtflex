@@ -183,6 +183,19 @@
       <div class="value" id="contrastVal">18%</div>
     </div>
 
+    <div class="control-group">
+      <label>Preencher Sombras (densidade mín. %)</label>
+      <input type="range" id="minDensity" min="0" max="15" value="6" />
+      <div class="value" id="minDensityVal">6%</div>
+      <p class="info-text">Evita "buracos brancos" em sombras e áreas escuras (pele, roupa). 0 = desliga, 6–10 recomendado.</p>
+    </div>
+
+    <div class="control-group">
+      <label>Proteger Pele (tom de pele)</label>
+      <input type="checkbox" id="protectSkin" checked style="accent-color:#f5b544;width:auto;" />
+      <p class="info-text">Detecta tons de pele (anime ou foto) e aplica retícula em vez de tratar como branco de fundo.</p>
+    </div>
+
     <button id="processBtn" class="btn-process" disabled>⚡ Processar PNG</button>
     <button id="downloadBtn" class="btn-download" disabled>⬇ Baixar PNG</button>
 
