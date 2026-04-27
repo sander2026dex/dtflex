@@ -212,13 +212,15 @@
 const OUT_W = 3307, OUT_H = 4930;
 const BLACK_LUMA_CUTOFF = 42;
 const BLACK_CHANNEL_CUTOFF = 54;
-const WHITE_LUMA_CUTOFF = 232;
-const WHITE_SAT_CUTOFF = 28;
-// Tamanho mínimo (em pixels) de uma região branca para ser considerada
-// "branco sólido" de fundo/área grande. Áreas claras dentro do sujeito (rosto,
-// roupa) viram highlight e recebem retículas finas com a cor da vizinhança.
-// Valor alto evita confundir pele clara/áreas vermelhas com branco sólido.
-const FLAT_WHITE_MIN_AREA = 18000;
+// Branco MUITO restrito: só pixels quase puros (R,G,B >= 245 e neutros) viram
+// branco. Isso impede que reflexos/realces em vermelho ou pele sejam classificados
+// como "branco" (corrige máscara em torno dos olhos virando branca).
+const WHITE_LUMA_CUTOFF = 245;
+const WHITE_SAT_CUTOFF = 14;
+// Threshold AINDA maior para "branco sólido": só áreas brancas realmente enormes
+// (fundo, balões grandes) ficam sólidas. Olhos pequenos viram pequenos pontos
+// brancos NÍTIDOS (não expandem sobre a máscara vermelha).
+const FLAT_WHITE_MIN_AREA = 60000;
 let sourceImage = null;
 let outputBlob = null;
 
