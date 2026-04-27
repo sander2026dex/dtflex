@@ -513,6 +513,7 @@ $('processBtn').addEventListener('click', async () => {
   // Remoção de fundo SEMPRE automática (tolerância fixa otimizada)
   removeBackground(data, OUT_W, OUT_H, 32);
   removeBlackBackground(data, OUT_W, OUT_H);
+  restoreBlackSubjectEdges(data, OUT_W, OUT_H);
 
   setProgress(0.18, 'Corrigindo contraste RGB...');
   await nextFrame();
