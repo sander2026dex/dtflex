@@ -15,7 +15,7 @@
     flex-direction: column;
   }
   header {
-    background: linear-gradient(135deg, #f5b544, #6cc6ff);
+    background: linear-gradient(135deg, #ffd400, #f5b544);
     padding: 16px 24px;
     text-align: center;
     box-shadow: 0 4px 20px rgba(245,181,68,0.25);
@@ -98,7 +98,7 @@
     margin-bottom: 10px;
   }
   .btn-process {
-    background: linear-gradient(135deg, #f5b544, #6cc6ff);
+    background: linear-gradient(135deg, #ffd400, #f5b544);
     color: #0b0d12;
   }
   .btn-process:hover:not(:disabled) {
@@ -107,10 +107,10 @@
   }
   .btn-process:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-download {
-    background: #6cc6ff;
+    background: #ffd400;
     color: #0b0d12;
   }
-  .btn-download:hover { background: #8ed5ff; }
+  .btn-download:hover { background: #ffe35a; }
   .btn-download:disabled { opacity: 0.4; cursor: not-allowed; }
   .progress-bar {
     width: 100%;
@@ -122,7 +122,7 @@
   }
   .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #f5b544, #6cc6ff);
+    background: linear-gradient(90deg, #ffd400, #f5b544);
     width: 0%;
     transition: width 0.2s;
   }
@@ -159,7 +159,7 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Fundo removido. Preto vira vazado. Cores vibrantes saturadas (amarelo/dourado/laranja), áreas claras uniformes e bordas finas/texto ficam sólidas — só meios-tons recebem retícula.</p>
+      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Fundo preto removido automaticamente. Branco real, texto, bordas e cores vibrantes ficam sólidos; só meios-tons recebem retícula circular.</p>
     </div>
 
     <div class="control-group">
@@ -185,9 +185,9 @@
 
     <div class="control-group">
       <label>Preencher Sombras (densidade mín. %)</label>
-      <input type="range" id="minDensity" min="0" max="15" value="6" />
-      <div class="value" id="minDensityVal">6%</div>
-      <p class="info-text">Evita "buracos brancos" em sombras e áreas escuras (pele, roupa). 0 = desliga, 6–10 recomendado.</p>
+      <input type="range" id="minDensity" min="0" max="35" value="18" />
+      <div class="value" id="minDensityVal">18%</div>
+      <p class="info-text">Evita buracos em sombras e objetos coloridos. Branco puro continua sólido e limpo.</p>
     </div>
 
     <div class="control-group">
