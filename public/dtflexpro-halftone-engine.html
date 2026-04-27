@@ -818,7 +818,6 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
       if (!inside && distOut > auraPx) continue;
       if (blackMask[p]) continue;       // preto fica VAZADO (transparente)
       if (flatWhiteMask[p]) continue;   // branco sólido já pintado, não cobrir com dots
-      if (vibrantMask && vibrantMask[p]) continue; // cor vibrante já pintada sólida
       if (edgeMask && edgeMask[p]) continue;       // borda fina já pintada sólida
 
       const isSkin = skinMask && skinMask[p] === 1;
@@ -845,7 +844,8 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
       // Densidade UNIFORME: pele e demais áreas usam mesma curva (mãos/pés/rosto
       // com mesma densidade de pontos). Pele só ganha mínimo um pouco maior
       // para nunca deixar buraco branco no rosto.
-      const cellMinDensity = isSkin ? Math.max(minDensity, 0.08) : minDensity;
+      const isSolidObject = vibrantMask && vibrantMask[p] === 1;
+      const cellMinDensity = isSolidObject ? Math.max(minDensity, 0.30) : isSkin ? Math.max(minDensity, 0.10) : minDensity;
       let radius = dotRadiusForLuma(avg.l, cell, avg.coverage, avg.sat, cellMinDensity);
       let alpha = 1;
       if (!inside){
