@@ -473,13 +473,15 @@ $('processBtn').addEventListener('click', async () => {
     data[i+2] = clamp((data[i+2]-128)*f + 128);
   }
 
-  setProgress(0.28, 'Detectando preto (vazado), brancos sólidos e reflexos...');
+  setProgress(0.28, 'Detectando preto (vazado), brancos sólidos, pele e reflexos...');
   await nextFrame();
 
+  const protectSkin = $('protectSkin').checked;
   const mask = new Uint8Array(OUT_W * OUT_H);            // pixel imprimível
   const blackMask = new Uint8Array(OUT_W * OUT_H);       // preto -> vazado (transparente)
   const whitePixelMask = new Uint8Array(OUT_W * OUT_H);  // todos os pixels brancos
   const vibrantMask = new Uint8Array(OUT_W * OUT_H);     // cores vibrantes -> sólido
+  const skinMask = new Uint8Array(OUT_W * OUT_H);        // pele -> sempre recebe halftone
   const solidColor = new Uint8ClampedArray(OUT_W * OUT_H * 3); // cor sólida a pintar
 
   for (let i=0,p=0; p<mask.length; i+=4, p++){
@@ -490,14 +492,16 @@ $('processBtn').addEventListener('click', async () => {
       continue;
     }
     mask[p] = 1;
-    if (isWhitePixel(data, i)) whitePixelMask[p] = 1;
+    if (protectSkin && isSkinPixel(data, i)) skinMask[p] = 1;
+    if (isWhitePixel(data, i, protectSkin)) whitePixelMask[p] = 1;
     // PROTEÇÃO DE CORES VIBRANTES: saturação alta + brilho médio/alto
     // Amarelo puro, dourado, laranja forte, verde neon, etc. ficam SÓLIDOS.
     const r = data[i], g = data[i+1], b = data[i+2];
     const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
     const sat = mx === 0 ? 0 : (mx - mn) / mx;     // saturação HSV (0..1)
     const val = mx / 255;                           // brilho HSV (0..1)
-    if (sat >= 0.78 && val >= 0.55) {
+    // Pele nunca entra como vibrante (deve receber halftone)
+    if (!skinMask[p] && sat >= 0.78 && val >= 0.55) {
       vibrantMask[p] = 1;
       const k = p*3;
       solidColor[k] = r; solidColor[k+1] = g; solidColor[k+2] = b;
