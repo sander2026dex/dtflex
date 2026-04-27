@@ -556,7 +556,8 @@ $('processBtn').addEventListener('click', async () => {
   paintSolidColors(octx, vibrantMask, edgeMask, mask, blackMask, flatWhiteMask, solidColor, OUT_W, OUT_H);
 
   // 2) Halftone RGB nas demais áreas (preto fica vazado, reflexos com poucas retículas)
-  await renderRoundCleanRGB(octx, data, mask, blackMask, flatWhiteMask, highlightMask, vibrantMask, edgeMask, dist, OUT_W, OUT_H, cell, angle, auraPx);
+  const minDensity = parseInt($('minDensity').value, 10) / 100;
+  await renderRoundCleanRGB(octx, data, mask, blackMask, flatWhiteMask, highlightMask, vibrantMask, edgeMask, skinMask, dist, OUT_W, OUT_H, cell, angle, auraPx, minDensity);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
