@@ -517,11 +517,6 @@ $('processBtn').addEventListener('click', async () => {
 
   for (let i=0,p=0; p<mask.length; i+=4, p++){
     if (data[i+3] <= 30) continue;
-    if (isBlackPixel(data, i)) {
-      blackMask[p] = 1;
-      // preto fica VAZADO: não entra na máscara imprimível nem na aura
-      continue;
-    }
     mask[p] = 1;
     if (protectSkin && isSkinPixel(data, i)) skinMask[p] = 1;
     if (isWhitePixel(data, i, protectSkin)) whitePixelMask[p] = 1;
@@ -845,7 +840,7 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
       // com mesma densidade de pontos). Pele só ganha mínimo um pouco maior
       // para nunca deixar buraco branco no rosto.
       const isSolidObject = vibrantMask && vibrantMask[p] === 1;
-      const cellMinDensity = isSolidObject ? Math.max(minDensity, 0.30) : isSkin ? Math.max(minDensity, 0.10) : minDensity;
+      const cellMinDensity = isBlackPixel(data, p*4) ? Math.max(minDensity, 0.42) : isSolidObject ? Math.max(minDensity, 0.30) : isSkin ? Math.max(minDensity, 0.10) : minDensity;
       let radius = dotRadiusForLuma(avg.l, cell, avg.coverage, avg.sat, cellMinDensity);
       let alpha = 1;
       if (!inside){
