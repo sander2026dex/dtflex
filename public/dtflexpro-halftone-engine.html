@@ -801,37 +801,40 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
 
       let avg;
       if (isHL) {
-        // REFLEXO: amostra cor da vizinhança (vermelho do chapéu, pele, etc.)
-        // para que os pontinhos preservem a forma e o brilho com a cor real,
-        // sem virar buracos brancos. Densidade total (sem pular células).
+        // REFLEXO (olho/highlight pequeno): amostra a cor da vizinhança e
+        // pinta um ponto pequeno com a cor real (vermelho da máscara, etc.)
+        // Não deixa "buraco branco" expandindo sobre a máscara.
         const neigh = sampleNeighborhoodColor(data, mask, blackMask, flatWhiteMask, highlightMask, W, H, ix, iy, cell);
         if (!neigh) continue;
-        avg = neigh;
+        avg = { r: neigh.r, g: neigh.g, b: neigh.b,
+                l: 0.299*neigh.r + 0.587*neigh.g + 0.114*neigh.b,
+                sat: Math.max(neigh.r,neigh.g,neigh.b) - Math.min(neigh.r,neigh.g,neigh.b),
+                coverage: 1 };
       } else {
         const sampled = sampleCellColor(data, mask, blackMask, W, H, ix, iy, cell);
         if (!sampled) continue;
         avg = sampled;
       }
 
-      // PELE recebe densidade mínima reforçada (nunca deixa buraco branco)
-      const cellMinDensity = isSkin ? Math.max(minDensity, 0.10) : minDensity;
-      let radius = isHL
-        ? dotRadiusHighlight(cell)
-        : dotRadiusForLuma(avg.l, cell, avg.coverage, avg.sat, cellMinDensity);
+      // Densidade UNIFORME: pele e demais áreas usam mesma curva (mãos/pés/rosto
+      // com mesma densidade de pontos). Pele só ganha mínimo um pouco maior
+      // para nunca deixar buraco branco no rosto.
+      const cellMinDensity = isSkin ? Math.max(minDensity, 0.08) : minDensity;
+      let radius = dotRadiusForLuma(avg.l, cell, avg.coverage, avg.sat, cellMinDensity);
       let alpha = 1;
       if (!inside){
-        // DITHERING nas bordas (gradient handling): fade suave + jitter sub-pixel
-        // que evita "corte abrupto" entre cor e transparência.
+        // Aura limpa: fade só no alpha (sem jitter), mantém círculos perfeitos.
         const fade = auraPx > 0 ? 1 - (distOut / auraPx) : 0;
-        // bayer-like ordered dither com base em coordenadas inteiras
-        const bayer = (((ix * 7 + iy * 13) % 16) / 16) - 0.5;
-        const fadeJ = Math.max(0, Math.min(1, fade + bayer * 0.06));
-        radius *= fadeJ;
-        alpha = fadeJ;
+        if (fade <= 0) continue;
+        radius *= fade;
+        alpha = fade;
       }
       if (radius < 0.8 || alpha < 0.05) continue;
 
-      ctx.fillStyle = `rgba(${avg.r|0},${avg.g|0},${avg.b|0},${alpha.toFixed(3)})`;
+      // Círculo perfeito, opaco (alpha cheio dentro do sujeito) → sem franjas
+      // azul/roxa de mistura RGB nas bordas. Cor sólida, ponto redondo nítido.
+      const a = inside ? 1 : alpha;
+      ctx.fillStyle = `rgba(${avg.r|0},${avg.g|0},${avg.b|0},${a.toFixed(3)})`;
       ctx.beginPath();
       ctx.arc(ix, iy, radius, 0, Math.PI*2);
       ctx.fill();
