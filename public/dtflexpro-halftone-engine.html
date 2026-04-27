@@ -500,18 +500,10 @@ $('processBtn').addEventListener('click', async () => {
     mask[p] = 1;
     if (protectSkin && isSkinPixel(data, i)) skinMask[p] = 1;
     if (isWhitePixel(data, i, protectSkin)) whitePixelMask[p] = 1;
-    // PROTEÇÃO DE CORES VIBRANTES: saturação alta + brilho médio/alto
-    // Amarelo puro, dourado, laranja forte, verde neon, etc. ficam SÓLIDOS.
+    // CORES VIBRANTES: NÃO tratamos mais como "sólido". Halftone uniforme em
+    // todo o personagem (mãos, pés, rosto, máscara) — é assim que estampa
+    // profissional fica. Mantemos só a cor original guardada (não usado agora).
     const r = data[i], g = data[i+1], b = data[i+2];
-    const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
-    const sat = mx === 0 ? 0 : (mx - mn) / mx;     // saturação HSV (0..1)
-    const val = mx / 255;                           // brilho HSV (0..1)
-    // Pele nunca entra como vibrante (deve receber halftone)
-    if (!skinMask[p] && sat >= 0.78 && val >= 0.55) {
-      vibrantMask[p] = 1;
-      const k = p*3;
-      solidColor[k] = r; solidColor[k+1] = g; solidColor[k+2] = b;
-    }
   }
 
   setProgress(0.32, 'Detectando bordas finas (texto/logos/contornos)...');
