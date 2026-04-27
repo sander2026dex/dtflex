@@ -307,12 +307,29 @@ function isBlackPixel(data, i){
   return neutralDark || deepBlack;
 }
 
-function isWhitePixel(data, i){
+function isSkinPixel(data, i){
+  // Detecção de tom de pele (anime ou foto): RGB com R>G>B, tom rosado/quente.
+  // Cobre pele clara (anime), pele média e pele escura sem confundir com branco.
+  if (data[i+3] < 30) return false;
+  const r = data[i], g = data[i+1], b = data[i+2];
+  if (r < 95 || g < 40 || b < 20) return false;
+  if (r <= g || r <= b) return false;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  if (mx - mn < 15) return false; // muito neutro = não é pele
+  // razão R/G típica de pele
+  const rg = r / Math.max(1,g);
+  if (rg < 1.05 || rg > 1.85) return false;
+  return true;
+}
+
+function isWhitePixel(data, i, protectSkin){
   if (data[i+3] < 30) return false;
   const r = data[i], g = data[i+1], b = data[i+2];
   const l = 0.299*r + 0.587*g + 0.114*b;
   const sat = Math.max(r,g,b) - Math.min(r,g,b);
-  return l >= WHITE_LUMA_CUTOFF && sat <= WHITE_SAT_CUTOFF;
+  if (l < WHITE_LUMA_CUTOFF || sat > WHITE_SAT_CUTOFF) return false;
+  if (protectSkin && isSkinPixel(data, i)) return false;
+  return true;
 }
 
 function dotRadiusForLuma(luma, cell, coverage, sat){
