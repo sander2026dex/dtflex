@@ -326,9 +326,19 @@ function isWhitePixel(data, i, protectSkin){
   const r = data[i], g = data[i+1], b = data[i+2];
   const l = 0.299*r + 0.587*g + 0.114*b;
   const sat = Math.max(r,g,b) - Math.min(r,g,b);
-  if (l < WHITE_LUMA_CUTOFF || sat > WHITE_SAT_CUTOFF) return false;
+  if (l < WHITE_LUMA_CUTOFF || r < WHITE_CHANNEL_FLOOR || g < WHITE_CHANNEL_FLOOR || b < WHITE_CHANNEL_FLOOR || sat > WHITE_SAT_CUTOFF) return false;
   if (protectSkin && isSkinPixel(data, i)) return false;
   return true;
+}
+
+function isSolidColorPixel(data, i){
+  if (data[i+3] < 30) return false;
+  const r = data[i], g = data[i+1], b = data[i+2];
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  const sat = mx - mn;
+  const lum = 0.299*r + 0.587*g + 0.114*b;
+  if (isWhitePixel(data, i, false) || isBlackPixel(data, i)) return false;
+  return sat >= 58 && lum >= 70;
 }
 
 function dotRadiusForLuma(luma, cell, coverage, sat, minDensity){
@@ -336,7 +346,7 @@ function dotRadiusForLuma(luma, cell, coverage, sat, minDensity){
   // a cell*0.50 (raio = metade da célula) para que pontos vizinhos NÃO se fundam
   // em textura ruidosa — sempre se vê o ponto redondo nítido.
   const maxR = cell * 0.50;
-  const minR = Math.max(1.0, cell * 0.18);
+  const minR = Math.max(1.15, cell * 0.22);
   const lumaDensity = 1 - (luma / 255);
   const satDensity = sat ? Math.min(1, sat / 160) : 0;
   let density = Math.max(lumaDensity, satDensity * 0.80);
@@ -405,6 +415,27 @@ function removeBackground(data, W, H, tol){
     const i = p*4;
     const dr = data[i] - rR, dg = data[i+1] - gR, db = data[i+2] - bR;
     if (dr*dr + dg*dg + db*db > tol2) continue;
+    data[i+3] = 0;
+    const x = p % W, y = (p / W) | 0;
+    if (x>0) stack.push(p-1);
+    if (x<W-1) stack.push(p+1);
+    if (y>0) stack.push(p-W);
+    if (y<H-1) stack.push(p+W);
+  }
+}
+
+function removeBlackBackground(data, W, H){
+  // Remove fundo preto conectado às bordas sem apagar traços pretos internos.
+  const visited = new Uint8Array(W * H);
+  const stack = [];
+  for (let x=0; x<W; x++){ stack.push(x); stack.push((H-1)*W+x); }
+  for (let y=0; y<H; y++){ stack.push(y*W); stack.push(y*W + W-1); }
+  while (stack.length){
+    const p = stack.pop();
+    if (visited[p]) continue;
+    visited[p] = 1;
+    const i = p*4;
+    if (data[i+3] <= 30 || !isBlackPixel(data, i)) continue;
     data[i+3] = 0;
     const x = p % W, y = (p / W) | 0;
     if (x>0) stack.push(p-1);
