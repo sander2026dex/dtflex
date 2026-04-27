@@ -490,6 +490,7 @@ $('processBtn').addEventListener('click', async () => {
 
   // Remoção de fundo SEMPRE automática (tolerância fixa otimizada)
   removeBackground(data, OUT_W, OUT_H, 32);
+  removeBlackBackground(data, OUT_W, OUT_H);
 
   setProgress(0.18, 'Corrigindo contraste RGB...');
   await nextFrame();
@@ -510,7 +511,7 @@ $('processBtn').addEventListener('click', async () => {
   const mask = new Uint8Array(OUT_W * OUT_H);            // pixel imprimível
   const blackMask = new Uint8Array(OUT_W * OUT_H);       // preto -> vazado (transparente)
   const whitePixelMask = new Uint8Array(OUT_W * OUT_H);  // todos os pixels brancos
-  const vibrantMask = new Uint8Array(OUT_W * OUT_H);     // cores vibrantes -> sólido
+  const vibrantMask = new Uint8Array(OUT_W * OUT_H);     // cores/objetos saturados -> sólido base
   const skinMask = new Uint8Array(OUT_W * OUT_H);        // pele -> sempre recebe halftone
   const solidColor = new Uint8ClampedArray(OUT_W * OUT_H * 3); // cor sólida a pintar
 
@@ -524,10 +525,12 @@ $('processBtn').addEventListener('click', async () => {
     mask[p] = 1;
     if (protectSkin && isSkinPixel(data, i)) skinMask[p] = 1;
     if (isWhitePixel(data, i, protectSkin)) whitePixelMask[p] = 1;
-    // CORES VIBRANTES: NÃO tratamos mais como "sólido". Halftone uniforme em
-    // todo o personagem (mãos, pés, rosto, máscara) — é assim que estampa
-    // profissional fica. Mantemos só a cor original guardada (não usado agora).
     const r = data[i], g = data[i+1], b = data[i+2];
+    if (isSolidColorPixel(data, i)) vibrantMask[p] = 1;
+    if (vibrantMask[p]) {
+      const k = p*3;
+      solidColor[k] = r; solidColor[k+1] = g; solidColor[k+2] = b;
+    }
   }
 
   setProgress(0.32, 'Detectando bordas finas (texto/logos/contornos)...');
@@ -546,8 +549,7 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.36, 'Separando branco sólido (texto/áreas grandes) de reflexos...');
   await nextFrame();
 
-  // Classifica regiões brancas conexas pelo tamanho:
-  // grandes -> flatWhiteMask (pinta sólido). Pequenas/isoladas -> highlightMask (poucas retículas).
+  // Todo branco real vira sólido (#FFFFFF), sem malha cinza.
   const { flatWhiteMask, highlightMask } = classifyWhiteRegions(
     whitePixelMask, OUT_W, OUT_H, FLAT_WHITE_MIN_AREA
   );
@@ -555,7 +557,7 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.46, 'Calculando área de borda...');
   await nextFrame();
 
-  const auraPx = 180;
+  const auraPx = 0;
   const dist = computeDistanceOutside(mask, OUT_W, OUT_H);
 
   setProgress(0.58, 'Renderizando halftone em alta definição...');
@@ -574,7 +576,7 @@ $('processBtn').addEventListener('click', async () => {
   // 1) Branco sólido (texto/áreas grandes brancas) — pintado sólido FFFFFF
   paintSolidWhite(octx, flatWhiteMask, OUT_W, OUT_H);
 
-  // 1b) Áreas protegidas (cores vibrantes + bordas finas/texto/logos) — pintadas sólidas
+  // 1b) Base sólida para objetos saturados + bordas/texto/logos, evitando furos/transparência
   paintSolidColors(octx, vibrantMask, edgeMask, mask, blackMask, flatWhiteMask, solidColor, OUT_W, OUT_H);
 
   // 2) Halftone RGB nas demais áreas (preto fica vazado, reflexos com poucas retículas)
