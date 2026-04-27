@@ -212,15 +212,12 @@
 const OUT_W = 3307, OUT_H = 4930;
 const BLACK_LUMA_CUTOFF = 42;
 const BLACK_CHANNEL_CUTOFF = 54;
-// Branco MUITO restrito: só pixels quase puros (R,G,B >= 245 e neutros) viram
-// branco. Isso impede que reflexos/realces em vermelho ou pele sejam classificados
-// como "branco" (corrige máscara em torno dos olhos virando branca).
-const WHITE_LUMA_CUTOFF = 245;
-const WHITE_SAT_CUTOFF = 14;
-// Threshold AINDA maior para "branco sólido": só áreas brancas realmente enormes
-// (fundo, balões grandes) ficam sólidas. Olhos pequenos viram pequenos pontos
-// brancos NÍTIDOS (não expandem sobre a máscara vermelha).
-const FLAT_WHITE_MIN_AREA = 60000;
+// Branco sólido em 90%+: dentes, luvas, texto e cogumelo ficam #FFFFFF limpos,
+// sem retícula cinza. Pele clara continua protegida pela detecção de pele.
+const WHITE_LUMA_CUTOFF = 230;
+const WHITE_CHANNEL_FLOOR = 224;
+const WHITE_SAT_CUTOFF = 32;
+const FLAT_WHITE_MIN_AREA = 1;
 let sourceImage = null;
 let outputBlob = null;
 
