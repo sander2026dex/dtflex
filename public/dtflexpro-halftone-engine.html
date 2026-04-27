@@ -642,9 +642,8 @@ function sampleCellColor(data, mask, blackMask, W, H, cx, cy, cell){
   if (count === 0) return null;
   const inv = 1 / count;
   const ar = r * inv, ag = g * inv, ab = b * inv;
-  // Saturação aumentada (1.35x) para preservar a riqueza de cor da referência
-  // profissional. Sem isso, a média da célula puxa cores para cinza/desbotado.
-  const SAT_BOOST = 1.35;
+  // Saturação leve (1.10x) — boost alto causa franjas azul/roxa em bordas RGB.
+  const SAT_BOOST = 1.10;
   const lumAvg = 0.299*ar + 0.587*ag + 0.114*ab;
   let br = lumAvg + (ar - lumAvg) * SAT_BOOST;
   let bg = lumAvg + (ag - lumAvg) * SAT_BOOST;
