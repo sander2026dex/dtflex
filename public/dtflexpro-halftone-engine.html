@@ -445,6 +445,28 @@ function removeBlackBackground(data, W, H){
   }
 }
 
+function restoreBlackSubjectEdges(data, W, H){
+  // Se o fundo preto encostar no contorno, restaura pixels pretos próximos a pixels coloridos/brancos.
+  const restore = new Uint8Array(W * H);
+  for (let y=1; y<H-1; y++){
+    for (let x=1; x<W-1; x++){
+      const p = y*W + x, i = p*4;
+      if (data[i+3] !== 0 || !isBlackPixel(data, i)) continue;
+      let nearSubject = false;
+      for (let yy=-2; yy<=2 && !nearSubject; yy++){
+        for (let xx=-2; xx<=2; xx++){
+          const q = (y+yy)*W + (x+xx), qi = q*4;
+          if (data[qi+3] > 30 && !isBlackPixel(data, qi)) { nearSubject = true; break; }
+        }
+      }
+      if (nearSubject) restore[p] = 1;
+    }
+  }
+  for (let p=0, i=0; p<restore.length; p++, i+=4){
+    if (restore[p]) data[i+3] = 255;
+  }
+}
+
 function triggerDownload(blob = outputBlob){
   if (!blob) return false;
   const url = URL.createObjectURL(blob);
