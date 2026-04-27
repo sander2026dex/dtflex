@@ -332,7 +332,7 @@ function isWhitePixel(data, i, protectSkin){
   return true;
 }
 
-function dotRadiusForLuma(luma, cell, coverage, sat){
+function dotRadiusForLuma(luma, cell, coverage, sat, minDensity){
   // Retícula de alta fidelidade: range maior entre min e max para reproduzir
   // mais variação tonal. Em luma alto, ponto fica MUITO fino (preserva detalhe);
   // em luma baixo/cor saturada, ponto fica cheio (preserva cor).
@@ -340,7 +340,11 @@ function dotRadiusForLuma(luma, cell, coverage, sat){
   const minR = Math.max(0.9, cell * 0.16);
   const lumaDensity = 1 - (luma / 255);
   const satDensity = sat ? Math.min(1, sat / 140) : 0;
-  const density = Math.max(lumaDensity, satDensity * 0.85);
+  let density = Math.max(lumaDensity, satDensity * 0.85);
+  // PREENCHER SOMBRAS: garante densidade mínima dentro do sujeito para evitar
+  // "buracos brancos" em áreas iluminadas de pele/roupa. Convertido para densidade
+  // tonal (0..1) — o usuário escolhe 0..15%.
+  if (minDensity > 0) density = Math.max(density, minDensity);
   // gamma menor = curva mais linear = preserva meios-tons (mais detalhe)
   const tonal = Math.pow(Math.max(0, density), 0.78);
   const coverBoost = 0.92 + Math.min(1, coverage) * 0.08;
