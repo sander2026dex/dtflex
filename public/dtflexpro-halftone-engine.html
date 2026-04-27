@@ -15,7 +15,7 @@
     flex-direction: column;
   }
   header {
-    background: linear-gradient(135deg, #f5b544, #6cc6ff);
+    background: linear-gradient(135deg, #ffd400, #f5b544);
     padding: 16px 24px;
     text-align: center;
     box-shadow: 0 4px 20px rgba(245,181,68,0.25);
@@ -98,7 +98,7 @@
     margin-bottom: 10px;
   }
   .btn-process {
-    background: linear-gradient(135deg, #f5b544, #6cc6ff);
+    background: linear-gradient(135deg, #ffd400, #f5b544);
     color: #0b0d12;
   }
   .btn-process:hover:not(:disabled) {
@@ -107,10 +107,10 @@
   }
   .btn-process:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-download {
-    background: #6cc6ff;
+    background: #ffd400;
     color: #0b0d12;
   }
-  .btn-download:hover { background: #8ed5ff; }
+  .btn-download:hover { background: #ffe35a; }
   .btn-download:disabled { opacity: 0.4; cursor: not-allowed; }
   .progress-bar {
     width: 100%;
@@ -122,7 +122,7 @@
   }
   .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #f5b544, #6cc6ff);
+    background: linear-gradient(90deg, #ffd400, #f5b544);
     width: 0%;
     transition: width 0.2s;
   }
@@ -159,7 +159,7 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Fundo removido. Preto vira vazado. Cores vibrantes saturadas (amarelo/dourado/laranja), áreas claras uniformes e bordas finas/texto ficam sólidas — só meios-tons recebem retícula.</p>
+      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Fundo preto removido automaticamente. Branco real, texto, bordas e cores vibrantes ficam sólidos; só meios-tons recebem retícula circular.</p>
     </div>
 
     <div class="control-group">
@@ -185,9 +185,9 @@
 
     <div class="control-group">
       <label>Preencher Sombras (densidade mín. %)</label>
-      <input type="range" id="minDensity" min="0" max="15" value="6" />
-      <div class="value" id="minDensityVal">6%</div>
-      <p class="info-text">Evita "buracos brancos" em sombras e áreas escuras (pele, roupa). 0 = desliga, 6–10 recomendado.</p>
+      <input type="range" id="minDensity" min="0" max="35" value="18" />
+      <div class="value" id="minDensityVal">18%</div>
+      <p class="info-text">Evita buracos em sombras e objetos coloridos. Branco puro continua sólido e limpo.</p>
     </div>
 
     <div class="control-group">
@@ -212,15 +212,12 @@
 const OUT_W = 3307, OUT_H = 4930;
 const BLACK_LUMA_CUTOFF = 42;
 const BLACK_CHANNEL_CUTOFF = 54;
-// Branco MUITO restrito: só pixels quase puros (R,G,B >= 245 e neutros) viram
-// branco. Isso impede que reflexos/realces em vermelho ou pele sejam classificados
-// como "branco" (corrige máscara em torno dos olhos virando branca).
-const WHITE_LUMA_CUTOFF = 245;
-const WHITE_SAT_CUTOFF = 14;
-// Threshold AINDA maior para "branco sólido": só áreas brancas realmente enormes
-// (fundo, balões grandes) ficam sólidas. Olhos pequenos viram pequenos pontos
-// brancos NÍTIDOS (não expandem sobre a máscara vermelha).
-const FLAT_WHITE_MIN_AREA = 60000;
+// Branco sólido em 90%+: dentes, luvas, texto e cogumelo ficam #FFFFFF limpos,
+// sem retícula cinza. Pele clara continua protegida pela detecção de pele.
+const WHITE_LUMA_CUTOFF = 230;
+const WHITE_CHANNEL_FLOOR = 224;
+const WHITE_SAT_CUTOFF = 32;
+const FLAT_WHITE_MIN_AREA = 1;
 let sourceImage = null;
 let outputBlob = null;
 
@@ -329,9 +326,19 @@ function isWhitePixel(data, i, protectSkin){
   const r = data[i], g = data[i+1], b = data[i+2];
   const l = 0.299*r + 0.587*g + 0.114*b;
   const sat = Math.max(r,g,b) - Math.min(r,g,b);
-  if (l < WHITE_LUMA_CUTOFF || sat > WHITE_SAT_CUTOFF) return false;
+  if (l < WHITE_LUMA_CUTOFF || r < WHITE_CHANNEL_FLOOR || g < WHITE_CHANNEL_FLOOR || b < WHITE_CHANNEL_FLOOR || sat > WHITE_SAT_CUTOFF) return false;
   if (protectSkin && isSkinPixel(data, i)) return false;
   return true;
+}
+
+function isSolidColorPixel(data, i){
+  if (data[i+3] < 30) return false;
+  const r = data[i], g = data[i+1], b = data[i+2];
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  const sat = mx - mn;
+  const lum = 0.299*r + 0.587*g + 0.114*b;
+  if (isWhitePixel(data, i, false) || isBlackPixel(data, i)) return false;
+  return sat >= 58 && lum >= 70;
 }
 
 function dotRadiusForLuma(luma, cell, coverage, sat, minDensity){
@@ -339,7 +346,7 @@ function dotRadiusForLuma(luma, cell, coverage, sat, minDensity){
   // a cell*0.50 (raio = metade da célula) para que pontos vizinhos NÃO se fundam
   // em textura ruidosa — sempre se vê o ponto redondo nítido.
   const maxR = cell * 0.50;
-  const minR = Math.max(1.0, cell * 0.18);
+  const minR = Math.max(1.15, cell * 0.22);
   const lumaDensity = 1 - (luma / 255);
   const satDensity = sat ? Math.min(1, sat / 160) : 0;
   let density = Math.max(lumaDensity, satDensity * 0.80);
@@ -417,6 +424,49 @@ function removeBackground(data, W, H, tol){
   }
 }
 
+function removeBlackBackground(data, W, H){
+  // Remove fundo preto conectado às bordas sem apagar traços pretos internos.
+  const visited = new Uint8Array(W * H);
+  const stack = [];
+  for (let x=0; x<W; x++){ stack.push(x); stack.push((H-1)*W+x); }
+  for (let y=0; y<H; y++){ stack.push(y*W); stack.push(y*W + W-1); }
+  while (stack.length){
+    const p = stack.pop();
+    if (visited[p]) continue;
+    visited[p] = 1;
+    const i = p*4;
+    if (data[i+3] <= 30 || !isBlackPixel(data, i)) continue;
+    data[i+3] = 0;
+    const x = p % W, y = (p / W) | 0;
+    if (x>0) stack.push(p-1);
+    if (x<W-1) stack.push(p+1);
+    if (y>0) stack.push(p-W);
+    if (y<H-1) stack.push(p+W);
+  }
+}
+
+function restoreBlackSubjectEdges(data, W, H){
+  // Se o fundo preto encostar no contorno, restaura pixels pretos próximos a pixels coloridos/brancos.
+  const restore = new Uint8Array(W * H);
+  for (let y=1; y<H-1; y++){
+    for (let x=1; x<W-1; x++){
+      const p = y*W + x, i = p*4;
+      if (data[i+3] !== 0 || !isBlackPixel(data, i)) continue;
+      let nearSubject = false;
+      for (let yy=-2; yy<=2 && !nearSubject; yy++){
+        for (let xx=-2; xx<=2; xx++){
+          const q = (y+yy)*W + (x+xx), qi = q*4;
+          if (data[qi+3] > 30 && !isBlackPixel(data, qi)) { nearSubject = true; break; }
+        }
+      }
+      if (nearSubject) restore[p] = 1;
+    }
+  }
+  for (let p=0, i=0; p<restore.length; p++, i+=4){
+    if (restore[p]) data[i+3] = 255;
+  }
+}
+
 function triggerDownload(blob = outputBlob){
   if (!blob) return false;
   const url = URL.createObjectURL(blob);
@@ -462,6 +512,8 @@ $('processBtn').addEventListener('click', async () => {
 
   // Remoção de fundo SEMPRE automática (tolerância fixa otimizada)
   removeBackground(data, OUT_W, OUT_H, 32);
+  removeBlackBackground(data, OUT_W, OUT_H);
+  restoreBlackSubjectEdges(data, OUT_W, OUT_H);
 
   setProgress(0.18, 'Corrigindo contraste RGB...');
   await nextFrame();
@@ -482,24 +534,21 @@ $('processBtn').addEventListener('click', async () => {
   const mask = new Uint8Array(OUT_W * OUT_H);            // pixel imprimível
   const blackMask = new Uint8Array(OUT_W * OUT_H);       // preto -> vazado (transparente)
   const whitePixelMask = new Uint8Array(OUT_W * OUT_H);  // todos os pixels brancos
-  const vibrantMask = new Uint8Array(OUT_W * OUT_H);     // cores vibrantes -> sólido
+  const vibrantMask = new Uint8Array(OUT_W * OUT_H);     // cores/objetos saturados -> sólido base
   const skinMask = new Uint8Array(OUT_W * OUT_H);        // pele -> sempre recebe halftone
   const solidColor = new Uint8ClampedArray(OUT_W * OUT_H * 3); // cor sólida a pintar
 
   for (let i=0,p=0; p<mask.length; i+=4, p++){
     if (data[i+3] <= 30) continue;
-    if (isBlackPixel(data, i)) {
-      blackMask[p] = 1;
-      // preto fica VAZADO: não entra na máscara imprimível nem na aura
-      continue;
-    }
     mask[p] = 1;
     if (protectSkin && isSkinPixel(data, i)) skinMask[p] = 1;
     if (isWhitePixel(data, i, protectSkin)) whitePixelMask[p] = 1;
-    // CORES VIBRANTES: NÃO tratamos mais como "sólido". Halftone uniforme em
-    // todo o personagem (mãos, pés, rosto, máscara) — é assim que estampa
-    // profissional fica. Mantemos só a cor original guardada (não usado agora).
     const r = data[i], g = data[i+1], b = data[i+2];
+    if (isSolidColorPixel(data, i)) vibrantMask[p] = 1;
+    if (vibrantMask[p]) {
+      const k = p*3;
+      solidColor[k] = r; solidColor[k+1] = g; solidColor[k+2] = b;
+    }
   }
 
   setProgress(0.32, 'Detectando bordas finas (texto/logos/contornos)...');
@@ -518,8 +567,7 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.36, 'Separando branco sólido (texto/áreas grandes) de reflexos...');
   await nextFrame();
 
-  // Classifica regiões brancas conexas pelo tamanho:
-  // grandes -> flatWhiteMask (pinta sólido). Pequenas/isoladas -> highlightMask (poucas retículas).
+  // Todo branco real vira sólido (#FFFFFF), sem malha cinza.
   const { flatWhiteMask, highlightMask } = classifyWhiteRegions(
     whitePixelMask, OUT_W, OUT_H, FLAT_WHITE_MIN_AREA
   );
@@ -527,7 +575,7 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.46, 'Calculando área de borda...');
   await nextFrame();
 
-  const auraPx = 180;
+  const auraPx = 0;
   const dist = computeDistanceOutside(mask, OUT_W, OUT_H);
 
   setProgress(0.58, 'Renderizando halftone em alta definição...');
@@ -546,7 +594,7 @@ $('processBtn').addEventListener('click', async () => {
   // 1) Branco sólido (texto/áreas grandes brancas) — pintado sólido FFFFFF
   paintSolidWhite(octx, flatWhiteMask, OUT_W, OUT_H);
 
-  // 1b) Áreas protegidas (cores vibrantes + bordas finas/texto/logos) — pintadas sólidas
+  // 1b) Base sólida para objetos saturados + bordas/texto/logos, evitando furos/transparência
   paintSolidColors(octx, vibrantMask, edgeMask, mask, blackMask, flatWhiteMask, solidColor, OUT_W, OUT_H);
 
   // 2) Halftone RGB nas demais áreas (preto fica vazado, reflexos com poucas retículas)
@@ -788,7 +836,6 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
       if (!inside && distOut > auraPx) continue;
       if (blackMask[p]) continue;       // preto fica VAZADO (transparente)
       if (flatWhiteMask[p]) continue;   // branco sólido já pintado, não cobrir com dots
-      if (vibrantMask && vibrantMask[p]) continue; // cor vibrante já pintada sólida
       if (edgeMask && edgeMask[p]) continue;       // borda fina já pintada sólida
 
       const isSkin = skinMask && skinMask[p] === 1;
@@ -815,7 +862,8 @@ async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, hi
       // Densidade UNIFORME: pele e demais áreas usam mesma curva (mãos/pés/rosto
       // com mesma densidade de pontos). Pele só ganha mínimo um pouco maior
       // para nunca deixar buraco branco no rosto.
-      const cellMinDensity = isSkin ? Math.max(minDensity, 0.08) : minDensity;
+      const isSolidObject = vibrantMask && vibrantMask[p] === 1;
+      const cellMinDensity = isBlackPixel(data, p*4) ? Math.max(minDensity, 0.42) : isSolidObject ? Math.max(minDensity, 0.30) : isSkin ? Math.max(minDensity, 0.10) : minDensity;
       let radius = dotRadiusForLuma(avg.l, cell, avg.coverage, avg.sat, cellMinDensity);
       let alpha = 1;
       if (!inside){
