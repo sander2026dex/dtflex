@@ -908,7 +908,7 @@ function crc32(bytes){
      - draw a perfectly circular, anti-aliased dot
    ============================================================ */
 
-async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDensity, protectSkin, artType){
+async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, angleDeg, minDensity, protectSkin, artType){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const cx = W / 2, cy = H / 2;
@@ -941,8 +941,37 @@ async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDens
       if (!sample) continue;
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
 
-      // White protection: highlight white -> NO DOT (transparent)
-      if (sample.allWhite || sample.l > WHITE_BRIGHTNESS_CUTOFF) continue;
+      // -----------------------------------------------------------
+      // BRANCO — não remover. Aplicar halftone leve conforme TAMANHO
+      // da região branca conectada:
+      //   pequeno  (olhos, dentes, brilhos)  -> 5%   coverage
+      //   médio    (acessórios, gloves)      -> 10%  coverage
+      //   grande   (superfície / fundo)      -> SOLID (sem retícula)
+      // -----------------------------------------------------------
+      const isWhiteCell = (sample.allWhite || sample.l > WHITE_BRIGHTNESS_CUTOFF);
+      if (isWhiteCell){
+        const regionSize = whiteRegionSizeAt(whiteSizeMap, ix, iy);
+        let whiteCoverage = 0;
+        if (regionSize > 0 && regionSize <= WHITE_SMALL_MAX)       whiteCoverage = 0.05;
+        else if (regionSize > 0 && regionSize <= WHITE_MEDIUM_MAX) whiteCoverage = 0.10;
+        else {
+          // Região branca grande — manter SOLID branco (preserva dentes,
+          // toad, gloves grandes, fundo branco intencional)
+          ctx.fillStyle = 'rgb(255,255,255)';
+          ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
+                       Math.ceil(cell), Math.ceil(cell));
+          continue;
+        }
+        // Dot leve cinza-claro para sentir a retícula sem sujar o branco
+        // r = cell * sqrt(coverage / pi) ; fator visual 1.6 (mesmo do dotRadius)
+        const rMax = cell * Math.sqrt(whiteCoverage / Math.PI) * 1.6;
+        if (rMax < 0.5) continue;
+        ctx.fillStyle = 'rgba(40,40,40,0.85)';
+        ctx.beginPath();
+        ctx.arc(ix, iy, rMax, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
 
       // Skin detection on cell average color
       let isSkinCell = false;
