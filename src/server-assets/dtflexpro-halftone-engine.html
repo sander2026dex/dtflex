@@ -882,12 +882,30 @@ async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDens
 
       // Zone-based selective halftone (skin/flatColor/highSat/shadow/neutral)
       const zone = classifyZone(sample, isSkinCell);
+
+      const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
+
+      // CLEAN GRAPHIC ART rule:
+      //   Halftone ONLY in shadows / dark folds.
+      //   Flat colors, skin, vibrant areas and bright midtones stay SOLID.
+      if (artType === 'clean'){
+        const isFlatLike = (zone === 'flatColor' || zone === 'skin' || zone === 'highSat');
+        const isBrightNeutral = (zone === 'neutral' && sample.l > 150);
+        if (isFlatLike || isBrightNeutral){
+          // Paint solid cell — preserve premium clean surface
+          ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+          ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
+                       Math.ceil(cell), Math.ceil(cell));
+          continue;
+        }
+        // Otherwise (shadow / darker neutral) -> screen with reduced floor
+      }
+
       const radius = dotRadius(sample.l, cell, minDensity, zone);
       if (radius <= 0) continue;
 
       // Perfect circular anti-aliased dot, fully opaque cell color
-      const r = sample.r | 0, g = sample.g | 0, b = sample.b | 0;
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
       ctx.beginPath();
       ctx.arc(ix, iy, radius, 0, Math.PI * 2);
       ctx.fill();
