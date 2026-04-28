@@ -524,18 +524,62 @@ function sampleCell(data, W, H, cx, cy, cell){
    maxR = cell * 0.55 (slight overlap allowed at very dark tones)
    ============================================================ */
 
-function dotRadius(luma, cell, minDensity, isSkinCell){
+/* ============================================================
+   ZONE CLASSIFIER — selective halftone strength per cell
+   Zones:
+     'skin'       : face/hands -> very soft (10–25%)
+     'flatColor'  : saturated flat fabric (yellow jersey) -> micro
+     'shadow'     : dark folds -> stronger
+     'highSat'    : vibrant non-flat color (logos/splash) -> medium
+     'neutral'    : everything else -> standard
+   ============================================================ */
+function classifyZone(sample, isSkinCell){
+  if (isSkinCell) return 'skin';
+  const r = sample.r, g = sample.g, b = sample.b, L = sample.l;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  const sat = mx === 0 ? 0 : (mx - mn) / mx; // 0..1
+  if (L < 60) return 'shadow';
+  // Flat vibrant fabric (yellow / red / blue jersey) — bright AND saturated
+  if (sat > 0.55 && L > 110) return 'flatColor';
+  if (sat > 0.40) return 'highSat';
+  return 'neutral';
+}
+
+/* ============================================================
+   DOT SIZE RESPONSE — zone aware
+   Each zone has its own gamma + radius cap so the halftone
+   is FELT, not obvious.
+     skin       : gamma 1.45, max 25% coverage, floor 8%
+     flatColor  : gamma 1.80, max 28% coverage, floor 6%   (micro)
+     highSat    : gamma 1.55, max 45% coverage, floor 12%
+     shadow     : gamma 1.30, max 80% coverage (capped to avoid blobs)
+     neutral    : gamma 1.55, max 70% coverage, floor = minDensity
+   Black is capped globally (no 100% coverage blobs).
+   ============================================================ */
+function dotRadius(luma, cell, minDensity, zone){
   let tone = 1 - (luma / 255);
   if (tone < 0) tone = 0;
-  // Professional gamma curve
-  let curve = isSkinCell ? 1.25 : 1.55; // softer curve on skin
+
+  let curve, capCoverage, floor;
+  switch (zone){
+    case 'skin':       curve = 1.45; capCoverage = 0.25; floor = 0.08; break;
+    case 'flatColor':  curve = 1.80; capCoverage = 0.28; floor = 0.06; break;
+    case 'highSat':    curve = 1.55; capCoverage = 0.45; floor = 0.12; break;
+    case 'shadow':     curve = 1.30; capCoverage = 0.80; floor = Math.max(minDensity, 0.20); break;
+    default:           curve = 1.55; capCoverage = 0.70; floor = minDensity;
+  }
+
   let t = Math.pow(tone, curve);
-  if (minDensity > 0) t = Math.max(t, minDensity);
+  if (floor > 0) t = Math.max(t, floor);
+  // Black cap — never let any cell go fully solid (prevents black blobs)
+  t = Math.min(t, capCoverage);
+
   if (t <= 0.005) return 0;
-  const maxR = cell * 0.55;
-  // Smooth growth, sqrt mapping for area-linear perception
-  const r = maxR * Math.sqrt(t);
-  // No dots smaller than ~0.6px (avoid invisibles & jitter)
+  // maxR derived from capCoverage so cap is honored geometrically too.
+  // Area = pi*r^2 within a cell of area cell^2. Coverage = pi*r^2 / cell^2.
+  // r_max for coverage C => r = cell * sqrt(C/pi)
+  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.6; // 1.6 visual factor
+  const r = rMax * Math.sqrt(t / capCoverage);
   return r < 0.6 ? 0 : r;
 }
 
