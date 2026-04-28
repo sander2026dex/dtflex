@@ -209,15 +209,31 @@
 </div>
 
 <script>
+/* ============================================================
+   DTFLEXPRO — TRUE AM SCREENING ENGINE (PROFESSIONAL)
+   ------------------------------------------------------------
+   Output: 3307 × 4930 px @ 300 DPI, transparent PNG.
+   Algorithm:
+     - Real AM (Amplitude Modulation) screening
+     - Fixed rotated grid, dots grow with tone
+     - Gamma 1.55 tonal curve
+     - Photoshop-style contrast pre-pass
+     - White (luma>240) -> no dot (transparent)
+     - Alpha < 10 -> skipped (preserves transparency)
+     - Shadow fill = minimum dot density floor
+     - Skin protection (HSV-based, softer curve)
+     - Sobel edge preservation (logos/text/outlines stay solid)
+     - Anti-aliased perfectly circular dots
+   ============================================================ */
+
 const OUT_W = 3307, OUT_H = 4930;
-const BLACK_LUMA_CUTOFF = 42;
-const BLACK_CHANNEL_CUTOFF = 54;
-// Branco sólido em 90%+: dentes, luvas, texto e cogumelo ficam #FFFFFF limpos,
-// sem retícula cinza. Pele clara continua protegida pela detecção de pele.
-const WHITE_LUMA_CUTOFF = 230;
-const WHITE_CHANNEL_FLOOR = 224;
-const WHITE_SAT_CUTOFF = 32;
-const FLAT_WHITE_MIN_AREA = 1;
+const DPI   = 300;
+
+// White protection threshold (per spec: brightness > 240 -> no dot)
+const WHITE_BRIGHTNESS_CUTOFF = 240;
+// Alpha cutoff for "transparent" pixels
+const ALPHA_CUTOFF = 10;
+
 let sourceImage = null;
 let outputBlob = null;
 
@@ -228,7 +244,9 @@ const pctx = previewCanvas.getContext('2d');
 ['lpi','angle','contrast','minDensity'].forEach(id => {
   const el = $(id);
   el.addEventListener('input', () => {
-    const suffix = id === 'lpi' ? ' LPI' : id === 'angle' ? '°' : (id === 'contrast' || id === 'minDensity') ? '%' : '';
+    const suffix = id === 'lpi' ? ' LPI'
+                 : id === 'angle' ? '°'
+                 : (id === 'contrast' || id === 'minDensity') ? '%' : '';
     $(id+'Val').textContent = el.value + suffix;
   });
 });
@@ -256,9 +274,7 @@ $('imageInput').addEventListener('change', async e => {
 });
 
 function loadLocalImage(file, url){
-  if ('createImageBitmap' in window) {
-    return createImageBitmap(file);
-  }
+  if ('createImageBitmap' in window) return createImageBitmap(file);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -268,14 +284,12 @@ function loadLocalImage(file, url){
 }
 
 function drawPreviewSource(img){
-  // Mantém proporção 3307x4930 (A4 retrato 300dpi) e encaixa imagem inteira (contain) sem corte
-  const ratio = OUT_W / OUT_H; // ~0.671
+  const ratio = OUT_W / OUT_H;
   const maxW = 540;
-  const maxH = Math.round(maxW / ratio); // canvas com proporção do output
+  const maxH = Math.round(maxW / ratio);
   previewCanvas.width = maxW;
   previewCanvas.height = maxH;
   pctx.clearRect(0, 0, maxW, maxH);
-  // contain: imagem inteira dentro do quadrante, centralizada
   const ir = img.width / img.height;
   const cr = maxW / maxH;
   let dw, dh;
@@ -289,198 +303,245 @@ function setProgress(p, msg){
   if (msg) $('statusText').textContent = msg;
 }
 
-function lumaAt(data, i){
-  return 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+function nextFrame(){ return new Promise(r => requestAnimationFrame(r)); }
+function clamp8(v){ return v < 0 ? 0 : v > 255 ? 255 : v; }
+
+/* ============================================================
+   COLOR / TONE UTILITIES
+   ============================================================ */
+
+function brightness(r, g, b){
+  return r*0.299 + g*0.587 + b*0.114;
 }
 
-function saturationAt(data, i){
-  const r = data[i], g = data[i+1], b = data[i+2];
-  return Math.max(r,g,b) - Math.min(r,g,b);
+function rgbToHsv(r, g, b){
+  const rn=r/255, gn=g/255, bn=b/255;
+  const mx=Math.max(rn,gn,bn), mn=Math.min(rn,gn,bn);
+  const d = mx - mn;
+  let h = 0;
+  if (d !== 0){
+    if (mx === rn)      h = ((gn-bn)/d) % 6;
+    else if (mx === gn) h = (bn-rn)/d + 2;
+    else                h = (rn-gn)/d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  const s = mx === 0 ? 0 : d / mx;
+  return { h, s, v: mx };
 }
 
-function isBlackPixel(data, i){
-  const r = data[i], g = data[i+1], b = data[i+2];
-  const l = 0.299*r + 0.587*g + 0.114*b;
-  const neutralDark = l <= BLACK_LUMA_CUTOFF && (Math.max(r,g,b) - Math.min(r,g,b)) <= 28;
-  const deepBlack = r <= BLACK_CHANNEL_CUTOFF && g <= BLACK_CHANNEL_CUTOFF && b <= BLACK_CHANNEL_CUTOFF;
-  return neutralDark || deepBlack;
+// Skin tone detection (HSV + RGB rule combo, covers anime + photo skin)
+function isSkin(r, g, b){
+  if (r < 60 || g < 30 || b < 15) return false;
+  if (r <= g) return false;
+  const { h, s, v } = rgbToHsv(r, g, b);
+  if (v < 0.30) return false;
+  // Hue 0–50° (red-orange-yellow), modest saturation
+  if (h <= 50 && s >= 0.10 && s <= 0.75) return true;
+  // Anime pale skin: low sat, very warm
+  if (h <= 35 && s >= 0.05 && v >= 0.75 && r > g && g > b) return true;
+  return false;
 }
 
-function isSkinPixel(data, i){
-  // Detecção de tom de pele (anime ou foto): RGB com R>G>B, tom rosado/quente.
-  // Cobre pele clara (anime), pele média e pele escura sem confundir com branco.
-  if (data[i+3] < 30) return false;
-  const r = data[i], g = data[i+1], b = data[i+2];
-  if (r < 95 || g < 40 || b < 20) return false;
-  if (r <= g || r <= b) return false;
-  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
-  if (mx - mn < 15) return false; // muito neutro = não é pele
-  // razão R/G típica de pele
-  const rg = r / Math.max(1,g);
-  if (rg < 1.05 || rg > 1.85) return false;
-  return true;
+/* ============================================================
+   PRE-PASS: CONTRAST (Photoshop formula)
+   factor = (259*(C+255)) / (255*(259-C))
+   ============================================================ */
+
+function applyContrast(data, contrast){
+  if (contrast === 0) return;
+  // contrast: -255..255. UI sends 0..40 (% boost) -> map to 0..80 contrast points.
+  const C = Math.max(-255, Math.min(255, contrast));
+  const factor = (259 * (C + 255)) / (255 * (259 - C));
+  for (let i=0; i<data.length; i+=4){
+    if (data[i+3] < ALPHA_CUTOFF) continue;
+    data[i  ] = clamp8((data[i  ] - 128) * factor + 128);
+    data[i+1] = clamp8((data[i+1] - 128) * factor + 128);
+    data[i+2] = clamp8((data[i+2] - 128) * factor + 128);
+  }
 }
 
-function isWhitePixel(data, i, protectSkin){
-  if (data[i+3] < 30) return false;
-  const r = data[i], g = data[i+1], b = data[i+2];
-  const l = 0.299*r + 0.587*g + 0.114*b;
-  const sat = Math.max(r,g,b) - Math.min(r,g,b);
-  if (l < WHITE_LUMA_CUTOFF || r < WHITE_CHANNEL_FLOOR || g < WHITE_CHANNEL_FLOOR || b < WHITE_CHANNEL_FLOOR || sat > WHITE_SAT_CUTOFF) return false;
-  if (protectSkin && isSkinPixel(data, i)) return false;
-  return true;
+/* ============================================================
+   AUTO BACKGROUND REMOVAL (white + black flood-fill from edges)
+   Preserves internal blacks/whites — only removes connected
+   background touching the canvas border.
+   ============================================================ */
+
+function floodRemoveBackground(data, W, H, predicate){
+  const visited = new Uint8Array(W * H);
+  const stack = [];
+  for (let x=0; x<W; x++){ stack.push(x); stack.push((H-1)*W+x); }
+  for (let y=0; y<H; y++){ stack.push(y*W); stack.push(y*W + W-1); }
+  while (stack.length){
+    const p = stack.pop();
+    if (visited[p]) continue;
+    visited[p] = 1;
+    const i = p*4;
+    if (data[i+3] < ALPHA_CUTOFF) { continue; }
+    if (!predicate(data[i], data[i+1], data[i+2])) continue;
+    data[i+3] = 0;
+    const x = p % W, y = (p / W) | 0;
+    if (x>0)   stack.push(p-1);
+    if (x<W-1) stack.push(p+1);
+    if (y>0)   stack.push(p-W);
+    if (y<H-1) stack.push(p+W);
+  }
 }
 
-function isSolidColorPixel(data, i){
-  if (data[i+3] < 30) return false;
-  const r = data[i], g = data[i+1], b = data[i+2];
-  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
-  const sat = mx - mn;
-  const lum = 0.299*r + 0.587*g + 0.114*b;
-  if (isWhitePixel(data, i, false) || isBlackPixel(data, i)) return false;
-  return sat >= 58 && lum >= 70;
+function autoRemoveBackground(data, W, H){
+  // Sample border colors to decide what to remove
+  let whiteVotes = 0, blackVotes = 0, samples = 0;
+  const sample = (x, y) => {
+    const i = (y*W + x) * 4;
+    if (data[i+3] < ALPHA_CUTOFF) return;
+    samples++;
+    const b = brightness(data[i], data[i+1], data[i+2]);
+    if (b > 230) whiteVotes++;
+    else if (b < 32) blackVotes++;
+  };
+  for (let x=0; x<W; x+=Math.max(1, (W/64)|0)) { sample(x, 0); sample(x, H-1); }
+  for (let y=0; y<H; y+=Math.max(1, (H/64)|0)) { sample(0, y); sample(W-1, y); }
+
+  if (samples > 0 && whiteVotes / samples > 0.55){
+    floodRemoveBackground(data, W, H, (r,g,b) => {
+      const lum = brightness(r,g,b);
+      const sat = Math.max(r,g,b) - Math.min(r,g,b);
+      return lum > 225 && sat < 35;
+    });
+  }
+  if (samples > 0 && blackVotes / samples > 0.55){
+    floodRemoveBackground(data, W, H, (r,g,b) => {
+      const lum = brightness(r,g,b);
+      const sat = Math.max(r,g,b) - Math.min(r,g,b);
+      return lum < 38 && sat < 28;
+    });
+  }
 }
 
-function dotRadiusForLuma(luma, cell, coverage, sat, minDensity){
-  // Halftone clássico circular: pontos redondos distintos. Raio máximo limitado
-  // a cell*0.50 (raio = metade da célula) para que pontos vizinhos NÃO se fundam
-  // em textura ruidosa — sempre se vê o ponto redondo nítido.
-  const maxR = cell * 0.50;
-  const minR = Math.max(1.15, cell * 0.22);
-  const lumaDensity = 1 - (luma / 255);
-  const satDensity = sat ? Math.min(1, sat / 160) : 0;
-  let density = Math.max(lumaDensity, satDensity * 0.80);
-  if (minDensity > 0) density = Math.max(density, minDensity);
-  // gamma 0.85 = curva levemente realçada nos meios-tons
-  const tonal = Math.pow(Math.max(0, density), 0.85);
-  return minR + tonal * (maxR - minR);
+/* ============================================================
+   EDGE DETECTION (Sobel) — preserve text/logos/outlines
+   Returns Uint8Array (1 = edge, painted solid, no dots)
+   ============================================================ */
+
+function computeEdgeMask(data, W, H, threshold){
+  const lum = new Float32Array(W*H);
+  for (let p=0, i=0; p<lum.length; p++, i+=4){
+    if (data[i+3] < ALPHA_CUTOFF) { lum[p] = -1; continue; }
+    lum[p] = brightness(data[i], data[i+1], data[i+2]);
+  }
+  const edge = new Uint8Array(W*H);
+  for (let y=1; y<H-1; y++){
+    for (let x=1; x<W-1; x++){
+      const p = y*W+x;
+      const a = lum[p-W-1], b = lum[p-W], c = lum[p-W+1];
+      const d = lum[p-1],                 f = lum[p+1];
+      const g = lum[p+W-1], h = lum[p+W], i2 = lum[p+W+1];
+      if (a<0||b<0||c<0||d<0||f<0||g<0||h<0||i2<0) continue;
+      const gx = -a -2*d -g + c + 2*f + i2;
+      const gy = -a -2*b -c + g + 2*h + i2;
+      if (Math.abs(gx) + Math.abs(gy) >= threshold) edge[p] = 1;
+    }
+  }
+  // Dilate 1px so the entire stroke is captured (not just the gradient edge)
+  const dil = new Uint8Array(W*H);
+  for (let y=1; y<H-1; y++){
+    for (let x=1; x<W-1; x++){
+      const p = y*W+x;
+      if (edge[p] || edge[p-1] || edge[p+1] || edge[p-W] || edge[p+W] ||
+          edge[p-W-1] || edge[p-W+1] || edge[p+W-1] || edge[p+W+1]) {
+        dil[p] = 1;
+      }
+    }
+  }
+  return dil;
 }
 
-function dotRadiusHighlight(cell){
-  // Reflexos: pontinho super fino, mas mínimo imprimível em DTF (~1.0px)
-  return Math.max(1.0, cell * 0.16);
+function paintEdgesSolid(ctx, data, edgeMask, W, H){
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const cx = c.getContext('2d');
+  const img = cx.createImageData(W, H);
+  const out = img.data;
+  for (let p=0, i=0; p<edgeMask.length; p++, i+=4){
+    if (!edgeMask[p]) continue;
+    if (data[i+3] < ALPHA_CUTOFF) continue;
+    const lum = brightness(data[i], data[i+1], data[i+2]);
+    if (lum > WHITE_BRIGHTNESS_CUTOFF) continue; // never paint highlight whites
+    out[i  ] = data[i  ];
+    out[i+1] = data[i+1];
+    out[i+2] = data[i+2];
+    out[i+3] = 255;
+  }
+  cx.putImageData(img, 0, 0);
+  ctx.drawImage(c, 0, 0);
 }
 
-function sampleNeighborhoodColor(data, mask, blackMask, flatWhiteMask, highlightMask, W, H, cx, cy, cell){
-  // Para REFLEXOS: amostra a cor real ao redor (chapéu vermelho, pele, etc.),
-  // ignorando pixels brancos/highlight/preto/transparentes. Raio maior para
-  // alcançar a cor da vizinhança quando o reflexo é amplo.
-  const radius = Math.max(cell * 1.5, 6);
-  const half = Math.floor(radius);
-  const step = Math.max(1, Math.floor(cell / 3));
-  let r=0, g=0, b=0, count=0;
-  for (let y=cy-half; y<=cy+half; y+=step){
-    if (y<0 || y>=H) continue;
-    for (let x=cx-half; x<=cx+half; x+=step){
-      if (x<0 || x>=W) continue;
-      const p = y*W + x;
-      if (!mask[p]) continue;
-      if (blackMask[p] || flatWhiteMask[p] || highlightMask[p]) continue;
-      const i = p*4;
-      if (data[i+3] <= 30) continue;
+/* ============================================================
+   CELL SAMPLING — average color over a small square inside the
+   cell; ignore transparent/white pixels for color (so a white
+   highlight inside a colored region samples surrounding color).
+   ============================================================ */
+
+function sampleCell(data, W, H, cx, cy, cell){
+  const half = Math.max(1, Math.floor(cell * 0.50));
+  let r=0, g=0, b=0, count=0, lumSum=0, opaqueCount=0;
+  let whiteCount = 0;
+  const x0 = Math.max(0, cx - half), x1 = Math.min(W-1, cx + half);
+  const y0 = Math.max(0, cy - half), y1 = Math.min(H-1, cy + half);
+  for (let y=y0; y<=y1; y++){
+    for (let x=x0; x<=x1; x++){
+      const i = (y*W + x) * 4;
+      if (data[i+3] < ALPHA_CUTOFF) continue;
+      opaqueCount++;
+      const L = brightness(data[i], data[i+1], data[i+2]);
+      lumSum += L;
+      if (L > WHITE_BRIGHTNESS_CUTOFF) { whiteCount++; continue; }
       r += data[i]; g += data[i+1]; b += data[i+2];
       count++;
     }
   }
-  if (count === 0) return null;
-  const inv = 1 / count;
-  return { r: r*inv, g: g*inv, b: b*inv };
+  if (opaqueCount === 0) return null;
+  const total = (x1-x0+1) * (y1-y0+1);
+  const coverage = opaqueCount / total;
+  const avgLum = lumSum / opaqueCount;
+  if (count === 0){
+    // Whole cell is highlight white — return null so caller skips it
+    return { allWhite: true, coverage, l: avgLum };
+  }
+  const ar = r / count, ag = g / count, ab = b / count;
+  return {
+    r: ar, g: ag, b: ab,
+    l: avgLum,
+    coverage,
+    whiteRatio: whiteCount / opaqueCount
+  };
 }
 
-function removeBackground(data, W, H, tol){
-  // Flood-fill a partir das 4 bordas usando cor média da borda como referência.
-  // Marca pixels semelhantes como transparentes (alpha = 0).
-  const visited = new Uint8Array(W * H);
-  // Cor de referência: média dos cantos
-  const samples = [
-    [0,0],[W-1,0],[0,H-1],[W-1,H-1],
-    [W>>1,0],[W>>1,H-1],[0,H>>1],[W-1,H>>1]
-  ];
-  let rR=0,gR=0,bR=0;
-  for (const [x,y] of samples){
-    const i = (y*W+x)*4;
-    rR += data[i]; gR += data[i+1]; bR += data[i+2];
-  }
-  rR /= samples.length; gR /= samples.length; bR /= samples.length;
+/* ============================================================
+   DOT SIZE RESPONSE
+   tone = 1 - (brightness/255), then gamma 1.55
+   Map tone -> radius:  micro@2%, tiny@10%, small@25%, medium@50%,
+                         large@75%, near-closed@95%
+   maxR = cell * 0.55 (slight overlap allowed at very dark tones)
+   ============================================================ */
 
-  const stack = [];
-  for (let x=0; x<W; x++){ stack.push(x); stack.push((H-1)*W+x); }
-  for (let y=0; y<H; y++){ stack.push(y*W); stack.push(y*W + W-1); }
-
-  const tol2 = tol * tol * 3;
-  while (stack.length){
-    const p = stack.pop();
-    if (visited[p]) continue;
-    visited[p] = 1;
-    const i = p*4;
-    const dr = data[i] - rR, dg = data[i+1] - gR, db = data[i+2] - bR;
-    if (dr*dr + dg*dg + db*db > tol2) continue;
-    data[i+3] = 0;
-    const x = p % W, y = (p / W) | 0;
-    if (x>0) stack.push(p-1);
-    if (x<W-1) stack.push(p+1);
-    if (y>0) stack.push(p-W);
-    if (y<H-1) stack.push(p+W);
-  }
+function dotRadius(luma, cell, minDensity, isSkinCell){
+  let tone = 1 - (luma / 255);
+  if (tone < 0) tone = 0;
+  // Professional gamma curve
+  let curve = isSkinCell ? 1.25 : 1.55; // softer curve on skin
+  let t = Math.pow(tone, curve);
+  if (minDensity > 0) t = Math.max(t, minDensity);
+  if (t <= 0.005) return 0;
+  const maxR = cell * 0.55;
+  // Smooth growth, sqrt mapping for area-linear perception
+  const r = maxR * Math.sqrt(t);
+  // No dots smaller than ~0.6px (avoid invisibles & jitter)
+  return r < 0.6 ? 0 : r;
 }
 
-function removeBlackBackground(data, W, H){
-  // Remove fundo preto conectado às bordas sem apagar traços pretos internos.
-  const visited = new Uint8Array(W * H);
-  const stack = [];
-  for (let x=0; x<W; x++){ stack.push(x); stack.push((H-1)*W+x); }
-  for (let y=0; y<H; y++){ stack.push(y*W); stack.push(y*W + W-1); }
-  while (stack.length){
-    const p = stack.pop();
-    if (visited[p]) continue;
-    visited[p] = 1;
-    const i = p*4;
-    if (data[i+3] <= 30 || !isBlackPixel(data, i)) continue;
-    data[i+3] = 0;
-    const x = p % W, y = (p / W) | 0;
-    if (x>0) stack.push(p-1);
-    if (x<W-1) stack.push(p+1);
-    if (y>0) stack.push(p-W);
-    if (y<H-1) stack.push(p+W);
-  }
-}
-
-function restoreBlackSubjectEdges(data, W, H){
-  // Se o fundo preto encostar no contorno, restaura pixels pretos próximos a pixels coloridos/brancos.
-  const restore = new Uint8Array(W * H);
-  for (let y=1; y<H-1; y++){
-    for (let x=1; x<W-1; x++){
-      const p = y*W + x, i = p*4;
-      if (data[i+3] !== 0 || !isBlackPixel(data, i)) continue;
-      let nearSubject = false;
-      for (let yy=-2; yy<=2 && !nearSubject; yy++){
-        for (let xx=-2; xx<=2; xx++){
-          const q = (y+yy)*W + (x+xx), qi = q*4;
-          if (data[qi+3] > 30 && !isBlackPixel(data, qi)) { nearSubject = true; break; }
-        }
-      }
-      if (nearSubject) restore[p] = 1;
-    }
-  }
-  for (let p=0, i=0; p<restore.length; p++, i+=4){
-    if (restore[p]) data[i+3] = 255;
-  }
-}
-
-function triggerDownload(blob = outputBlob){
-  if (!blob) return false;
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `dtflex-round-clean-rgb-${Date.now()}.png`;
-  a.style.display = 'none';
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
-  return true;
-}
+/* ============================================================
+   MAIN PIPELINE
+   ============================================================ */
 
 $('processBtn').addEventListener('click', async () => {
   if (!sourceImage) return;
@@ -491,11 +552,10 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.04, 'Preparando canvas 3307×4930...');
   await nextFrame();
 
+  // 1) Draw source image at output resolution (CONTAIN, no crop)
   const src = document.createElement('canvas');
   src.width = OUT_W; src.height = OUT_H;
   const sctx = src.getContext('2d', { willReadFrequently: true });
-  // CONTAIN (não cover): encaixa a imagem inteira no quadrante 3307×4930
-  // a 300 DPI cravado, sem cortar nada. Sobra fica transparente.
   sctx.clearRect(0, 0, OUT_W, OUT_H);
   const ir = sourceImage.width / sourceImage.height;
   const or = OUT_W / OUT_H;
@@ -507,99 +567,48 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.10, 'Removendo fundo automaticamente...');
   await nextFrame();
 
-  const imgData = sctx.getImageData(0,0,OUT_W,OUT_H);
+  const imgData = sctx.getImageData(0, 0, OUT_W, OUT_H);
   const data = imgData.data;
 
-  // Remoção de fundo SEMPRE automática (tolerância fixa otimizada)
-  removeBackground(data, OUT_W, OUT_H, 32);
-  removeBlackBackground(data, OUT_W, OUT_H);
-  restoreBlackSubjectEdges(data, OUT_W, OUT_H);
+  // 2) Auto background removal (white OR black, edge-flood)
+  autoRemoveBackground(data, OUT_W, OUT_H);
 
-  setProgress(0.18, 'Corrigindo contraste RGB...');
+  setProgress(0.20, 'Aplicando contraste profissional...');
   await nextFrame();
 
-  const cBoost = parseInt($('contrast').value, 10)/100;
-  const f = 1 + cBoost;
-  for (let i=0;i<data.length;i+=4){
-    if (data[i+3] === 0) continue;
-    data[i]   = clamp((data[i]  -128)*f + 128);
-    data[i+1] = clamp((data[i+1]-128)*f + 128);
-    data[i+2] = clamp((data[i+2]-128)*f + 128);
-  }
+  // 3) Contrast pre-pass (Photoshop formula). UI 0..40 -> contrast 0..80.
+  const cUI = parseInt($('contrast').value, 10);
+  applyContrast(data, cUI * 2);
 
-  setProgress(0.28, 'Detectando preto (vazado), brancos sólidos, pele e reflexos...');
+  setProgress(0.32, 'Detectando bordas (texto, logos, contornos)...');
   await nextFrame();
 
-  const protectSkin = $('protectSkin').checked;
-  const mask = new Uint8Array(OUT_W * OUT_H);            // pixel imprimível
-  const blackMask = new Uint8Array(OUT_W * OUT_H);       // preto -> vazado (transparente)
-  const whitePixelMask = new Uint8Array(OUT_W * OUT_H);  // todos os pixels brancos
-  const vibrantMask = new Uint8Array(OUT_W * OUT_H);     // cores/objetos saturados -> sólido base
-  const skinMask = new Uint8Array(OUT_W * OUT_H);        // pele -> sempre recebe halftone
-  const solidColor = new Uint8ClampedArray(OUT_W * OUT_H * 3); // cor sólida a pintar
+  // 4) Edge mask (text/logos/outlines stay solid)
+  const edgeMask = computeEdgeMask(data, OUT_W, OUT_H, 60);
 
-  for (let i=0,p=0; p<mask.length; i+=4, p++){
-    if (data[i+3] <= 30) continue;
-    mask[p] = 1;
-    if (protectSkin && isSkinPixel(data, i)) skinMask[p] = 1;
-    if (isWhitePixel(data, i, protectSkin)) whitePixelMask[p] = 1;
-    const r = data[i], g = data[i+1], b = data[i+2];
-    if (isSolidColorPixel(data, i)) vibrantMask[p] = 1;
-    if (vibrantMask[p]) {
-      const k = p*3;
-      solidColor[k] = r; solidColor[k+1] = g; solidColor[k+2] = b;
-    }
-  }
-
-  setProgress(0.32, 'Detectando bordas finas (texto/logos/contornos)...');
+  setProgress(0.42, 'Preparando mesa de trabalho...');
   await nextFrame();
 
-  // EDGE DETECTION (Sobel simplificado) para preservar texto, contornos finos e logos.
-  // Bordas fortes ficam sólidas (sem retícula), com a cor original do pixel.
-  const edgeMask = computeEdgeMask(data, mask, OUT_W, OUT_H, 48);
-  for (let p=0, i=0; p<edgeMask.length; p++, i+=4){
-    if (edgeMask[p] && mask[p] && !blackMask[p]) {
-      const k = p*3;
-      solidColor[k] = data[i]; solidColor[k+1] = data[i+1]; solidColor[k+2] = data[i+2];
-    }
-  }
-
-  setProgress(0.36, 'Separando branco sólido (texto/áreas grandes) de reflexos...');
-  await nextFrame();
-
-  // Todo branco real vira sólido (#FFFFFF), sem malha cinza.
-  const { flatWhiteMask, highlightMask } = classifyWhiteRegions(
-    whitePixelMask, OUT_W, OUT_H, FLAT_WHITE_MIN_AREA
-  );
-
-  setProgress(0.46, 'Calculando área de borda...');
-  await nextFrame();
-
-  const auraPx = 0;
-  const dist = computeDistanceOutside(mask, OUT_W, OUT_H);
-
-  setProgress(0.58, 'Renderizando halftone em alta definição...');
-  await nextFrame();
-
+  // 5) Output canvas (transparent)
   const out = document.createElement('canvas');
   out.width = OUT_W; out.height = OUT_H;
   const octx = out.getContext('2d');
-  octx.clearRect(0,0,OUT_W,OUT_H);
+  octx.clearRect(0, 0, OUT_W, OUT_H);
 
+  // Paint solid edges first (under the dots)
+  paintEdgesSolid(octx, data, edgeMask, OUT_W, OUT_H);
+
+  setProgress(0.52, 'Renderizando retícula AM profissional...');
+  await nextFrame();
+
+  // 6) AM screening parameters from UI
   const lpi = parseInt($('lpi').value, 10);
-  const dpi = 300;
-  const cell = Math.max(4, Math.round(dpi / lpi));
-  const angle = parseInt($('angle').value, 10);
-
-  // 1) Branco sólido (texto/áreas grandes brancas) — pintado sólido FFFFFF
-  paintSolidWhite(octx, flatWhiteMask, OUT_W, OUT_H);
-
-  // 1b) Base sólida para objetos saturados + bordas/texto/logos, evitando furos/transparência
-  paintSolidColors(octx, vibrantMask, edgeMask, mask, blackMask, flatWhiteMask, solidColor, OUT_W, OUT_H);
-
-  // 2) Halftone RGB nas demais áreas (preto fica vazado, reflexos com poucas retículas)
+  const angleDeg = parseInt($('angle').value, 10);
   const minDensity = parseInt($('minDensity').value, 10) / 100;
-  await renderRoundCleanRGB(octx, data, mask, blackMask, flatWhiteMask, highlightMask, vibrantMask, edgeMask, skinMask, dist, OUT_W, OUT_H, cell, angle, auraPx, minDensity);
+  const protectSkin = $('protectSkin').checked;
+  const cell = Math.max(3, DPI / lpi); // float for precise grid spacing
+
+  await renderAMScreen(octx, data, edgeMask, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
@@ -626,269 +635,94 @@ $('processBtn').addEventListener('click', async () => {
   }, 'image/png');
 });
 
-function clamp(v){
-  return Math.max(0, Math.min(255, Math.round(v)));
-}
+/* ============================================================
+   AM SCREENING RENDERER
+   Fixed grid in screen space, rotated mathematically.
+   For each grid intersection (cx,cy) inside the canvas:
+     - sample cell color
+     - compute tone & radius
+     - draw a perfectly circular, anti-aliased dot
+   ============================================================ */
 
-function nextFrame(){
-  return new Promise(resolve => requestAnimationFrame(resolve));
-}
-
-function computeDistanceOutside(mask, W, H){
-  const INF = 1e9;
-  const d = new Float32Array(W*H);
-  for (let i=0;i<d.length;i++) d[i] = mask[i] ? 0 : INF;
-  for (let y=0; y<H; y++){
-    for (let x=0; x<W; x++){
-      const i = y*W+x;
-      if (d[i] === 0) continue;
-      let v = d[i];
-      if (x>0) v = Math.min(v, d[i-1]+1);
-      if (y>0) v = Math.min(v, d[i-W]+1);
-      if (x>0 && y>0) v = Math.min(v, d[i-W-1]+1.414);
-      if (x<W-1 && y>0) v = Math.min(v, d[i-W+1]+1.414);
-      d[i] = v;
-    }
-  }
-  for (let y=H-1; y>=0; y--){
-    for (let x=W-1; x>=0; x--){
-      const i = y*W+x;
-      if (d[i] === 0) continue;
-      let v = d[i];
-      if (x<W-1) v = Math.min(v, d[i+1]+1);
-      if (y<H-1) v = Math.min(v, d[i+W]+1);
-      if (x<W-1 && y<H-1) v = Math.min(v, d[i+W+1]+1.414);
-      if (x>0 && y<H-1) v = Math.min(v, d[i+W-1]+1.414);
-      d[i] = v;
-    }
-  }
-  return d;
-}
-
-function sampleCellColor(data, mask, blackMask, W, H, cx, cy, cell){
-  const half = Math.max(1, Math.floor(cell * 0.32));
-  const step = 1;
-  let r=0, g=0, b=0, count=0, covered=0;
-  for (let y=cy-half; y<=cy+half; y+=step){
-    if (y<0 || y>=H) continue;
-    for (let x=cx-half; x<=cx+half; x+=step){
-      if (x<0 || x>=W) continue;
-      const p = y*W + x;
-      if (!mask[p]) continue;
-      covered++;
-      if (blackMask[p]) continue; // não amostra preto sólido
-      const i = p*4;
-      if (data[i+3] <= 30) continue;
-      r += data[i]; g += data[i+1]; b += data[i+2];
-      count++;
-    }
-  }
-  if (count === 0) return null;
-  const inv = 1 / count;
-  const ar = r * inv, ag = g * inv, ab = b * inv;
-  // Saturação leve (1.10x) — boost alto causa franjas azul/roxa em bordas RGB.
-  const SAT_BOOST = 1.10;
-  const lumAvg = 0.299*ar + 0.587*ag + 0.114*ab;
-  let br = lumAvg + (ar - lumAvg) * SAT_BOOST;
-  let bg = lumAvg + (ag - lumAvg) * SAT_BOOST;
-  let bb = lumAvg + (ab - lumAvg) * SAT_BOOST;
-  br = Math.max(0, Math.min(255, br));
-  bg = Math.max(0, Math.min(255, bg));
-  bb = Math.max(0, Math.min(255, bb));
-  const coverage = covered / Math.max(1, Math.pow(Math.floor((half*2)/step)+1, 2));
-  return {
-    r: br,
-    g: bg,
-    b: bb,
-    l: 0.299*br + 0.587*bg + 0.114*bb,
-    sat: Math.max(br,bg,bb) - Math.min(br,bg,bb),
-    coverage
-  };
-}
-
-function paintSolidWhite(ctx, flatWhiteMask, W, H){
-  // Pinta branco sólido (#FFFFFF opaco) em texto e áreas brancas grandes
-  const wCanvas = document.createElement('canvas');
-  wCanvas.width = W;
-  wCanvas.height = H;
-  const wctx = wCanvas.getContext('2d');
-  const imgData = wctx.createImageData(W, H);
-  const out = imgData.data;
-  for (let p=0, i=0; p<flatWhiteMask.length; p++, i+=4){
-    if (!flatWhiteMask[p]) continue;
-    out[i] = 255;
-    out[i+1] = 255;
-    out[i+2] = 255;
-    out[i+3] = 255;
-  }
-  wctx.putImageData(imgData, 0, 0);
-  ctx.drawImage(wCanvas, 0, 0);
-}
-
-function classifyWhiteRegions(whiteMask, W, H, minArea){
-  // Connected-components (4-vizinhos). Regiões grandes -> flat (sólido).
-  // Regiões pequenas/isoladas -> highlight (reflexo, recebe poucas retículas).
-  const flat = new Uint8Array(W*H);
-  const highlight = new Uint8Array(W*H);
-  const visited = new Uint8Array(W*H);
-  const stack = new Int32Array(W*H);
-  const region = new Int32Array(W*H);
-
-  for (let p=0; p<whiteMask.length; p++){
-    if (!whiteMask[p] || visited[p]) continue;
-    let top = 0;
-    stack[top++] = p;
-    visited[p] = 1;
-    let count = 0;
-    while (top > 0){
-      const q = stack[--top];
-      region[count++] = q;
-      const x = q % W, y = (q / W) | 0;
-      if (x>0){ const n=q-1; if (whiteMask[n] && !visited[n]){ visited[n]=1; stack[top++]=n; } }
-      if (x<W-1){ const n=q+1; if (whiteMask[n] && !visited[n]){ visited[n]=1; stack[top++]=n; } }
-      if (y>0){ const n=q-W; if (whiteMask[n] && !visited[n]){ visited[n]=1; stack[top++]=n; } }
-      if (y<H-1){ const n=q+W; if (whiteMask[n] && !visited[n]){ visited[n]=1; stack[top++]=n; } }
-    }
-    const target = (count >= minArea) ? flat : highlight;
-    for (let k=0; k<count; k++) target[region[k]] = 1;
-  }
-  return { flatWhiteMask: flat, highlightMask: highlight };
-}
-
-function paintSolidColors(ctx, vibrantMask, edgeMask, mask, blackMask, flatWhiteMask, solidColor, W, H){
-  // Pinta cores vibrantes saturadas (amarelo, dourado, laranja, verde neon...)
-  // e bordas finas (texto, contornos, logos) com a cor original sólida.
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const cx = c.getContext('2d');
-  const img = cx.createImageData(W, H);
-  const out = img.data;
-  for (let p=0, i=0, k=0; p<mask.length; p++, i+=4, k+=3){
-    if (!mask[p]) continue;
-    if (blackMask[p] || flatWhiteMask[p]) continue;
-    const useV = vibrantMask && vibrantMask[p];
-    const useE = edgeMask && edgeMask[p];
-    if (!useV && !useE) continue;
-    out[i]   = solidColor[k];
-    out[i+1] = solidColor[k+1];
-    out[i+2] = solidColor[k+2];
-    out[i+3] = 255;
-  }
-  cx.putImageData(img, 0, 0);
-  ctx.drawImage(c, 0, 0);
-}
-
-function computeEdgeMask(data, mask, W, H, threshold){
-  // Sobel rápido em luminância para detectar bordas fortes (texto/contornos/logos).
-  // Dilata 1px para fechar traços finos. Retorna Uint8Array onde 1 = borda.
-  const lum = new Float32Array(W*H);
-  for (let p=0, i=0; p<lum.length; p++, i+=4){
-    if (data[i+3] <= 30) { lum[p] = -1; continue; }
-    lum[p] = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
-  }
-  const edge = new Uint8Array(W*H);
-  for (let y=1; y<H-1; y++){
-    for (let x=1; x<W-1; x++){
-      const p = y*W+x;
-      if (!mask[p]) continue;
-      const a = lum[p-W-1], b = lum[p-W], c = lum[p-W+1];
-      const d = lum[p-1],                 f = lum[p+1];
-      const g = lum[p+W-1], h = lum[p+W], i2 = lum[p+W+1];
-      if (a<0||b<0||c<0||d<0||f<0||g<0||h<0||i2<0) continue;
-      const gx = -a -2*d -g + c + 2*f + i2;
-      const gy = -a -2*b -c + g + 2*h + i2;
-      const mag = Math.abs(gx) + Math.abs(gy);
-      if (mag >= threshold) edge[p] = 1;
-    }
-  }
-  // Dilata 1px (3x3) para preservar o traço inteiro, não só o gradiente
-  const dil = new Uint8Array(W*H);
-  for (let y=1; y<H-1; y++){
-    for (let x=1; x<W-1; x++){
-      const p = y*W+x;
-      if (!mask[p]) continue;
-      if (edge[p] || edge[p-1] || edge[p+1] || edge[p-W] || edge[p+W] ||
-          edge[p-W-1] || edge[p-W+1] || edge[p+W-1] || edge[p+W+1]) {
-        dil[p] = 1;
-      }
-    }
-  }
-  return dil;
-}
-
-async function renderRoundCleanRGB(ctx, data, mask, blackMask, flatWhiteMask, highlightMask, vibrantMask, edgeMask, skinMask, dist, W, H, cell, angleDeg, auraPx, minDensity){
+async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDensity, protectSkin){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
+  const cx = W / 2, cy = H / 2;
+  // Rotated grid must cover the diagonal so the canvas is fully tiled
   const diag = Math.ceil(Math.sqrt(W*W + H*H));
-  const half = diag / 2;
-  const cx = W/2, cy = H/2;
+  const half = diag / 2 + cell;
+
   ctx.globalCompositeOperation = 'source-over';
+  ctx.imageSmoothingEnabled = true;
+
+  let rowIndex = 0;
+  const totalRows = Math.ceil((2 * half) / cell);
 
   for (let gy = -half; gy <= half; gy += cell){
     for (let gx = -half; gx <= half; gx += cell){
-      const ix = Math.round(cx + gx*cosA - gy*sinA);
-      const iy = Math.round(cy + gx*sinA + gy*cosA);
-      if (ix<0 || iy<0 || ix>=W || iy>=H) continue;
+      // Rotate grid into image space
+      const ix = Math.round(cx + gx * cosA - gy * sinA);
+      const iy = Math.round(cy + gx * sinA + gy * cosA);
+      if (ix < 0 || iy < 0 || ix >= W || iy >= H) continue;
 
-      const p = iy*W + ix;
-      const inside = mask[p] === 1;
-      const distOut = dist[p];
-      if (!inside && distOut > auraPx) continue;
-      if (blackMask[p]) continue;       // preto fica VAZADO (transparente)
-      if (flatWhiteMask[p]) continue;   // branco sólido já pintado, não cobrir com dots
-      if (edgeMask && edgeMask[p]) continue;       // borda fina já pintada sólida
+      const p = iy * W + ix;
+      const i = p * 4;
 
-      const isSkin = skinMask && skinMask[p] === 1;
-      // Pele tem prioridade sobre highlight: nunca tratar pele como reflexo
-      const isHL = !isSkin && highlightMask[p] === 1;
+      // Skip fully transparent center -> respect transparency
+      if (data[i+3] < ALPHA_CUTOFF) continue;
+      // Edges already painted solid -> no dot on top
+      if (edgeMask[p]) continue;
 
-      let avg;
-      if (isHL) {
-        // REFLEXO (olho/highlight pequeno): amostra a cor da vizinhança e
-        // pinta um ponto pequeno com a cor real (vermelho da máscara, etc.)
-        // Não deixa "buraco branco" expandindo sobre a máscara.
-        const neigh = sampleNeighborhoodColor(data, mask, blackMask, flatWhiteMask, highlightMask, W, H, ix, iy, cell);
-        if (!neigh) continue;
-        avg = { r: neigh.r, g: neigh.g, b: neigh.b,
-                l: 0.299*neigh.r + 0.587*neigh.g + 0.114*neigh.b,
-                sat: Math.max(neigh.r,neigh.g,neigh.b) - Math.min(neigh.r,neigh.g,neigh.b),
-                coverage: 1 };
-      } else {
-        const sampled = sampleCellColor(data, mask, blackMask, W, H, ix, iy, cell);
-        if (!sampled) continue;
-        avg = sampled;
+      const sample = sampleCell(data, W, H, ix, iy, cell);
+      if (!sample) continue;
+      if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
+
+      // White protection: highlight white -> NO DOT (transparent)
+      if (sample.allWhite || sample.l > WHITE_BRIGHTNESS_CUTOFF) continue;
+
+      // Skin detection on cell average color
+      let isSkinCell = false;
+      if (protectSkin && !sample.allWhite){
+        if (isSkin(sample.r, sample.g, sample.b)) isSkinCell = true;
       }
 
-      // Densidade UNIFORME: pele e demais áreas usam mesma curva (mãos/pés/rosto
-      // com mesma densidade de pontos). Pele só ganha mínimo um pouco maior
-      // para nunca deixar buraco branco no rosto.
-      const isSolidObject = vibrantMask && vibrantMask[p] === 1;
-      const cellMinDensity = isBlackPixel(data, p*4) ? Math.max(minDensity, 0.42) : isSolidObject ? Math.max(minDensity, 0.30) : isSkin ? Math.max(minDensity, 0.10) : minDensity;
-      let radius = dotRadiusForLuma(avg.l, cell, avg.coverage, avg.sat, cellMinDensity);
-      let alpha = 1;
-      if (!inside){
-        // Aura limpa: fade só no alpha (sem jitter), mantém círculos perfeitos.
-        const fade = auraPx > 0 ? 1 - (distOut / auraPx) : 0;
-        if (fade <= 0) continue;
-        radius *= fade;
-        alpha = fade;
-      }
-      if (radius < 0.8 || alpha < 0.05) continue;
+      const radius = dotRadius(sample.l, cell, minDensity, isSkinCell);
+      if (radius <= 0) continue;
 
-      // Círculo perfeito, opaco (alpha cheio dentro do sujeito) → sem franjas
-      // azul/roxa de mistura RGB nas bordas. Cor sólida, ponto redondo nítido.
-      const a = inside ? 1 : alpha;
-      ctx.fillStyle = `rgba(${avg.r|0},${avg.g|0},${avg.b|0},${a.toFixed(3)})`;
+      // Perfect circular anti-aliased dot, fully opaque cell color
+      const r = sample.r | 0, g = sample.g | 0, b = sample.b | 0;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
       ctx.beginPath();
-      ctx.arc(ix, iy, radius, 0, Math.PI*2);
+      ctx.arc(ix, iy, radius, 0, Math.PI * 2);
       ctx.fill();
     }
-    if (Math.round((gy + half) / cell) % 28 === 0) {
-      const prog = 0.58 + 0.36 * ((gy+half)/diag);
-      setProgress(prog, 'Renderizando retícula em alta definição...');
+
+    rowIndex++;
+    if ((rowIndex & 31) === 0){
+      const prog = 0.52 + 0.42 * (rowIndex / totalRows);
+      setProgress(Math.min(0.94, prog), 'Renderizando retícula AM em alta definição...');
       await new Promise(r => setTimeout(r, 0));
     }
   }
+}
+
+/* ============================================================
+   DOWNLOAD
+   ============================================================ */
+
+function triggerDownload(blob = outputBlob){
+  if (!blob) return false;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dtflexpro-halftone-${Date.now()}.png`;
+  a.style.display = 'none';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  return true;
 }
 
 $('downloadBtn').addEventListener('click', () => {
