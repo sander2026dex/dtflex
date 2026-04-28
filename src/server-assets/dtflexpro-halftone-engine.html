@@ -838,7 +838,7 @@ function crc32(bytes){
      - draw a perfectly circular, anti-aliased dot
    ============================================================ */
 
-async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDensity, protectSkin){
+async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDensity, protectSkin, artType){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const cx = W / 2, cy = H / 2;
