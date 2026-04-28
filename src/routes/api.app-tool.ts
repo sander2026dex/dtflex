@@ -1,10 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSession } from "@tanstack/react-start/server";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-// Import the HTML as a raw string so the bundler includes it in the Worker bundle.
-// Using ?raw ensures the file is embedded at build time (no runtime fs needed).
+// Import the HTML as a raw string so the bundler embeds it in the Worker bundle.
 // eslint-disable-next-line import/no-unresolved
 import toolHtml from "../server-assets/dtflexpro-halftone-engine.html?raw";
 
