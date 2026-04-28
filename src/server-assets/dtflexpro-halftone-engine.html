@@ -730,7 +730,9 @@ async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDens
         if (isSkin(sample.r, sample.g, sample.b)) isSkinCell = true;
       }
 
-      const radius = dotRadius(sample.l, cell, minDensity, isSkinCell);
+      // Zone-based selective halftone (skin/flatColor/highSat/shadow/neutral)
+      const zone = classifyZone(sample, isSkinCell);
+      const radius = dotRadius(sample.l, cell, minDensity, zone);
       if (radius <= 0) continue;
 
       // Perfect circular anti-aliased dot, fully opaque cell color
