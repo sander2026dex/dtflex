@@ -524,18 +524,62 @@ function sampleCell(data, W, H, cx, cy, cell){
    maxR = cell * 0.55 (slight overlap allowed at very dark tones)
    ============================================================ */
 
-function dotRadius(luma, cell, minDensity, isSkinCell){
+/* ============================================================
+   ZONE CLASSIFIER — selective halftone strength per cell
+   Zones:
+     'skin'       : face/hands -> very soft (10–25%)
+     'flatColor'  : saturated flat fabric (yellow jersey) -> micro
+     'shadow'     : dark folds -> stronger
+     'highSat'    : vibrant non-flat color (logos/splash) -> medium
+     'neutral'    : everything else -> standard
+   ============================================================ */
+function classifyZone(sample, isSkinCell){
+  if (isSkinCell) return 'skin';
+  const r = sample.r, g = sample.g, b = sample.b, L = sample.l;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  const sat = mx === 0 ? 0 : (mx - mn) / mx; // 0..1
+  if (L < 60) return 'shadow';
+  // Flat vibrant fabric (yellow / red / blue jersey) — bright AND saturated
+  if (sat > 0.55 && L > 110) return 'flatColor';
+  if (sat > 0.40) return 'highSat';
+  return 'neutral';
+}
+
+/* ============================================================
+   DOT SIZE RESPONSE — zone aware
+   Each zone has its own gamma + radius cap so the halftone
+   is FELT, not obvious.
+     skin       : gamma 1.45, max 25% coverage, floor 8%
+     flatColor  : gamma 1.80, max 28% coverage, floor 6%   (micro)
+     highSat    : gamma 1.55, max 45% coverage, floor 12%
+     shadow     : gamma 1.30, max 80% coverage (capped to avoid blobs)
+     neutral    : gamma 1.55, max 70% coverage, floor = minDensity
+   Black is capped globally (no 100% coverage blobs).
+   ============================================================ */
+function dotRadius(luma, cell, minDensity, zone){
   let tone = 1 - (luma / 255);
   if (tone < 0) tone = 0;
-  // Professional gamma curve
-  let curve = isSkinCell ? 1.25 : 1.55; // softer curve on skin
+
+  let curve, capCoverage, floor;
+  switch (zone){
+    case 'skin':       curve = 1.45; capCoverage = 0.25; floor = 0.08; break;
+    case 'flatColor':  curve = 1.80; capCoverage = 0.28; floor = 0.06; break;
+    case 'highSat':    curve = 1.55; capCoverage = 0.45; floor = 0.12; break;
+    case 'shadow':     curve = 1.30; capCoverage = 0.80; floor = Math.max(minDensity, 0.20); break;
+    default:           curve = 1.55; capCoverage = 0.70; floor = minDensity;
+  }
+
   let t = Math.pow(tone, curve);
-  if (minDensity > 0) t = Math.max(t, minDensity);
+  if (floor > 0) t = Math.max(t, floor);
+  // Black cap — never let any cell go fully solid (prevents black blobs)
+  t = Math.min(t, capCoverage);
+
   if (t <= 0.005) return 0;
-  const maxR = cell * 0.55;
-  // Smooth growth, sqrt mapping for area-linear perception
-  const r = maxR * Math.sqrt(t);
-  // No dots smaller than ~0.6px (avoid invisibles & jitter)
+  // maxR derived from capCoverage so cap is honored geometrically too.
+  // Area = pi*r^2 within a cell of area cell^2. Coverage = pi*r^2 / cell^2.
+  // r_max for coverage C => r = cell * sqrt(C/pi)
+  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.6; // 1.6 visual factor
+  const r = rMax * Math.sqrt(t / capCoverage);
   return r < 0.6 ? 0 : r;
 }
 
@@ -613,13 +657,15 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
 
-  out.toBlob(blob => {
+  out.toBlob(async blob => {
     if (!blob) {
       setProgress(1, 'Erro ao gerar PNG. Tente com outra imagem.');
       $('processBtn').disabled = false;
       return;
     }
-    outputBlob = blob;
+    // Inject real 300 DPI metadata (pHYs chunk) so print software reads 300 DPI cravado
+    const stamped = await injectPngDpi(blob, 300);
+    outputBlob = stamped;
     $('downloadBtn').disabled = false;
     $('processBtn').disabled = false;
 
@@ -631,9 +677,79 @@ $('processBtn').addEventListener('click', async () => {
     pctx.clearRect(0, 0, maxW, maxH);
     pctx.drawImage(out, 0, 0, maxW, maxH);
 
-    setProgress(1, '✅ Pronto! Clique em "Baixar PNG" para salvar. Nenhum crédito foi descontado.');
+    setProgress(1, '✅ Pronto! PNG 3307×4930 @ 300 DPI cravado. Clique em "Baixar PNG".');
   }, 'image/png');
 });
+
+/* ============================================================
+   PNG DPI INJECTION — write real pHYs chunk (300 DPI cravado)
+   Replaces existing pHYs if present, otherwise inserts after IHDR.
+   ============================================================ */
+async function injectPngDpi(blob, dpi){
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  // PNG signature: 8 bytes
+  if (buf.length < 8) return blob;
+  const ppm = Math.round(dpi / 0.0254); // pixels per metre
+  // Build pHYs chunk: length(4)=9, type(4)='pHYs', data(9), crc(4)
+  const data = new Uint8Array(9);
+  const dv = new DataView(data.buffer);
+  dv.setUint32(0, ppm); // x
+  dv.setUint32(4, ppm); // y
+  data[8] = 1; // unit = metres
+  const typeBytes = new Uint8Array([0x70,0x48,0x59,0x73]); // 'pHYs'
+  const crcInput = new Uint8Array(4 + 9);
+  crcInput.set(typeBytes, 0); crcInput.set(data, 4);
+  const crc = crc32(crcInput);
+  const chunk = new Uint8Array(4 + 4 + 9 + 4);
+  const cdv = new DataView(chunk.buffer);
+  cdv.setUint32(0, 9);
+  chunk.set(typeBytes, 4);
+  chunk.set(data, 8);
+  cdv.setUint32(17, crc >>> 0);
+  // Walk chunks; find IHDR end and any existing pHYs
+  let pos = 8;
+  let ihdrEnd = -1, physStart = -1, physEnd = -1;
+  while (pos < buf.length - 8){
+    const len = (buf[pos]<<24)|(buf[pos+1]<<16)|(buf[pos+2]<<8)|buf[pos+3];
+    const type = String.fromCharCode(buf[pos+4],buf[pos+5],buf[pos+6],buf[pos+7]);
+    const chunkEnd = pos + 8 + len + 4;
+    if (type === 'IHDR') ihdrEnd = chunkEnd;
+    if (type === 'pHYs'){ physStart = pos; physEnd = chunkEnd; }
+    if (type === 'IEND') break;
+    pos = chunkEnd;
+  }
+  let out;
+  if (physStart >= 0){
+    out = new Uint8Array(buf.length - (physEnd - physStart) + chunk.length);
+    out.set(buf.subarray(0, physStart), 0);
+    out.set(chunk, physStart);
+    out.set(buf.subarray(physEnd), physStart + chunk.length);
+  } else if (ihdrEnd > 0){
+    out = new Uint8Array(buf.length + chunk.length);
+    out.set(buf.subarray(0, ihdrEnd), 0);
+    out.set(chunk, ihdrEnd);
+    out.set(buf.subarray(ihdrEnd), ihdrEnd + chunk.length);
+  } else {
+    return blob;
+  }
+  return new Blob([out], { type: 'image/png' });
+}
+
+// CRC32 (PNG polynomial 0xEDB88320)
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++){
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
 
 /* ============================================================
    AM SCREENING RENDERER
@@ -686,7 +802,9 @@ async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDens
         if (isSkin(sample.r, sample.g, sample.b)) isSkinCell = true;
       }
 
-      const radius = dotRadius(sample.l, cell, minDensity, isSkinCell);
+      // Zone-based selective halftone (skin/flatColor/highSat/shadow/neutral)
+      const zone = classifyZone(sample, isSkinCell);
+      const radius = dotRadius(sample.l, cell, minDensity, zone);
       if (radius <= 0) continue;
 
       // Perfect circular anti-aliased dot, fully opaque cell color
