@@ -16,6 +16,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
+import { Route as ApiAppToolRouteImport } from './routes/api.app-tool'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 
 const VerifyAdminRoute = VerifyAdminRouteImport.update({
@@ -53,6 +54,11 @@ const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   path: '/api/stripe-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAppToolRoute = ApiAppToolRouteImport.update({
+  id: '/api/app-tool',
+  path: '/api/app-tool',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
+  '/api/app-tool': typeof ApiAppToolRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
+  '/api/app-tool': typeof ApiAppToolRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
+  '/api/app-tool': typeof ApiAppToolRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/validate-access-code'
     | '/verify-admin'
+    | '/api/app-tool'
     | '/api/stripe-webhook'
     | '/lovable/email/queue/process'
   fileRoutesByTo: FileRoutesByTo
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/validate-access-code'
     | '/verify-admin'
+    | '/api/app-tool'
     | '/api/stripe-webhook'
     | '/lovable/email/queue/process'
   id:
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/validate-access-code'
     | '/verify-admin'
+    | '/api/app-tool'
     | '/api/stripe-webhook'
     | '/lovable/email/queue/process'
   fileRoutesById: FileRoutesById
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ValidateAccessCodeRoute: typeof ValidateAccessCodeRoute
   VerifyAdminRoute: typeof VerifyAdminRoute
+  ApiAppToolRoute: typeof ApiAppToolRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
@@ -186,6 +199,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/app-tool': {
+      id: '/api/app-tool'
+      path: '/api/app-tool'
+      fullPath: '/api/app-tool'
+      preLoaderRoute: typeof ApiAppToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -203,6 +223,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ValidateAccessCodeRoute: ValidateAccessCodeRoute,
   VerifyAdminRoute: VerifyAdminRoute,
+  ApiAppToolRoute: ApiAppToolRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
