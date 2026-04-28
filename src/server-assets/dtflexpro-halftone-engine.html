@@ -761,7 +761,15 @@ $('processBtn').addEventListener('click', async () => {
   // 4) Edge mask (text/logos/outlines stay solid)
   const edgeMask = computeEdgeMask(data, OUT_W, OUT_H, 60);
 
-  setProgress(0.42, 'Preparando mesa de trabalho...');
+  setProgress(0.38, 'Mapeando regiões brancas (olhos, dentes, acessórios)...');
+  await nextFrame();
+
+  // 4b) Mapa de tamanho de regiões brancas (componentes conectados).
+  //     Permite tratar olhos/brilhos com 5% de halftone, acessórios com 10%,
+  //     e manter superfícies brancas grandes 100% sólidas (sem retícula).
+  const whiteSizeMap = buildWhiteSizeMap(data, OUT_W, OUT_H);
+
+  setProgress(0.44, 'Preparando mesa de trabalho...');
   await nextFrame();
 
   // 5) Output canvas (transparent)
@@ -773,14 +781,14 @@ $('processBtn').addEventListener('click', async () => {
   // Paint solid edges first (under the dots)
   paintEdgesSolid(octx, data, edgeMask, OUT_W, OUT_H);
 
-  setProgress(0.48, 'Classificando tipo de arte (clean vs photo)...');
+  setProgress(0.50, 'Classificando tipo de arte (clean vs photo)...');
   await nextFrame();
 
   // Detect artwork type ONCE — drives selective halftone behavior
   const artInfo = classifyArtType(data, OUT_W, OUT_H);
   const artType = artInfo.type; // 'clean' | 'photo'
 
-  setProgress(0.52, artType === 'clean'
+  setProgress(0.54, artType === 'clean'
     ? 'Arte limpa detectada — retícula só nas sombras...'
     : 'Foto detectada — retícula média global...');
   await nextFrame();
@@ -792,7 +800,7 @@ $('processBtn').addEventListener('click', async () => {
   const protectSkin = $('protectSkin').checked;
   const cell = Math.max(3, DPI / lpi); // float for precise grid spacing
 
-  await renderAMScreen(octx, data, edgeMask, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
+  await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
