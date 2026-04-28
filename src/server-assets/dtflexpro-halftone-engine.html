@@ -711,7 +711,16 @@ $('processBtn').addEventListener('click', async () => {
   // Paint solid edges first (under the dots)
   paintEdgesSolid(octx, data, edgeMask, OUT_W, OUT_H);
 
-  setProgress(0.52, 'Renderizando retícula AM profissional...');
+  setProgress(0.48, 'Classificando tipo de arte (clean vs photo)...');
+  await nextFrame();
+
+  // Detect artwork type ONCE — drives selective halftone behavior
+  const artInfo = classifyArtType(data, OUT_W, OUT_H);
+  const artType = artInfo.type; // 'clean' | 'photo'
+
+  setProgress(0.52, artType === 'clean'
+    ? 'Arte limpa detectada — retícula só nas sombras...'
+    : 'Foto detectada — retícula média global...');
   await nextFrame();
 
   // 6) AM screening parameters from UI
@@ -721,7 +730,7 @@ $('processBtn').addEventListener('click', async () => {
   const protectSkin = $('protectSkin').checked;
   const cell = Math.max(3, DPI / lpi); // float for precise grid spacing
 
-  await renderAMScreen(octx, data, edgeMask, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin);
+  await renderAMScreen(octx, data, edgeMask, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
