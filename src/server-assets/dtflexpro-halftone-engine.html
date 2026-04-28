@@ -481,10 +481,67 @@ function paintEdgesSolid(ctx, data, edgeMask, W, H){
 }
 
 /* ============================================================
-   CELL SAMPLING — average color over a small square inside the
-   cell; ignore transparent/white pixels for color (so a white
-   highlight inside a colored region samples surrounding color).
+   WHITE REGION SIZE MAP
+   Constrói um mapa onde cada pixel branco recebe o TAMANHO da
+   região branca conectada à qual pertence (em pixels do canvas
+   original 3307×4930). Usado para diferenciar:
+     - olhos / dentes / brilhos  -> 5% halftone (small)
+     - acessórios / gloves       -> 10% halftone (medium)
+     - superfícies grandes       -> SOLID (sem retícula)
+   Implementação: downscale 4x para performance, BFS por componente,
+   depois upscale do resultado.
    ============================================================ */
+function buildWhiteSizeMap(data, W, H){
+   const SCALE = 4;                            // 1 célula = 4×4 px do original
+   const w = Math.ceil(W / SCALE), h = Math.ceil(H / SCALE);
+   const mask = new Uint8Array(w * h);         // 1 = branco
+   const PIX_PER_CELL = SCALE * SCALE;
+   for (let yy = 0; yy < h; yy++){
+     for (let xx = 0; xx < w; xx++){
+       // Amostra centro do bloco
+       const sx = Math.min(W - 1, xx * SCALE + (SCALE >> 1));
+       const sy = Math.min(H - 1, yy * SCALE + (SCALE >> 1));
+       const i = (sy * W + sx) * 4;
+       if (data[i+3] < ALPHA_CUTOFF) continue;
+       const L = brightness(data[i], data[i+1], data[i+2]);
+       if (L > WHITE_BRIGHTNESS_CUTOFF) mask[yy * w + xx] = 1;
+     }
+   }
+   const label = new Int32Array(w * h); // 0 = não-branco/visitado-por-fundo, >0 = id
+   const sizes = [0]; // sizes[id] = tamanho em pixels do original
+   let nextId = 1;
+   const queue = new Int32Array(w * h);
+   for (let p = 0; p < mask.length; p++){
+     if (!mask[p] || label[p]) continue;
+     const id = nextId++;
+     let qHead = 0, qTail = 0;
+     queue[qTail++] = p;
+     label[p] = id;
+     let count = 0;
+     while (qHead < qTail){
+       const q = queue[qHead++];
+       count++;
+       const qy = (q / w) | 0, qx = q - qy * w;
+       if (qx > 0     && mask[q-1] && !label[q-1]) { label[q-1] = id; queue[qTail++] = q-1; }
+       if (qx < w-1   && mask[q+1] && !label[q+1]) { label[q+1] = id; queue[qTail++] = q+1; }
+       if (qy > 0     && mask[q-w] && !label[q-w]) { label[q-w] = id; queue[qTail++] = q-w; }
+       if (qy < h-1   && mask[q+w] && !label[q+w]) { label[q+w] = id; queue[qTail++] = q+w; }
+     }
+     sizes[id] = count * PIX_PER_CELL;
+   }
+   return { label, sizes, w, h, SCALE };
+}
+
+// Consulta o tamanho da região branca em torno de (x, y) no canvas original.
+// Retorna 0 se o pixel não pertence a região branca.
+function whiteRegionSizeAt(map, x, y){
+   const xx = Math.min(map.w - 1, (x / map.SCALE) | 0);
+   const yy = Math.min(map.h - 1, (y / map.SCALE) | 0);
+   const id = map.label[yy * map.w + xx];
+   return id ? map.sizes[id] : 0;
+}
+
+
 
 function sampleCell(data, W, H, cx, cy, cell){
   const half = Math.max(1, Math.floor(cell * 0.50));
