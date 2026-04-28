@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { getAccessSession } from "@/lib/access.functions";
 
 function AppError() {
   return (
@@ -18,6 +19,12 @@ export const Route = createFileRoute("/app")({
       { name: "description", content: "Ferramenta profissional DTFLEXPRO Halftone Engine para retículas DTF — Rosette CMYK e Round Clean." },
     ],
   }),
+  beforeLoad: async () => {
+    const session = await getAccessSession();
+    if (!session?.authenticated) {
+      throw redirect({ to: "/login", search: { code: "", email: "" } });
+    }
+  },
   errorComponent: AppError,
   notFoundComponent: AppError,
   component: AppPage,
@@ -26,7 +33,7 @@ export const Route = createFileRoute("/app")({
 function AppPage() {
   return (
     <iframe
-      src="/dtflexpro-halftone-engine.html"
+      src="/api/app-tool"
       title="DTFLEXPRO Halftone Engine"
       style={{
         position: "fixed",
