@@ -22,7 +22,7 @@ export const Route = createFileRoute("/app")({
   beforeLoad: async () => {
     const session = await getAccessSession();
     if (!session?.authenticated) {
-      throw redirect({ to: "/login", search: {} });
+      throw redirect({ to: "/login", search: { code: "", email: "" } });
     }
   },
   errorComponent: AppError,
