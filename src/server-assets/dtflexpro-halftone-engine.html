@@ -546,6 +546,75 @@ function classifyZone(sample, isSkinCell){
 }
 
 /* ============================================================
+   ART-TYPE CLASSIFIER  (runs ONCE on the whole image)
+   Decides between:
+     'clean'  -> CLEAN GRAPHIC ART (mascot, anime, vector, 3D, logo)
+                 Halftone ONLY in shadows / dark folds.
+                 Flat/saturated/skin areas stay SOLID.
+     'photo'  -> PHOTO ART (portrait, camera realism, natural skin/texture)
+                 Normal medium halftone everywhere.
+   Heuristic signals:
+     - color palette diversity (unique quantized colors)
+     - average local variance (texture noise)
+     - share of highly saturated pixels
+     - share of flat low-variance regions
+   ============================================================ */
+function classifyArtType(data, W, H){
+  const step = 6; // sample every Nth pixel for speed
+  const palette = new Set();
+  let satPixels = 0, totalPixels = 0;
+  let varianceAcc = 0, varianceN = 0;
+
+  for (let y = 4; y < H - 4; y += step){
+    for (let x = 4; x < W - 4; x += step){
+      const i = (y * W + x) * 4;
+      if (data[i+3] < 10) continue;
+      const r = data[i], g = data[i+1], b = data[i+2];
+      totalPixels++;
+      // Quantize to 5-bit per channel -> palette diversity
+      palette.add(((r>>3)<<10) | ((g>>3)<<5) | (b>>3));
+      const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+      const sat = mx === 0 ? 0 : (mx - mn) / mx;
+      if (sat > 0.45 && mx > 90) satPixels++;
+
+      // Local variance (3x3 luma)
+      let sum = 0, sum2 = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++){
+        for (let dx = -1; dx <= 1; dx++){
+          const j = ((y+dy) * W + (x+dx)) * 4;
+          if (data[j+3] < 10) continue;
+          const L = 0.299*data[j] + 0.587*data[j+1] + 0.114*data[j+2];
+          sum += L; sum2 += L*L; n++;
+        }
+      }
+      if (n > 0){
+        const mean = sum / n;
+        const v = sum2 / n - mean * mean;
+        varianceAcc += v; varianceN++;
+      }
+    }
+  }
+  if (totalPixels === 0) return { type: 'photo', score: 0 };
+
+  const paletteSize = palette.size;
+  const satRatio = satPixels / totalPixels;
+  const avgVar = varianceN ? varianceAcc / varianceN : 0;
+
+  // Clean graphic art => few colors, lots of saturation, low local variance.
+  // Photo => many colors, high local variance, lower saturation share.
+  let cleanScore = 0;
+  if (paletteSize < 1800) cleanScore += 2;
+  else if (paletteSize < 4000) cleanScore += 1;
+  if (satRatio > 0.18) cleanScore += 2;
+  else if (satRatio > 0.08) cleanScore += 1;
+  if (avgVar < 120) cleanScore += 2;
+  else if (avgVar < 280) cleanScore += 1;
+
+  const type = cleanScore >= 4 ? 'clean' : 'photo';
+  return { type, paletteSize, satRatio, avgVar, cleanScore };
+}
+
+/* ============================================================
    DOT SIZE RESPONSE — zone aware
    Each zone has its own gamma + radius cap so the halftone
    is FELT, not obvious.
@@ -642,7 +711,16 @@ $('processBtn').addEventListener('click', async () => {
   // Paint solid edges first (under the dots)
   paintEdgesSolid(octx, data, edgeMask, OUT_W, OUT_H);
 
-  setProgress(0.52, 'Renderizando retícula AM profissional...');
+  setProgress(0.48, 'Classificando tipo de arte (clean vs photo)...');
+  await nextFrame();
+
+  // Detect artwork type ONCE — drives selective halftone behavior
+  const artInfo = classifyArtType(data, OUT_W, OUT_H);
+  const artType = artInfo.type; // 'clean' | 'photo'
+
+  setProgress(0.52, artType === 'clean'
+    ? 'Arte limpa detectada — retícula só nas sombras...'
+    : 'Foto detectada — retícula média global...');
   await nextFrame();
 
   // 6) AM screening parameters from UI
@@ -652,7 +730,7 @@ $('processBtn').addEventListener('click', async () => {
   const protectSkin = $('protectSkin').checked;
   const cell = Math.max(3, DPI / lpi); // float for precise grid spacing
 
-  await renderAMScreen(octx, data, edgeMask, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin);
+  await renderAMScreen(octx, data, edgeMask, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
@@ -760,7 +838,7 @@ function crc32(bytes){
      - draw a perfectly circular, anti-aliased dot
    ============================================================ */
 
-async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDensity, protectSkin){
+async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDensity, protectSkin, artType){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const cx = W / 2, cy = H / 2;
@@ -804,12 +882,30 @@ async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDens
 
       // Zone-based selective halftone (skin/flatColor/highSat/shadow/neutral)
       const zone = classifyZone(sample, isSkinCell);
+
+      const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
+
+      // CLEAN GRAPHIC ART rule:
+      //   Halftone ONLY in shadows / dark folds.
+      //   Flat colors, skin, vibrant areas and bright midtones stay SOLID.
+      if (artType === 'clean'){
+        const isFlatLike = (zone === 'flatColor' || zone === 'skin' || zone === 'highSat');
+        const isBrightNeutral = (zone === 'neutral' && sample.l > 150);
+        if (isFlatLike || isBrightNeutral){
+          // Paint solid cell — preserve premium clean surface
+          ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+          ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
+                       Math.ceil(cell), Math.ceil(cell));
+          continue;
+        }
+        // Otherwise (shadow / darker neutral) -> screen with reduced floor
+      }
+
       const radius = dotRadius(sample.l, cell, minDensity, zone);
       if (radius <= 0) continue;
 
       // Perfect circular anti-aliased dot, fully opaque cell color
-      const r = sample.r | 0, g = sample.g | 0, b = sample.b | 0;
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
       ctx.beginPath();
       ctx.arc(ix, iy, radius, 0, Math.PI * 2);
       ctx.fill();
