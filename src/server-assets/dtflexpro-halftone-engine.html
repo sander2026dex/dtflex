@@ -229,10 +229,15 @@
 const OUT_W = 3307, OUT_H = 4930;
 const DPI   = 300;
 
-// White protection threshold (per spec: brightness > 240 -> no dot)
+// White detection threshold (brightness > 240 considered "white highlight")
 const WHITE_BRIGHTNESS_CUTOFF = 240;
 // Alpha cutoff for "transparent" pixels
 const ALPHA_CUTOFF = 10;
+// Tamanho de componente branco (em pixels @ 300 DPI) para classificar como
+// "detalhe pequeno" (olho, dente, brilho) ou "detalhe médio" (acessório).
+// Acima de LARGE -> superfície branca grande, mantém SOLID (não retícula).
+const WHITE_SMALL_MAX  = 4500;    // ~ olhos, dentes, brilhos pontuais
+const WHITE_MEDIUM_MAX = 28000;   // ~ acessórios, gloves, capacetes pequenos
 
 let sourceImage = null;
 let outputBlob = null;
@@ -476,10 +481,67 @@ function paintEdgesSolid(ctx, data, edgeMask, W, H){
 }
 
 /* ============================================================
-   CELL SAMPLING — average color over a small square inside the
-   cell; ignore transparent/white pixels for color (so a white
-   highlight inside a colored region samples surrounding color).
+   WHITE REGION SIZE MAP
+   Constrói um mapa onde cada pixel branco recebe o TAMANHO da
+   região branca conectada à qual pertence (em pixels do canvas
+   original 3307×4930). Usado para diferenciar:
+     - olhos / dentes / brilhos  -> 5% halftone (small)
+     - acessórios / gloves       -> 10% halftone (medium)
+     - superfícies grandes       -> SOLID (sem retícula)
+   Implementação: downscale 4x para performance, BFS por componente,
+   depois upscale do resultado.
    ============================================================ */
+function buildWhiteSizeMap(data, W, H){
+   const SCALE = 4;                            // 1 célula = 4×4 px do original
+   const w = Math.ceil(W / SCALE), h = Math.ceil(H / SCALE);
+   const mask = new Uint8Array(w * h);         // 1 = branco
+   const PIX_PER_CELL = SCALE * SCALE;
+   for (let yy = 0; yy < h; yy++){
+     for (let xx = 0; xx < w; xx++){
+       // Amostra centro do bloco
+       const sx = Math.min(W - 1, xx * SCALE + (SCALE >> 1));
+       const sy = Math.min(H - 1, yy * SCALE + (SCALE >> 1));
+       const i = (sy * W + sx) * 4;
+       if (data[i+3] < ALPHA_CUTOFF) continue;
+       const L = brightness(data[i], data[i+1], data[i+2]);
+       if (L > WHITE_BRIGHTNESS_CUTOFF) mask[yy * w + xx] = 1;
+     }
+   }
+   const label = new Int32Array(w * h); // 0 = não-branco/visitado-por-fundo, >0 = id
+   const sizes = [0]; // sizes[id] = tamanho em pixels do original
+   let nextId = 1;
+   const queue = new Int32Array(w * h);
+   for (let p = 0; p < mask.length; p++){
+     if (!mask[p] || label[p]) continue;
+     const id = nextId++;
+     let qHead = 0, qTail = 0;
+     queue[qTail++] = p;
+     label[p] = id;
+     let count = 0;
+     while (qHead < qTail){
+       const q = queue[qHead++];
+       count++;
+       const qy = (q / w) | 0, qx = q - qy * w;
+       if (qx > 0     && mask[q-1] && !label[q-1]) { label[q-1] = id; queue[qTail++] = q-1; }
+       if (qx < w-1   && mask[q+1] && !label[q+1]) { label[q+1] = id; queue[qTail++] = q+1; }
+       if (qy > 0     && mask[q-w] && !label[q-w]) { label[q-w] = id; queue[qTail++] = q-w; }
+       if (qy < h-1   && mask[q+w] && !label[q+w]) { label[q+w] = id; queue[qTail++] = q+w; }
+     }
+     sizes[id] = count * PIX_PER_CELL;
+   }
+   return { label, sizes, w, h, SCALE };
+}
+
+// Consulta o tamanho da região branca em torno de (x, y) no canvas original.
+// Retorna 0 se o pixel não pertence a região branca.
+function whiteRegionSizeAt(map, x, y){
+   const xx = Math.min(map.w - 1, (x / map.SCALE) | 0);
+   const yy = Math.min(map.h - 1, (y / map.SCALE) | 0);
+   const id = map.label[yy * map.w + xx];
+   return id ? map.sizes[id] : 0;
+}
+
+
 
 function sampleCell(data, W, H, cx, cy, cell){
   const half = Math.max(1, Math.floor(cell * 0.50));
@@ -699,7 +761,15 @@ $('processBtn').addEventListener('click', async () => {
   // 4) Edge mask (text/logos/outlines stay solid)
   const edgeMask = computeEdgeMask(data, OUT_W, OUT_H, 60);
 
-  setProgress(0.42, 'Preparando mesa de trabalho...');
+  setProgress(0.38, 'Mapeando regiões brancas (olhos, dentes, acessórios)...');
+  await nextFrame();
+
+  // 4b) Mapa de tamanho de regiões brancas (componentes conectados).
+  //     Permite tratar olhos/brilhos com 5% de halftone, acessórios com 10%,
+  //     e manter superfícies brancas grandes 100% sólidas (sem retícula).
+  const whiteSizeMap = buildWhiteSizeMap(data, OUT_W, OUT_H);
+
+  setProgress(0.44, 'Preparando mesa de trabalho...');
   await nextFrame();
 
   // 5) Output canvas (transparent)
@@ -711,14 +781,14 @@ $('processBtn').addEventListener('click', async () => {
   // Paint solid edges first (under the dots)
   paintEdgesSolid(octx, data, edgeMask, OUT_W, OUT_H);
 
-  setProgress(0.48, 'Classificando tipo de arte (clean vs photo)...');
+  setProgress(0.50, 'Classificando tipo de arte (clean vs photo)...');
   await nextFrame();
 
   // Detect artwork type ONCE — drives selective halftone behavior
   const artInfo = classifyArtType(data, OUT_W, OUT_H);
   const artType = artInfo.type; // 'clean' | 'photo'
 
-  setProgress(0.52, artType === 'clean'
+  setProgress(0.54, artType === 'clean'
     ? 'Arte limpa detectada — retícula só nas sombras...'
     : 'Foto detectada — retícula média global...');
   await nextFrame();
@@ -730,7 +800,7 @@ $('processBtn').addEventListener('click', async () => {
   const protectSkin = $('protectSkin').checked;
   const cell = Math.max(3, DPI / lpi); // float for precise grid spacing
 
-  await renderAMScreen(octx, data, edgeMask, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
+  await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
@@ -838,7 +908,7 @@ function crc32(bytes){
      - draw a perfectly circular, anti-aliased dot
    ============================================================ */
 
-async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDensity, protectSkin, artType){
+async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, angleDeg, minDensity, protectSkin, artType){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const cx = W / 2, cy = H / 2;
@@ -871,8 +941,37 @@ async function renderAMScreen(ctx, data, edgeMask, W, H, cell, angleDeg, minDens
       if (!sample) continue;
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
 
-      // White protection: highlight white -> NO DOT (transparent)
-      if (sample.allWhite || sample.l > WHITE_BRIGHTNESS_CUTOFF) continue;
+      // -----------------------------------------------------------
+      // BRANCO — não remover. Aplicar halftone leve conforme TAMANHO
+      // da região branca conectada:
+      //   pequeno  (olhos, dentes, brilhos)  -> 5%   coverage
+      //   médio    (acessórios, gloves)      -> 10%  coverage
+      //   grande   (superfície / fundo)      -> SOLID (sem retícula)
+      // -----------------------------------------------------------
+      const isWhiteCell = (sample.allWhite || sample.l > WHITE_BRIGHTNESS_CUTOFF);
+      if (isWhiteCell){
+        const regionSize = whiteRegionSizeAt(whiteSizeMap, ix, iy);
+        let whiteCoverage = 0;
+        if (regionSize > 0 && regionSize <= WHITE_SMALL_MAX)       whiteCoverage = 0.05;
+        else if (regionSize > 0 && regionSize <= WHITE_MEDIUM_MAX) whiteCoverage = 0.10;
+        else {
+          // Região branca grande — manter SOLID branco (preserva dentes,
+          // toad, gloves grandes, fundo branco intencional)
+          ctx.fillStyle = 'rgb(255,255,255)';
+          ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
+                       Math.ceil(cell), Math.ceil(cell));
+          continue;
+        }
+        // Dot leve cinza-claro para sentir a retícula sem sujar o branco
+        // r = cell * sqrt(coverage / pi) ; fator visual 1.6 (mesmo do dotRadius)
+        const rMax = cell * Math.sqrt(whiteCoverage / Math.PI) * 1.6;
+        if (rMax < 0.5) continue;
+        ctx.fillStyle = 'rgba(40,40,40,0.85)';
+        ctx.beginPath();
+        ctx.arc(ix, iy, rMax, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
 
       // Skin detection on cell average color
       let isSkinCell = false;
