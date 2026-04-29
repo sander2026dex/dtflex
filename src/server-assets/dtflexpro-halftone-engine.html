@@ -841,7 +841,7 @@ $('processBtn').addEventListener('click', async () => {
 
   // 6) AM screening parameters from UI
   const lpi = parseInt($('lpi').value, 10);
-  const angleDeg = parseInt($('angle').value, 10);
+  const angleDeg = parseFloat($('angle').value);
   const minDensity = parseInt($('minDensity').value, 10) / 100;
   const protectSkin = $('protectSkin').checked;
   const cell = Math.max(3, DPI / lpi); // float for precise grid spacing
@@ -988,7 +988,7 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
 
       // -----------------------------------------------------------
-      // BRANCO — não remover. Aplicar halftone leve conforme TAMANHO
+      // BRANCO / HIGHLIGHT — não remover. Aplicar halftone leve conforme TAMANHO
       // da região branca conectada:
       //   pequeno  (olhos, dentes, brilhos)  -> 5%   coverage
       //   médio    (acessórios, gloves)      -> 10%  coverage
@@ -997,24 +997,26 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const isWhiteCell = (sample.allWhite || sample.l > WHITE_BRIGHTNESS_CUTOFF);
       if (isWhiteCell){
         const regionSize = whiteRegionSizeAt(whiteSizeMap, ix, iy);
-        let whiteCoverage = 0;
+        let whiteCoverage = 0.12;
         if (regionSize > 0 && regionSize <= WHITE_SMALL_MAX)       whiteCoverage = 0.05;
         else if (regionSize > 0 && regionSize <= WHITE_MEDIUM_MAX) whiteCoverage = 0.10;
-        else {
-          // Região branca grande — manter SOLID branco (preserva dentes,
-          // toad, gloves grandes, fundo branco intencional)
-          ctx.fillStyle = 'rgb(255,255,255)';
-          ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
-                       Math.ceil(cell), Math.ceil(cell));
-          continue;
-        }
-        // Dot leve cinza-claro para sentir a retícula sem sujar o branco
-        // r = cell * sqrt(coverage / pi) ; fator visual 1.6 (mesmo do dotRadius)
-        const rMax = cell * Math.sqrt(whiteCoverage / Math.PI) * 1.6;
-        if (rMax < 0.5) continue;
-        ctx.fillStyle = 'rgba(40,40,40,0.85)';
+        const rMax = microDotRadius(cell, whiteCoverage);
+        ctx.fillStyle = 'rgb(255,255,255)';
         ctx.beginPath();
         ctx.arc(ix, iy, rMax, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
+
+      if (isProtectedHighlightCell(sample, data, W, H)){
+        const coverage = sample.l > 225 ? 0.06 : 0.10;
+        const radius = microDotRadius(cell, coverage);
+        const rr = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.r | 0);
+        const gg = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.g | 0);
+        const bb = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.b | 0);
+        ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+        ctx.beginPath();
+        ctx.arc(ix, iy, radius, 0, Math.PI * 2);
         ctx.fill();
         continue;
       }
