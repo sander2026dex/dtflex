@@ -1018,32 +1018,13 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
-      // -----------------------------------------------------------
-      // THRESHOLD 90%: branco/brilho/cinza muito claro fica LIMPO.
-      // Nada de remover, nada de furar, nada de reticular olhos/reflexos.
-      // A retícula começa abaixo desse threshold e cresce em meios-tons/sombras.
-      // -----------------------------------------------------------
-      const isCleanLightCell = (sample.allWhite || sample.l >= CLEAN_LIGHT_THRESHOLD || sample.whiteRatio > 0.45);
-      if (isCleanLightCell){
-        const rr = sample.allWhite ? 255 : Math.max(r0, 245);
-        const gg = sample.allWhite ? 255 : Math.max(g0, 245);
-        const bb = sample.allWhite ? 255 : Math.max(b0, 245);
+      if (isProtectedHighlightCell(sample, data, W, H)){
+        const rr = sample.allWhite ? 255 : Math.max(r0, 238);
+        const gg = sample.allWhite ? 255 : Math.max(g0, 238);
+        const bb = sample.allWhite ? 255 : Math.max(b0, 238);
         ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
         ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
                      Math.ceil(cell), Math.ceil(cell));
-        continue;
-      }
-
-      if (isProtectedHighlightCell(sample, data, W, H)){
-        const coverage = sample.l > 225 ? 0.04 : 0.08;
-        const radius = microDotRadius(cell, coverage);
-        const rr = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.r | 0);
-        const gg = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.g | 0);
-        const bb = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.b | 0);
-        ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
-        ctx.beginPath();
-        ctx.arc(ix, iy, radius, 0, Math.PI * 2);
-        ctx.fill();
         continue;
       }
 
@@ -1055,6 +1036,15 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
 
       // Zone-based selective halftone (skin/flatColor/highSat/shadow/neutral)
       const zone = classifyZone(sample, isSkinCell);
+
+      // Premium commercial rule: light colors, face highlights, yellow fabric,
+      // reflections and clean effects stay solid. Retícula only in dark tone.
+      if (shouldKeepSolidCommercial(sample, zone, artType)){
+        ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+        ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
+                     Math.ceil(cell), Math.ceil(cell));
+        continue;
+      }
 
       // CLEAN GRAPHIC ART rule:
       //   Halftone ONLY in shadows / dark folds.
