@@ -885,7 +885,7 @@ $('processBtn').addEventListener('click', async () => {
   const angleDeg = parseFloat($('angle').value);
   const minDensity = parseInt($('minDensity').value, 10) / 100;
   const protectSkin = $('protectSkin').checked;
-  const cell = Math.max(3, DPI / lpi); // float for precise grid spacing
+  const cell = DPI / lpi; // grade AM real: espaçamento matemático exato em 300 DPI
 
   await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
 
@@ -1009,8 +1009,10 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
   let rowIndex = 0;
   const totalRows = Math.ceil((2 * half) / cell);
 
-  for (let gy = -half; gy <= half; gy += cell){
-    for (let gx = -half; gx <= half; gx += cell){
+  for (let gyIndex = Math.floor(-half / cell); gyIndex <= Math.ceil(half / cell); gyIndex++){
+    const gy = gyIndex * cell;
+    for (let gxIndex = Math.floor(-half / cell); gxIndex <= Math.ceil(half / cell); gxIndex++){
+      const gx = gxIndex * cell;
       // Rotate grid into image space
       const ix = Math.round(cx + gx * cosA - gy * sinA);
       const iy = Math.round(cy + gx * sinA + gy * cosA);
