@@ -338,6 +338,30 @@ function rgbToHsv(r, g, b){
   return { h, s, v: mx };
 }
 
+function isImportantLightPixel(data, W, H, x, y){
+  const i = (y * W + x) * 4;
+  const L = brightness(data[i], data[i+1], data[i+2]);
+  if (L < HIGHLIGHT_BRIGHTNESS_CUTOFF || data[i+3] < ALPHA_CUTOFF) return false;
+  let darkNeighbors = 0, colorNeighbors = 0, opaqueNeighbors = 0;
+  for (let dy = -3; dy <= 3; dy++){
+    const yy = y + dy;
+    if (yy < 0 || yy >= H) continue;
+    for (let dx = -3; dx <= 3; dx++){
+      if (dx === 0 && dy === 0) continue;
+      const xx = x + dx;
+      if (xx < 0 || xx >= W) continue;
+      const j = (yy * W + xx) * 4;
+      if (data[j+3] < ALPHA_CUTOFF) continue;
+      opaqueNeighbors++;
+      const nL = brightness(data[j], data[j+1], data[j+2]);
+      const nSat = Math.max(data[j], data[j+1], data[j+2]) - Math.min(data[j], data[j+1], data[j+2]);
+      if (nL < 120) darkNeighbors++;
+      if (nSat > 45 || nL < 210) colorNeighbors++;
+    }
+  }
+  return opaqueNeighbors > 0 && (darkNeighbors >= 2 || colorNeighbors >= 6);
+}
+
 // Skin tone detection (HSV + RGB rule combo, covers anime + photo skin)
 function isSkin(r, g, b){
   if (r < 60 || g < 30 || b < 15) return false;
