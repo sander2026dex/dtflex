@@ -375,7 +375,7 @@ function applyContrast(data, contrast){
    background touching the canvas border.
    ============================================================ */
 
-function floodRemoveBackground(data, W, H, predicate){
+function floodRemoveBackground(data, W, H, predicate, protectInteriorDetails = false){
   const visited = new Uint8Array(W * H);
   const stack = [];
   for (let x=0; x<W; x++){ stack.push(x); stack.push((H-1)*W+x); }
@@ -387,6 +387,7 @@ function floodRemoveBackground(data, W, H, predicate){
     const i = p*4;
     if (data[i+3] < ALPHA_CUTOFF) { continue; }
     if (!predicate(data[i], data[i+1], data[i+2])) continue;
+    if (protectInteriorDetails && isImportantLightPixel(data, W, H, x, y)) continue;
     data[i+3] = 0;
     const x = p % W, y = (p / W) | 0;
     if (x>0)   stack.push(p-1);
@@ -415,7 +416,7 @@ function autoRemoveBackground(data, W, H){
       const lum = brightness(r,g,b);
       const sat = Math.max(r,g,b) - Math.min(r,g,b);
       return lum > 225 && sat < 35;
-    });
+    }, true);
   }
   if (samples > 0 && blackVotes / samples > 0.55){
     floodRemoveBackground(data, W, H, (r,g,b) => {
