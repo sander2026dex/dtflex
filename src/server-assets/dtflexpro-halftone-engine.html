@@ -983,28 +983,23 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
 
       // -----------------------------------------------------------
-      // BRANCO / HIGHLIGHT — não remover. Aplicar halftone leve conforme TAMANHO
-      // da região branca conectada:
-      //   pequeno  (olhos, dentes, brilhos)  -> 5%   coverage
-      //   médio    (acessórios, gloves)      -> 10%  coverage
-      //   grande   (superfície / fundo)      -> SOLID (sem retícula)
+      // THRESHOLD 90%: branco/brilho/cinza muito claro fica LIMPO.
+      // Nada de remover, nada de furar, nada de reticular olhos/reflexos.
+      // A retícula começa abaixo desse threshold e cresce em meios-tons/sombras.
       // -----------------------------------------------------------
-      const isWhiteCell = (sample.allWhite || sample.l > WHITE_BRIGHTNESS_CUTOFF);
-      if (isWhiteCell){
-        const regionSize = whiteRegionSizeAt(whiteSizeMap, ix, iy);
-        let whiteCoverage = 0.12;
-        if (regionSize > 0 && regionSize <= WHITE_SMALL_MAX)       whiteCoverage = 0.05;
-        else if (regionSize > 0 && regionSize <= WHITE_MEDIUM_MAX) whiteCoverage = 0.10;
-        const rMax = microDotRadius(cell, whiteCoverage);
-        ctx.fillStyle = 'rgb(255,255,255)';
-        ctx.beginPath();
-        ctx.arc(ix, iy, rMax, 0, Math.PI * 2);
-        ctx.fill();
+      const isCleanLightCell = (sample.allWhite || sample.l >= CLEAN_LIGHT_THRESHOLD || sample.whiteRatio > 0.45);
+      if (isCleanLightCell){
+        const rr = sample.allWhite ? 255 : Math.max(r0, 245);
+        const gg = sample.allWhite ? 255 : Math.max(g0, 245);
+        const bb = sample.allWhite ? 255 : Math.max(b0, 245);
+        ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+        ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
+                     Math.ceil(cell), Math.ceil(cell));
         continue;
       }
 
       if (isProtectedHighlightCell(sample, data, W, H)){
-        const coverage = sample.l > 225 ? 0.06 : 0.10;
+        const coverage = sample.l > 225 ? 0.04 : 0.08;
         const radius = microDotRadius(cell, coverage);
         const rr = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.r | 0);
         const gg = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.g | 0);
