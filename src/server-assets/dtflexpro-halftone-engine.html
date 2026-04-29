@@ -232,6 +232,12 @@ const DPI   = 300;
 // Threshold comercial: se a cor for mais clara que 90%, NÃO reticular e NÃO remover.
 // Branco, brilho, olhos, emblemas e cinza muito claro ficam limpos e sólidos.
 const CLEAN_LIGHT_THRESHOLD = 230; // 90% de 255
+// Proteção premium para cores claras: pele iluminada, amarelo vivo, reflexos e efeitos
+// não viram retícula global. A retícula entra só em sombra/dobra/contorno forte.
+const COMMERCIAL_SOLID_LIGHT_THRESHOLD = 185;
+const SKIN_SOLID_LIGHT_THRESHOLD = 112;
+const FLAT_COLOR_SOLID_LIGHT_THRESHOLD = 118;
+const HIGH_SAT_SOLID_LIGHT_THRESHOLD = 145;
 const WHITE_BRIGHTNESS_CUTOFF = CLEAN_LIGHT_THRESHOLD;
 const HIGHLIGHT_BRIGHTNESS_CUTOFF = 210;
 // Alpha cutoff for "transparent" pixels
@@ -635,6 +641,35 @@ function classifyZone(sample, isSkinCell){
   return 'neutral';
 }
 
+function shouldKeepSolidCommercial(sample, zone, artType){
+  if (!sample) return false;
+  const r = sample.r || 0, g = sample.g || 0, b = sample.b || 0;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  const sat = mx === 0 ? 0 : (mx - mn) / mx;
+  const L = sample.l;
+
+  // Regra principal pedida: acima de 90% fica 100% limpo.
+  if (sample.allWhite || L >= CLEAN_LIGHT_THRESHOLD || sample.whiteRatio > 0.30 || sample.brightRatio > 0.55) return true;
+
+  // Pele/rosto iluminado: não reticular tudo. Só sombras reais passam.
+  if (zone === 'skin' && L >= SKIN_SOLID_LIGHT_THRESHOLD) return true;
+
+  // Amarelo/fabric/anime/efeitos claros: preservar superfície premium lisa.
+  if (zone === 'flatColor' && L >= FLAT_COLOR_SOLID_LIGHT_THRESHOLD) return true;
+
+  // Cores fortes claras e cinzas claros ficam sólidos; retícula só em escuros.
+  if (zone === 'highSat' && L >= HIGH_SAT_SOLID_LIGHT_THRESHOLD) return true;
+  if (zone === 'neutral' && L >= COMMERCIAL_SOLID_LIGHT_THRESHOLD) return true;
+
+  // Em arte limpa, seja ainda mais conservador: não sujar superfícies já bonitas.
+  if (artType === 'clean'){
+    if ((zone === 'flatColor' || zone === 'skin' || zone === 'highSat') && L >= 95) return true;
+    if (sat < 0.20 && L >= 150) return true;
+  }
+
+  return false;
+}
+
 /* ============================================================
    ART-TYPE CLASSIFIER  (runs ONCE on the whole image)
    Decides between:
@@ -721,11 +756,11 @@ function dotRadius(luma, cell, minDensity, zone){
 
   let curve, capCoverage, floor;
   switch (zone){
-    case 'skin':       curve = 1.45; capCoverage = 0.25; floor = 0.08; break;
-    case 'flatColor':  curve = 1.80; capCoverage = 0.28; floor = 0.06; break;
-    case 'highSat':    curve = 1.55; capCoverage = 0.45; floor = 0.12; break;
+    case 'skin':       curve = 2.10; capCoverage = 0.18; floor = 0.00; break;
+    case 'flatColor':  curve = 2.35; capCoverage = 0.20; floor = 0.00; break;
+    case 'highSat':    curve = 2.00; capCoverage = 0.32; floor = 0.00; break;
     case 'shadow':     curve = 1.30; capCoverage = 0.80; floor = Math.max(minDensity, 0.20); break;
-    default:           curve = 1.55; capCoverage = 0.70; floor = minDensity;
+    default:           curve = 1.85; capCoverage = 0.58; floor = luma < 115 ? minDensity : 0;
   }
 
   let t = Math.pow(tone, curve);
@@ -983,32 +1018,13 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
-      // -----------------------------------------------------------
-      // THRESHOLD 90%: branco/brilho/cinza muito claro fica LIMPO.
-      // Nada de remover, nada de furar, nada de reticular olhos/reflexos.
-      // A retícula começa abaixo desse threshold e cresce em meios-tons/sombras.
-      // -----------------------------------------------------------
-      const isCleanLightCell = (sample.allWhite || sample.l >= CLEAN_LIGHT_THRESHOLD || sample.whiteRatio > 0.45);
-      if (isCleanLightCell){
-        const rr = sample.allWhite ? 255 : Math.max(r0, 245);
-        const gg = sample.allWhite ? 255 : Math.max(g0, 245);
-        const bb = sample.allWhite ? 255 : Math.max(b0, 245);
+      if (isProtectedHighlightCell(sample, data, W, H)){
+        const rr = sample.allWhite ? 255 : Math.max(r0, 238);
+        const gg = sample.allWhite ? 255 : Math.max(g0, 238);
+        const bb = sample.allWhite ? 255 : Math.max(b0, 238);
         ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
         ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
                      Math.ceil(cell), Math.ceil(cell));
-        continue;
-      }
-
-      if (isProtectedHighlightCell(sample, data, W, H)){
-        const coverage = sample.l > 225 ? 0.04 : 0.08;
-        const radius = microDotRadius(cell, coverage);
-        const rr = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.r | 0);
-        const gg = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.g | 0);
-        const bb = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.b | 0);
-        ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
-        ctx.beginPath();
-        ctx.arc(ix, iy, radius, 0, Math.PI * 2);
-        ctx.fill();
         continue;
       }
 
@@ -1020,6 +1036,15 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
 
       // Zone-based selective halftone (skin/flatColor/highSat/shadow/neutral)
       const zone = classifyZone(sample, isSkinCell);
+
+      // Premium commercial rule: light colors, face highlights, yellow fabric,
+      // reflections and clean effects stay solid. Retícula only in dark tone.
+      if (shouldKeepSolidCommercial(sample, zone, artType)){
+        ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+        ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
+                     Math.ceil(cell), Math.ceil(cell));
+        continue;
+      }
 
       // CLEAN GRAPHIC ART rule:
       //   Halftone ONLY in shadows / dark folds.
