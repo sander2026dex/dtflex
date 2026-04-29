@@ -744,7 +744,20 @@ function dotRadius(luma, cell, minDensity, zone){
   // r_max for coverage C => r = cell * sqrt(C/pi)
   const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.6; // 1.6 visual factor
   const r = rMax * Math.sqrt(t / capCoverage);
-  return r < 0.6 ? 0 : r;
+  return r < MICRO_MIN_DOT_PX ? 0 : Math.min(MICRO_MAX_DOT_PX, r);
+}
+
+function microDotRadius(cell, coverage){
+  const r = cell * Math.sqrt(coverage / Math.PI) * 1.35;
+  return Math.max(MICRO_MIN_DOT_PX, Math.min(MICRO_MAX_DOT_PX, r));
+}
+
+function isProtectedHighlightCell(sample, data, W, H){
+  if (!sample) return false;
+  if (sample.allWhite || sample.whiteRatio > 0.12) return true;
+  if (sample.l >= HIGHLIGHT_BRIGHTNESS_CUTOFF && sample.brightRatio > 0.30) return true;
+  if (sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF && isImportantLightPixel(data, W, H, sample.maxX, sample.maxY)) return true;
+  return false;
 }
 
 /* ============================================================
