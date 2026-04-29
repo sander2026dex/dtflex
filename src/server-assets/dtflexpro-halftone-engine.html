@@ -232,6 +232,12 @@ const DPI   = 300;
 // Threshold comercial: se a cor for mais clara que 90%, NÃO reticular e NÃO remover.
 // Branco, brilho, olhos, emblemas e cinza muito claro ficam limpos e sólidos.
 const CLEAN_LIGHT_THRESHOLD = 230; // 90% de 255
+// Proteção premium para cores claras: pele iluminada, amarelo vivo, reflexos e efeitos
+// não viram retícula global. A retícula entra só em sombra/dobra/contorno forte.
+const COMMERCIAL_SOLID_LIGHT_THRESHOLD = 185;
+const SKIN_SOLID_LIGHT_THRESHOLD = 112;
+const FLAT_COLOR_SOLID_LIGHT_THRESHOLD = 118;
+const HIGH_SAT_SOLID_LIGHT_THRESHOLD = 145;
 const WHITE_BRIGHTNESS_CUTOFF = CLEAN_LIGHT_THRESHOLD;
 const HIGHLIGHT_BRIGHTNESS_CUTOFF = 210;
 // Alpha cutoff for "transparent" pixels
