@@ -229,10 +229,11 @@
 const OUT_W = 3307, OUT_H = 4930;
 const DPI   = 300;
 
-// Highlight detection: branco/cinza claro/reflexo importante deve virar microdot,
-// nunca ser apagado como vazado interno.
-const WHITE_BRIGHTNESS_CUTOFF = 238;
-const HIGHLIGHT_BRIGHTNESS_CUTOFF = 181;
+// Threshold comercial: se a cor for mais clara que 90%, NÃO reticular e NÃO remover.
+// Branco, brilho, olhos, emblemas e cinza muito claro ficam limpos e sólidos.
+const CLEAN_LIGHT_THRESHOLD = 230; // 90% de 255
+const WHITE_BRIGHTNESS_CUTOFF = CLEAN_LIGHT_THRESHOLD;
+const HIGHLIGHT_BRIGHTNESS_CUTOFF = 210;
 // Alpha cutoff for "transparent" pixels
 const ALPHA_CUTOFF = 10;
 // Tamanho de componente branco (em pixels @ 300 DPI) para classificar como
@@ -422,7 +423,9 @@ function floodRemoveBackground(data, W, H, predicate, protectInteriorDetails = f
 }
 
 function autoRemoveBackground(data, W, H){
-  // Sample border colors to decide what to remove
+  // Sample border colors to decide what to remove.
+  // Branco nunca é removido automaticamente: em DTF ele pode ser olho, brilho,
+  // emblema, acessório ou detalhe interno. Remove apenas fundo preto conectado à borda.
   let whiteVotes = 0, blackVotes = 0, samples = 0;
   const sample = (x, y) => {
     const i = (y*W + x) * 4;
@@ -434,14 +437,6 @@ function autoRemoveBackground(data, W, H){
   };
   for (let x=0; x<W; x+=Math.max(1, (W/64)|0)) { sample(x, 0); sample(x, H-1); }
   for (let y=0; y<H; y+=Math.max(1, (H/64)|0)) { sample(0, y); sample(W-1, y); }
-
-  if (samples > 0 && whiteVotes / samples > 0.55){
-    floodRemoveBackground(data, W, H, (r,g,b) => {
-      const lum = brightness(r,g,b);
-      const sat = Math.max(r,g,b) - Math.min(r,g,b);
-      return lum > 225 && sat < 35;
-    }, true);
-  }
   if (samples > 0 && blackVotes / samples > 0.55){
     floodRemoveBackground(data, W, H, (r,g,b) => {
       const lum = brightness(r,g,b);
@@ -986,30 +981,26 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const sample = sampleCell(data, W, H, ix, iy, cell);
       if (!sample) continue;
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
+      const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
       // -----------------------------------------------------------
-      // BRANCO / HIGHLIGHT — não remover. Aplicar halftone leve conforme TAMANHO
-      // da região branca conectada:
-      //   pequeno  (olhos, dentes, brilhos)  -> 5%   coverage
-      //   médio    (acessórios, gloves)      -> 10%  coverage
-      //   grande   (superfície / fundo)      -> SOLID (sem retícula)
+      // THRESHOLD 90%: branco/brilho/cinza muito claro fica LIMPO.
+      // Nada de remover, nada de furar, nada de reticular olhos/reflexos.
+      // A retícula começa abaixo desse threshold e cresce em meios-tons/sombras.
       // -----------------------------------------------------------
-      const isWhiteCell = (sample.allWhite || sample.l > WHITE_BRIGHTNESS_CUTOFF);
-      if (isWhiteCell){
-        const regionSize = whiteRegionSizeAt(whiteSizeMap, ix, iy);
-        let whiteCoverage = 0.12;
-        if (regionSize > 0 && regionSize <= WHITE_SMALL_MAX)       whiteCoverage = 0.05;
-        else if (regionSize > 0 && regionSize <= WHITE_MEDIUM_MAX) whiteCoverage = 0.10;
-        const rMax = microDotRadius(cell, whiteCoverage);
-        ctx.fillStyle = 'rgb(255,255,255)';
-        ctx.beginPath();
-        ctx.arc(ix, iy, rMax, 0, Math.PI * 2);
-        ctx.fill();
+      const isCleanLightCell = (sample.allWhite || sample.l >= CLEAN_LIGHT_THRESHOLD || sample.whiteRatio > 0.45);
+      if (isCleanLightCell){
+        const rr = sample.allWhite ? 255 : Math.max(r0, 245);
+        const gg = sample.allWhite ? 255 : Math.max(g0, 245);
+        const bb = sample.allWhite ? 255 : Math.max(b0, 245);
+        ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+        ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
+                     Math.ceil(cell), Math.ceil(cell));
         continue;
       }
 
       if (isProtectedHighlightCell(sample, data, W, H)){
-        const coverage = sample.l > 225 ? 0.06 : 0.10;
+        const coverage = sample.l > 225 ? 0.04 : 0.08;
         const radius = microDotRadius(cell, coverage);
         const rr = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.r | 0);
         const gg = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.g | 0);
@@ -1029,8 +1020,6 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
 
       // Zone-based selective halftone (skin/flatColor/highSat/shadow/neutral)
       const zone = classifyZone(sample, isSkinCell);
-
-      const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
       // CLEAN GRAPHIC ART rule:
       //   Halftone ONLY in shadows / dark folds.
