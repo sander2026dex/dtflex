@@ -229,10 +229,11 @@
 const OUT_W = 3307, OUT_H = 4930;
 const DPI   = 300;
 
-// Highlight detection: branco/cinza claro/reflexo importante deve virar microdot,
-// nunca ser apagado como vazado interno.
-const WHITE_BRIGHTNESS_CUTOFF = 238;
-const HIGHLIGHT_BRIGHTNESS_CUTOFF = 181;
+// Threshold comercial: se a cor for mais clara que 90%, NÃO reticular e NÃO remover.
+// Branco, brilho, olhos, emblemas e cinza muito claro ficam limpos e sólidos.
+const CLEAN_LIGHT_THRESHOLD = 230; // 90% de 255
+const WHITE_BRIGHTNESS_CUTOFF = CLEAN_LIGHT_THRESHOLD;
+const HIGHLIGHT_BRIGHTNESS_CUTOFF = 210;
 // Alpha cutoff for "transparent" pixels
 const ALPHA_CUTOFF = 10;
 // Tamanho de componente branco (em pixels @ 300 DPI) para classificar como
@@ -422,7 +423,9 @@ function floodRemoveBackground(data, W, H, predicate, protectInteriorDetails = f
 }
 
 function autoRemoveBackground(data, W, H){
-  // Sample border colors to decide what to remove
+  // Sample border colors to decide what to remove.
+  // Branco nunca é removido automaticamente: em DTF ele pode ser olho, brilho,
+  // emblema, acessório ou detalhe interno. Remove apenas fundo preto conectado à borda.
   let whiteVotes = 0, blackVotes = 0, samples = 0;
   const sample = (x, y) => {
     const i = (y*W + x) * 4;
@@ -434,14 +437,6 @@ function autoRemoveBackground(data, W, H){
   };
   for (let x=0; x<W; x+=Math.max(1, (W/64)|0)) { sample(x, 0); sample(x, H-1); }
   for (let y=0; y<H; y+=Math.max(1, (H/64)|0)) { sample(0, y); sample(W-1, y); }
-
-  if (samples > 0 && whiteVotes / samples > 0.55){
-    floodRemoveBackground(data, W, H, (r,g,b) => {
-      const lum = brightness(r,g,b);
-      const sat = Math.max(r,g,b) - Math.min(r,g,b);
-      return lum > 225 && sat < 35;
-    }, true);
-  }
   if (samples > 0 && blackVotes / samples > 0.55){
     floodRemoveBackground(data, W, H, (r,g,b) => {
       const lum = brightness(r,g,b);
