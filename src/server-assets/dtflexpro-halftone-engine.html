@@ -981,6 +981,7 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const sample = sampleCell(data, W, H, ix, iy, cell);
       if (!sample) continue;
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
+      const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
       // -----------------------------------------------------------
       // THRESHOLD 90%: branco/brilho/cinza muito claro fica LIMPO.
@@ -1019,8 +1020,6 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
 
       // Zone-based selective halftone (skin/flatColor/highSat/shadow/neutral)
       const zone = classifyZone(sample, isSkinCell);
-
-      const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
       // CLEAN GRAPHIC ART rule:
       //   Halftone ONLY in shadows / dark folds.
