@@ -159,20 +159,20 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Fundo preto removido automaticamente. Branco real, texto, bordas e cores vibrantes ficam sólidos; só meios-tons recebem retícula circular.</p>
+      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Fundo removido com proteção de branco estrutural: olhos, dentes, letras, reflexos e emblemas viram micro-retícula, nunca buracos.</p>
     </div>
 
     <div class="control-group">
       <label>LPI (linhas/polegada)</label>
-      <input type="range" id="lpi" min="32" max="65" value="45" />
-      <div class="value" id="lpiVal">45 LPI</div>
-      <p class="info-text">45 LPI = padrão profissional para DTF. Pontos circulares nítidos, ângulo 45°.</p>
+      <input type="range" id="lpi" min="32" max="65" value="42" />
+      <div class="value" id="lpiVal">42 LPI</div>
+      <p class="info-text">42 LPI = padrão profissional para DTF. Pontos circulares nítidos, ângulo 22.5°.</p>
     </div>
 
     <div class="control-group">
       <label>Ângulo</label>
-      <input type="range" id="angle" min="0" max="90" value="45" />
-      <div class="value" id="angleVal">45°</div>
+      <input type="range" id="angle" min="0" max="90" step="0.5" value="22.5" />
+      <div class="value" id="angleVal">22.5°</div>
     </div>
 
     
