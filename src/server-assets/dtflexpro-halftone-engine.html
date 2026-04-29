@@ -756,11 +756,11 @@ function dotRadius(luma, cell, minDensity, zone){
 
   let curve, capCoverage, floor;
   switch (zone){
-    case 'skin':       curve = 1.45; capCoverage = 0.25; floor = 0.08; break;
-    case 'flatColor':  curve = 1.80; capCoverage = 0.28; floor = 0.06; break;
-    case 'highSat':    curve = 1.55; capCoverage = 0.45; floor = 0.12; break;
+    case 'skin':       curve = 2.10; capCoverage = 0.18; floor = 0.00; break;
+    case 'flatColor':  curve = 2.35; capCoverage = 0.20; floor = 0.00; break;
+    case 'highSat':    curve = 2.00; capCoverage = 0.32; floor = 0.00; break;
     case 'shadow':     curve = 1.30; capCoverage = 0.80; floor = Math.max(minDensity, 0.20); break;
-    default:           curve = 1.55; capCoverage = 0.70; floor = minDensity;
+    default:           curve = 1.85; capCoverage = 0.58; floor = luma < 115 ? minDensity : 0;
   }
 
   let t = Math.pow(tone, curve);
