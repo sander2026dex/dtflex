@@ -229,8 +229,10 @@
 const OUT_W = 3307, OUT_H = 4930;
 const DPI   = 300;
 
-// White detection threshold (brightness > 240 considered "white highlight")
-const WHITE_BRIGHTNESS_CUTOFF = 240;
+// Highlight detection: branco/cinza claro/reflexo importante deve virar microdot,
+// nunca ser apagado como vazado interno.
+const WHITE_BRIGHTNESS_CUTOFF = 238;
+const HIGHLIGHT_BRIGHTNESS_CUTOFF = 181;
 // Alpha cutoff for "transparent" pixels
 const ALPHA_CUTOFF = 10;
 // Tamanho de componente branco (em pixels @ 300 DPI) para classificar como
@@ -238,6 +240,8 @@ const ALPHA_CUTOFF = 10;
 // Acima de LARGE -> superfície branca grande, mantém SOLID (não retícula).
 const WHITE_SMALL_MAX  = 4500;    // ~ olhos, dentes, brilhos pontuais
 const WHITE_MEDIUM_MAX = 28000;   // ~ acessórios, gloves, capacetes pequenos
+const MICRO_MIN_DOT_PX = 0.18;
+const MICRO_MAX_DOT_PX = 2.8;
 
 let sourceImage = null;
 let outputBlob = null;
