@@ -235,9 +235,11 @@ const CLEAN_LIGHT_THRESHOLD = 230; // 90% de 255
 // Proteção premium para cores claras: pele iluminada, amarelo vivo, reflexos e efeitos
 // não viram retícula global. A retícula entra só em sombra/dobra/contorno forte.
 const COMMERCIAL_SOLID_LIGHT_THRESHOLD = 185;
-const SKIN_SOLID_LIGHT_THRESHOLD = 112;
-const FLAT_COLOR_SOLID_LIGHT_THRESHOLD = 118;
-const HIGH_SAT_SOLID_LIGHT_THRESHOLD = 145;
+const SKIN_SOLID_LIGHT_THRESHOLD = 95;
+const FLAT_COLOR_SOLID_LIGHT_THRESHOLD = 82;
+const HIGH_SAT_SOLID_LIGHT_THRESHOLD = 110;
+const YELLOW_EFFECT_SOLID_THRESHOLD = 78;
+const TRUE_SHADOW_SCREEN_THRESHOLD = 74;
 const WHITE_BRIGHTNESS_CUTOFF = CLEAN_LIGHT_THRESHOLD;
 const HIGHLIGHT_BRIGHTNESS_CUTOFF = 210;
 // Alpha cutoff for "transparent" pixels
@@ -634,9 +636,12 @@ function classifyZone(sample, isSkinCell){
   const r = sample.r, g = sample.g, b = sample.b, L = sample.l;
   const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
   const sat = mx === 0 ? 0 : (mx - mn) / mx; // 0..1
-  if (L < 60) return 'shadow';
+  const { h } = rgbToHsv(r, g, b);
+  const isYellowEffect = h >= 32 && h <= 76 && sat > 0.24 && r > b * 1.35 && g > b * 1.25;
+  if (L < TRUE_SHADOW_SCREEN_THRESHOLD) return 'shadow';
+  if (isYellowEffect) return 'flatColor';
   // Flat vibrant fabric (yellow / red / blue jersey) — bright AND saturated
-  if (sat > 0.55 && L > 110) return 'flatColor';
+  if (sat > 0.55 && L > 92) return 'flatColor';
   if (sat > 0.40) return 'highSat';
   return 'neutral';
 }
@@ -646,6 +651,8 @@ function shouldKeepSolidCommercial(sample, zone, artType){
   const r = sample.r || 0, g = sample.g || 0, b = sample.b || 0;
   const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
   const sat = mx === 0 ? 0 : (mx - mn) / mx;
+  const { h } = rgbToHsv(r, g, b);
+  const isYellowEffect = h >= 32 && h <= 76 && sat > 0.24 && r > b * 1.35 && g > b * 1.25;
   const L = sample.l;
 
   // Regra principal pedida: acima de 90% fica 100% limpo.
@@ -654,7 +661,10 @@ function shouldKeepSolidCommercial(sample, zone, artType){
   // Pele/rosto iluminado: não reticular tudo. Só sombras reais passam.
   if (zone === 'skin' && L >= SKIN_SOLID_LIGHT_THRESHOLD) return true;
 
-  // Amarelo/fabric/anime/efeitos claros: preservar superfície premium lisa.
+  // Amarelo/fabric/anime/efeitos: preservar liso; retícula só na sombra profunda.
+  if (isYellowEffect && L >= YELLOW_EFFECT_SOLID_THRESHOLD) return true;
+
+  // Cores chapadas/efeitos claros: preservar superfície premium lisa.
   if (zone === 'flatColor' && L >= FLAT_COLOR_SOLID_LIGHT_THRESHOLD) return true;
 
   // Cores fortes claras e cinzas claros ficam sólidos; retícula só em escuros.
@@ -756,10 +766,10 @@ function dotRadius(luma, cell, minDensity, zone){
 
   let curve, capCoverage, floor;
   switch (zone){
-    case 'skin':       curve = 2.10; capCoverage = 0.18; floor = 0.00; break;
-    case 'flatColor':  curve = 2.35; capCoverage = 0.20; floor = 0.00; break;
-    case 'highSat':    curve = 2.00; capCoverage = 0.32; floor = 0.00; break;
-    case 'shadow':     curve = 1.30; capCoverage = 0.80; floor = Math.max(minDensity, 0.20); break;
+    case 'skin':       curve = 2.65; capCoverage = 0.14; floor = 0.00; break;
+    case 'flatColor':  curve = 3.10; capCoverage = 0.12; floor = 0.00; break;
+    case 'highSat':    curve = 2.55; capCoverage = 0.22; floor = 0.00; break;
+    case 'shadow':     curve = 1.45; capCoverage = 0.70; floor = Math.max(minDensity, 0.16); break;
     default:           curve = 1.85; capCoverage = 0.58; floor = luma < 115 ? minDensity : 0;
   }
 
@@ -772,9 +782,10 @@ function dotRadius(luma, cell, minDensity, zone){
   // maxR derived from capCoverage so cap is honored geometrically too.
   // Area = pi*r^2 within a cell of area cell^2. Coverage = pi*r^2 / cell^2.
   // r_max for coverage C => r = cell * sqrt(C/pi)
-  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.6; // 1.6 visual factor
+  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.38; // precisão visual sem borrar a simetria
   const r = rMax * Math.sqrt(t / capCoverage);
-  return r < MICRO_MIN_DOT_PX ? 0 : Math.min(MICRO_MAX_DOT_PX, r);
+  const zoneMax = zone === 'shadow' ? cell * 0.46 : MICRO_MAX_DOT_PX;
+  return r < MICRO_MIN_DOT_PX ? 0 : Math.min(zoneMax, r);
 }
 
 function microDotRadius(cell, coverage){
@@ -874,7 +885,7 @@ $('processBtn').addEventListener('click', async () => {
   const angleDeg = parseFloat($('angle').value);
   const minDensity = parseInt($('minDensity').value, 10) / 100;
   const protectSkin = $('protectSkin').checked;
-  const cell = Math.max(3, DPI / lpi); // float for precise grid spacing
+  const cell = DPI / lpi; // grade AM real: espaçamento matemático exato em 300 DPI
 
   await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
 
@@ -998,8 +1009,10 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
   let rowIndex = 0;
   const totalRows = Math.ceil((2 * half) / cell);
 
-  for (let gy = -half; gy <= half; gy += cell){
-    for (let gx = -half; gx <= half; gx += cell){
+  for (let gyIndex = Math.floor(-half / cell); gyIndex <= Math.ceil(half / cell); gyIndex++){
+    const gy = gyIndex * cell;
+    for (let gxIndex = Math.floor(-half / cell); gxIndex <= Math.ceil(half / cell); gxIndex++){
+      const gx = gxIndex * cell;
       // Rotate grid into image space
       const ix = Math.round(cx + gx * cosA - gy * sinA);
       const iy = Math.round(cy + gx * sinA + gy * cosA);
