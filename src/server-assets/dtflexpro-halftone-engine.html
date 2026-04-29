@@ -159,20 +159,20 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Fundo preto removido automaticamente. Branco real, texto, bordas e cores vibrantes ficam sólidos; só meios-tons recebem retícula circular.</p>
+      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Fundo removido com proteção de branco estrutural: olhos, dentes, letras, reflexos e emblemas viram micro-retícula, nunca buracos.</p>
     </div>
 
     <div class="control-group">
       <label>LPI (linhas/polegada)</label>
-      <input type="range" id="lpi" min="32" max="65" value="45" />
-      <div class="value" id="lpiVal">45 LPI</div>
-      <p class="info-text">45 LPI = padrão profissional para DTF. Pontos circulares nítidos, ângulo 45°.</p>
+      <input type="range" id="lpi" min="32" max="65" value="42" />
+      <div class="value" id="lpiVal">42 LPI</div>
+      <p class="info-text">42 LPI = padrão profissional para DTF. Pontos circulares nítidos, ângulo 22.5°.</p>
     </div>
 
     <div class="control-group">
       <label>Ângulo</label>
-      <input type="range" id="angle" min="0" max="90" value="45" />
-      <div class="value" id="angleVal">45°</div>
+      <input type="range" id="angle" min="0" max="90" step="0.5" value="22.5" />
+      <div class="value" id="angleVal">22.5°</div>
     </div>
 
     
@@ -229,8 +229,10 @@
 const OUT_W = 3307, OUT_H = 4930;
 const DPI   = 300;
 
-// White detection threshold (brightness > 240 considered "white highlight")
-const WHITE_BRIGHTNESS_CUTOFF = 240;
+// Highlight detection: branco/cinza claro/reflexo importante deve virar microdot,
+// nunca ser apagado como vazado interno.
+const WHITE_BRIGHTNESS_CUTOFF = 238;
+const HIGHLIGHT_BRIGHTNESS_CUTOFF = 181;
 // Alpha cutoff for "transparent" pixels
 const ALPHA_CUTOFF = 10;
 // Tamanho de componente branco (em pixels @ 300 DPI) para classificar como
@@ -238,6 +240,8 @@ const ALPHA_CUTOFF = 10;
 // Acima de LARGE -> superfície branca grande, mantém SOLID (não retícula).
 const WHITE_SMALL_MAX  = 4500;    // ~ olhos, dentes, brilhos pontuais
 const WHITE_MEDIUM_MAX = 28000;   // ~ acessórios, gloves, capacetes pequenos
+const MICRO_MIN_DOT_PX = 0.18;
+const MICRO_MAX_DOT_PX = 2.8;
 
 let sourceImage = null;
 let outputBlob = null;
@@ -334,6 +338,30 @@ function rgbToHsv(r, g, b){
   return { h, s, v: mx };
 }
 
+function isImportantLightPixel(data, W, H, x, y){
+  const i = (y * W + x) * 4;
+  const L = brightness(data[i], data[i+1], data[i+2]);
+  if (L < HIGHLIGHT_BRIGHTNESS_CUTOFF || data[i+3] < ALPHA_CUTOFF) return false;
+  let darkNeighbors = 0, colorNeighbors = 0, opaqueNeighbors = 0;
+  for (let dy = -3; dy <= 3; dy++){
+    const yy = y + dy;
+    if (yy < 0 || yy >= H) continue;
+    for (let dx = -3; dx <= 3; dx++){
+      if (dx === 0 && dy === 0) continue;
+      const xx = x + dx;
+      if (xx < 0 || xx >= W) continue;
+      const j = (yy * W + xx) * 4;
+      if (data[j+3] < ALPHA_CUTOFF) continue;
+      opaqueNeighbors++;
+      const nL = brightness(data[j], data[j+1], data[j+2]);
+      const nSat = Math.max(data[j], data[j+1], data[j+2]) - Math.min(data[j], data[j+1], data[j+2]);
+      if (nL < 120) darkNeighbors++;
+      if (nSat > 45 || nL < 210) colorNeighbors++;
+    }
+  }
+  return opaqueNeighbors > 0 && (darkNeighbors >= 2 || colorNeighbors >= 6);
+}
+
 // Skin tone detection (HSV + RGB rule combo, covers anime + photo skin)
 function isSkin(r, g, b){
   if (r < 60 || g < 30 || b < 15) return false;
@@ -371,7 +399,7 @@ function applyContrast(data, contrast){
    background touching the canvas border.
    ============================================================ */
 
-function floodRemoveBackground(data, W, H, predicate){
+function floodRemoveBackground(data, W, H, predicate, protectInteriorDetails = false){
   const visited = new Uint8Array(W * H);
   const stack = [];
   for (let x=0; x<W; x++){ stack.push(x); stack.push((H-1)*W+x); }
@@ -383,8 +411,9 @@ function floodRemoveBackground(data, W, H, predicate){
     const i = p*4;
     if (data[i+3] < ALPHA_CUTOFF) { continue; }
     if (!predicate(data[i], data[i+1], data[i+2])) continue;
-    data[i+3] = 0;
     const x = p % W, y = (p / W) | 0;
+    if (protectInteriorDetails && isImportantLightPixel(data, W, H, x, y)) continue;
+    data[i+3] = 0;
     if (x>0)   stack.push(p-1);
     if (x<W-1) stack.push(p+1);
     if (y>0)   stack.push(p-W);
@@ -411,7 +440,7 @@ function autoRemoveBackground(data, W, H){
       const lum = brightness(r,g,b);
       const sat = Math.max(r,g,b) - Math.min(r,g,b);
       return lum > 225 && sat < 35;
-    });
+    }, true);
   }
   if (samples > 0 && blackVotes / samples > 0.55){
     floodRemoveBackground(data, W, H, (r,g,b) => {
@@ -469,8 +498,6 @@ function paintEdgesSolid(ctx, data, edgeMask, W, H){
   for (let p=0, i=0; p<edgeMask.length; p++, i+=4){
     if (!edgeMask[p]) continue;
     if (data[i+3] < ALPHA_CUTOFF) continue;
-    const lum = brightness(data[i], data[i+1], data[i+2]);
-    if (lum > WHITE_BRIGHTNESS_CUTOFF) continue; // never paint highlight whites
     out[i  ] = data[i  ];
     out[i+1] = data[i+1];
     out[i+2] = data[i+2];
@@ -546,7 +573,7 @@ function whiteRegionSizeAt(map, x, y){
 function sampleCell(data, W, H, cx, cy, cell){
   const half = Math.max(1, Math.floor(cell * 0.50));
   let r=0, g=0, b=0, count=0, lumSum=0, opaqueCount=0;
-  let whiteCount = 0;
+  let whiteCount = 0, brightCount = 0, maxL = -1, maxX = cx, maxY = cy;
   const x0 = Math.max(0, cx - half), x1 = Math.min(W-1, cx + half);
   const y0 = Math.max(0, cy - half), y1 = Math.min(H-1, cy + half);
   for (let y=y0; y<=y1; y++){
@@ -556,6 +583,8 @@ function sampleCell(data, W, H, cx, cy, cell){
       opaqueCount++;
       const L = brightness(data[i], data[i+1], data[i+2]);
       lumSum += L;
+      if (L > maxL) { maxL = L; maxX = x; maxY = y; }
+      if (L >= HIGHLIGHT_BRIGHTNESS_CUTOFF) brightCount++;
       if (L > WHITE_BRIGHTNESS_CUTOFF) { whiteCount++; continue; }
       r += data[i]; g += data[i+1]; b += data[i+2];
       count++;
@@ -567,14 +596,18 @@ function sampleCell(data, W, H, cx, cy, cell){
   const avgLum = lumSum / opaqueCount;
   if (count === 0){
     // Whole cell is highlight white — return null so caller skips it
-    return { allWhite: true, coverage, l: avgLum };
+    return { allWhite: true, coverage, l: avgLum, whiteRatio: whiteCount / opaqueCount, brightRatio: brightCount / opaqueCount, maxL, maxX, maxY };
   }
   const ar = r / count, ag = g / count, ab = b / count;
   return {
     r: ar, g: ag, b: ab,
     l: avgLum,
     coverage,
-    whiteRatio: whiteCount / opaqueCount
+    whiteRatio: whiteCount / opaqueCount,
+    brightRatio: brightCount / opaqueCount,
+    maxL,
+    maxX,
+    maxY
   };
 }
 
@@ -711,7 +744,20 @@ function dotRadius(luma, cell, minDensity, zone){
   // r_max for coverage C => r = cell * sqrt(C/pi)
   const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.6; // 1.6 visual factor
   const r = rMax * Math.sqrt(t / capCoverage);
-  return r < 0.6 ? 0 : r;
+  return r < MICRO_MIN_DOT_PX ? 0 : Math.min(MICRO_MAX_DOT_PX, r);
+}
+
+function microDotRadius(cell, coverage){
+  const r = cell * Math.sqrt(coverage / Math.PI) * 1.35;
+  return Math.max(MICRO_MIN_DOT_PX, Math.min(MICRO_MAX_DOT_PX, r));
+}
+
+function isProtectedHighlightCell(sample, data, W, H){
+  if (!sample) return false;
+  if (sample.allWhite || sample.whiteRatio > 0.12) return true;
+  if (sample.l >= HIGHLIGHT_BRIGHTNESS_CUTOFF && sample.brightRatio > 0.30) return true;
+  if (sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF && isImportantLightPixel(data, W, H, sample.maxX, sample.maxY)) return true;
+  return false;
 }
 
 /* ============================================================
@@ -795,7 +841,7 @@ $('processBtn').addEventListener('click', async () => {
 
   // 6) AM screening parameters from UI
   const lpi = parseInt($('lpi').value, 10);
-  const angleDeg = parseInt($('angle').value, 10);
+  const angleDeg = parseFloat($('angle').value);
   const minDensity = parseInt($('minDensity').value, 10) / 100;
   const protectSkin = $('protectSkin').checked;
   const cell = Math.max(3, DPI / lpi); // float for precise grid spacing
@@ -942,7 +988,7 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
 
       // -----------------------------------------------------------
-      // BRANCO — não remover. Aplicar halftone leve conforme TAMANHO
+      // BRANCO / HIGHLIGHT — não remover. Aplicar halftone leve conforme TAMANHO
       // da região branca conectada:
       //   pequeno  (olhos, dentes, brilhos)  -> 5%   coverage
       //   médio    (acessórios, gloves)      -> 10%  coverage
@@ -951,24 +997,26 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const isWhiteCell = (sample.allWhite || sample.l > WHITE_BRIGHTNESS_CUTOFF);
       if (isWhiteCell){
         const regionSize = whiteRegionSizeAt(whiteSizeMap, ix, iy);
-        let whiteCoverage = 0;
+        let whiteCoverage = 0.12;
         if (regionSize > 0 && regionSize <= WHITE_SMALL_MAX)       whiteCoverage = 0.05;
         else if (regionSize > 0 && regionSize <= WHITE_MEDIUM_MAX) whiteCoverage = 0.10;
-        else {
-          // Região branca grande — manter SOLID branco (preserva dentes,
-          // toad, gloves grandes, fundo branco intencional)
-          ctx.fillStyle = 'rgb(255,255,255)';
-          ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
-                       Math.ceil(cell), Math.ceil(cell));
-          continue;
-        }
-        // Dot leve cinza-claro para sentir a retícula sem sujar o branco
-        // r = cell * sqrt(coverage / pi) ; fator visual 1.6 (mesmo do dotRadius)
-        const rMax = cell * Math.sqrt(whiteCoverage / Math.PI) * 1.6;
-        if (rMax < 0.5) continue;
-        ctx.fillStyle = 'rgba(40,40,40,0.85)';
+        const rMax = microDotRadius(cell, whiteCoverage);
+        ctx.fillStyle = 'rgb(255,255,255)';
         ctx.beginPath();
         ctx.arc(ix, iy, rMax, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
+
+      if (isProtectedHighlightCell(sample, data, W, H)){
+        const coverage = sample.l > 225 ? 0.06 : 0.10;
+        const radius = microDotRadius(cell, coverage);
+        const rr = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.r | 0);
+        const gg = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.g | 0);
+        const bb = sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF ? 255 : (sample.b | 0);
+        ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+        ctx.beginPath();
+        ctx.arc(ix, iy, radius, 0, Math.PI * 2);
         ctx.fill();
         continue;
       }
