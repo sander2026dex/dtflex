@@ -498,8 +498,6 @@ function paintEdgesSolid(ctx, data, edgeMask, W, H){
   for (let p=0, i=0; p<edgeMask.length; p++, i+=4){
     if (!edgeMask[p]) continue;
     if (data[i+3] < ALPHA_CUTOFF) continue;
-    const lum = brightness(data[i], data[i+1], data[i+2]);
-    if (lum > WHITE_BRIGHTNESS_CUTOFF) continue; // never paint highlight whites
     out[i  ] = data[i  ];
     out[i+1] = data[i+1];
     out[i+2] = data[i+2];
