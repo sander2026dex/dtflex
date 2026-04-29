@@ -411,9 +411,9 @@ function floodRemoveBackground(data, W, H, predicate, protectInteriorDetails = f
     const i = p*4;
     if (data[i+3] < ALPHA_CUTOFF) { continue; }
     if (!predicate(data[i], data[i+1], data[i+2])) continue;
+    const x = p % W, y = (p / W) | 0;
     if (protectInteriorDetails && isImportantLightPixel(data, W, H, x, y)) continue;
     data[i+3] = 0;
-    const x = p % W, y = (p / W) | 0;
     if (x>0)   stack.push(p-1);
     if (x<W-1) stack.push(p+1);
     if (y>0)   stack.push(p-W);
