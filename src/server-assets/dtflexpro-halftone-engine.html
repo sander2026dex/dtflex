@@ -641,6 +641,35 @@ function classifyZone(sample, isSkinCell){
   return 'neutral';
 }
 
+function shouldKeepSolidCommercial(sample, zone, artType){
+  if (!sample) return false;
+  const r = sample.r || 0, g = sample.g || 0, b = sample.b || 0;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  const sat = mx === 0 ? 0 : (mx - mn) / mx;
+  const L = sample.l;
+
+  // Regra principal pedida: acima de 90% fica 100% limpo.
+  if (sample.allWhite || L >= CLEAN_LIGHT_THRESHOLD || sample.whiteRatio > 0.30 || sample.brightRatio > 0.55) return true;
+
+  // Pele/rosto iluminado: não reticular tudo. Só sombras reais passam.
+  if (zone === 'skin' && L >= SKIN_SOLID_LIGHT_THRESHOLD) return true;
+
+  // Amarelo/fabric/anime/efeitos claros: preservar superfície premium lisa.
+  if (zone === 'flatColor' && L >= FLAT_COLOR_SOLID_LIGHT_THRESHOLD) return true;
+
+  // Cores fortes claras e cinzas claros ficam sólidos; retícula só em escuros.
+  if (zone === 'highSat' && L >= HIGH_SAT_SOLID_LIGHT_THRESHOLD) return true;
+  if (zone === 'neutral' && L >= COMMERCIAL_SOLID_LIGHT_THRESHOLD) return true;
+
+  // Em arte limpa, seja ainda mais conservador: não sujar superfícies já bonitas.
+  if (artType === 'clean'){
+    if ((zone === 'flatColor' || zone === 'skin' || zone === 'highSat') && L >= 95) return true;
+    if (sat < 0.20 && L >= 150) return true;
+  }
+
+  return false;
+}
+
 /* ============================================================
    ART-TYPE CLASSIFIER  (runs ONCE on the whole image)
    Decides between:
