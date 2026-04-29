@@ -766,10 +766,10 @@ function dotRadius(luma, cell, minDensity, zone){
 
   let curve, capCoverage, floor;
   switch (zone){
-    case 'skin':       curve = 2.10; capCoverage = 0.18; floor = 0.00; break;
-    case 'flatColor':  curve = 2.35; capCoverage = 0.20; floor = 0.00; break;
-    case 'highSat':    curve = 2.00; capCoverage = 0.32; floor = 0.00; break;
-    case 'shadow':     curve = 1.30; capCoverage = 0.80; floor = Math.max(minDensity, 0.20); break;
+    case 'skin':       curve = 2.65; capCoverage = 0.14; floor = 0.00; break;
+    case 'flatColor':  curve = 3.10; capCoverage = 0.12; floor = 0.00; break;
+    case 'highSat':    curve = 2.55; capCoverage = 0.22; floor = 0.00; break;
+    case 'shadow':     curve = 1.45; capCoverage = 0.70; floor = Math.max(minDensity, 0.16); break;
     default:           curve = 1.85; capCoverage = 0.58; floor = luma < 115 ? minDensity : 0;
   }
 
@@ -782,9 +782,10 @@ function dotRadius(luma, cell, minDensity, zone){
   // maxR derived from capCoverage so cap is honored geometrically too.
   // Area = pi*r^2 within a cell of area cell^2. Coverage = pi*r^2 / cell^2.
   // r_max for coverage C => r = cell * sqrt(C/pi)
-  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.6; // 1.6 visual factor
+  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.38; // precisão visual sem borrar a simetria
   const r = rMax * Math.sqrt(t / capCoverage);
-  return r < MICRO_MIN_DOT_PX ? 0 : Math.min(MICRO_MAX_DOT_PX, r);
+  const zoneMax = zone === 'shadow' ? cell * 0.46 : MICRO_MAX_DOT_PX;
+  return r < MICRO_MIN_DOT_PX ? 0 : Math.min(zoneMax, r);
 }
 
 function microDotRadius(cell, coverage){
