@@ -1426,9 +1426,46 @@ async function applyKnockout(target, isBlackMode){
   }
 
   finalCtx.putImageData(finalCurrentImageData, 0, 0);
+
+  // V5 — ANTI VESTÍGIO / HALO CLEANER
+  // Após remover a cor, varre pixels semitransparentes adjacentes ao alvo
+  // e: (a) zera quem ainda está dominado pela cor alvo (fantasma);
+  //     (b) descontamina a cor do pixel removendo a influência do alvo.
+  cleanKnockoutHalo(finalCurrentImageData, target, maxDist);
+  finalCtx.putImageData(finalCurrentImageData, 0, 0);
+
   await rebuildOutputBlob();
   redrawFinalPreview();
-  $('statusText').textContent = `✅ Cor removida (tol=${tolUI}${feather?', feather':''}${protect?', proteção':''}). Clique em "Baixar PNG".`;
+  $('statusText').textContent = `✅ Cor removida (tol=${tolUI}${feather?', feather':''}${protect?', proteção':''}). Sem vestígios. Clique em "Baixar PNG".`;
+}
+
+/**
+ * V5 — Halo / fringe cleaner após knockout.
+ * - Pixels com alpha < 245 e cor próxima do alvo => zera (fantasma residual).
+ * - Pixels semitransparentes restantes têm a cor do alvo "subtraída"
+ *   proporcionalmente à proximidade (decontaminate edge).
+ */
+function cleanKnockoutHalo(imageData, target, maxDist){
+  const data = imageData.data;
+  const tr = target.r, tg = target.g, tb = target.b;
+  // Zona de "fantasma": metade da tolerância, alpha não-cheio.
+  const ghostDist = Math.min(maxDist * 0.55, 80);
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i+3];
+    if (a === 0 || a === 255) continue;
+    const dr = data[i] - tr, dg = data[i+1] - tg, db = data[i+2] - tb;
+    const dist = Math.sqrt(dr*dr + dg*dg + db*db);
+    if (dist <= ghostDist) {
+      // Fantasma sólido o suficiente da cor alvo: apaga.
+      data[i+3] = 0;
+    } else if (a < 200 && dist < maxDist * 1.3) {
+      // Borda residual: empurra a cor para longe do alvo (decontaminate).
+      const k = 1 - (a / 255);                      // peso do "ar"
+      data[i  ] = clamp8(data[i  ] + (data[i  ] - tr) * k * 0.5);
+      data[i+1] = clamp8(data[i+1] + (data[i+1] - tg) * k * 0.5);
+      data[i+2] = clamp8(data[i+2] + (data[i+2] - tb) * k * 0.5);
+    }
+  }
 }
 
 /**
