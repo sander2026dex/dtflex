@@ -363,6 +363,14 @@ const MICRO_MAX_DOT_PX = 2.8;
 let sourceImage = null;
 let outputBlob = null;
 
+// === Color Knockout state (post-process, before download) ===
+let finalCanvas = null;          // canvas com a arte halftone pronta
+let finalCtx = null;
+let finalBaseImageData = null;   // estado original (logo após processamento)
+let finalCurrentImageData = null;// estado atual (com knockouts aplicados)
+let pickedColor = null;          // cor capturada da imagem original {r,g,b}
+let uploadPickImageData = null;  // ImageData da prévia do upload (eyedropper)
+
 const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
