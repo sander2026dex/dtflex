@@ -146,6 +146,71 @@
     margin-top: 6px;
     line-height: 1.4;
   }
+  /* Color Knockout Panel */
+  .knockout-panel {
+    margin-top: 6px;
+    padding: 14px;
+    border-radius: 10px;
+    background: linear-gradient(180deg,#161a22,#11141a);
+    border: 1px solid #2a3142;
+  }
+  .knockout-panel h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffd400;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 4px;
+  }
+  .knockout-panel .sub {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+  .knockout-panel.disabled { opacity: 0.45; pointer-events: none; }
+  .ko-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .ko-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 9px 10px;
+    border-radius: 7px;
+    border: 1px solid #2c3340;
+    background: #1a1e26;
+    color: #f5f5f5;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .ko-btn:hover { border-color: #f5b544; background: #20262f; }
+  .ko-btn.active { background: linear-gradient(135deg,#ffd400,#f5b544); color:#0b0d12; border-color:#ffd400; }
+  .ko-btn.danger { background:#1a0e0e; border-color:#5a2a2a; color:#ffb0b0; }
+  .ko-btn.danger:hover { border-color:#ff5a5a; background:#2a1414; }
+  .ko-color {
+    width: 38px; height: 32px; padding: 0; border-radius: 7px;
+    border: 1px solid #2c3340; background: #1a1e26; cursor: pointer;
+  }
+  .ko-color::-webkit-color-swatch-wrapper { padding: 2px; }
+  .ko-color::-webkit-color-swatch { border: none; border-radius: 5px; }
+  .ko-pickwrap { display:flex; align-items:center; gap:8px; }
+  .ko-swatch {
+    width: 22px; height: 22px; border-radius: 5px;
+    border: 1px solid #2c3340; background: #000;
+    flex-shrink: 0;
+  }
+  .ko-mini-label { font-size: 10px; color:#888; text-transform: uppercase; letter-spacing:0.4px; }
+  #uploadPickCanvas {
+    width: 100%;
+    max-height: 160px;
+    object-fit: contain;
+    background: repeating-conic-gradient(#1a1d24 0% 25%, #20242c 0% 50%) 50%/12px 12px;
+    border-radius: 6px;
+    cursor: crosshair;
+    display: block;
+    margin-top: 8px;
+  }
 </style>
 </head>
 <body>
