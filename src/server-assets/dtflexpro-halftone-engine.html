@@ -261,6 +261,12 @@
       <p class="info-text">Detecta tons de pele (anime ou foto) e aplica retícula em vez de tratar como branco de fundo.</p>
     </div>
 
+    <div class="control-group">
+      <label>Proteger Texto / Números (sem halftone)</label>
+      <input type="checkbox" id="protectText" checked style="accent-color:#f5b544;width:auto;" />
+      <p class="info-text">Letras, números, slogans e logos saem 100% sólidos, sem retícula e sem serrilhado.</p>
+    </div>
+
     <button id="processBtn" class="btn-process" disabled>⚡ Processar PNG</button>
 
     <div id="knockoutPanel" class="knockout-panel disabled">
@@ -577,12 +583,15 @@ function autoRemoveBackground(data, W, H){
    Returns Uint8Array (1 = edge, painted solid, no dots)
    ============================================================ */
 
-function computeEdgeMask(data, W, H, threshold){
+function computeEdgeMask(data, W, H, threshold, protectText){
   const lum = new Float32Array(W*H);
   for (let p=0, i=0; p<lum.length; p++, i+=4){
     if (data[i+3] < ALPHA_CUTOFF) { lum[p] = -1; continue; }
     lum[p] = brightness(data[i], data[i+1], data[i+2]);
   }
+  // V5: quando "Proteger Texto" está ON, abaixamos o threshold para capturar
+  // letras/números finos com mais facilidade.
+  const eff = protectText ? Math.max(28, threshold * 0.55) : threshold;
   const edge = new Uint8Array(W*H);
   for (let y=1; y<H-1; y++){
     for (let x=1; x<W-1; x++){
@@ -593,21 +602,26 @@ function computeEdgeMask(data, W, H, threshold){
       if (a<0||b<0||c<0||d<0||f<0||g<0||h<0||i2<0) continue;
       const gx = -a -2*d -g + c + 2*f + i2;
       const gy = -a -2*b -c + g + 2*h + i2;
-      if (Math.abs(gx) + Math.abs(gy) >= threshold) edge[p] = 1;
+      if (Math.abs(gx) + Math.abs(gy) >= eff) edge[p] = 1;
     }
   }
-  // Dilate 1px so the entire stroke is captured (not just the gradient edge)
-  const dil = new Uint8Array(W*H);
-  for (let y=1; y<H-1; y++){
-    for (let x=1; x<W-1; x++){
-      const p = y*W+x;
-      if (edge[p] || edge[p-1] || edge[p+1] || edge[p-W] || edge[p+W] ||
-          edge[p-W-1] || edge[p-W+1] || edge[p+W-1] || edge[p+W+1]) {
-        dil[p] = 1;
+  // Dilate 1px (ou 2px com protectText) para preencher o miolo de letras finas.
+  const passes = protectText ? 2 : 1;
+  let cur = edge;
+  for (let pass = 0; pass < passes; pass++){
+    const dil = new Uint8Array(W*H);
+    for (let y=1; y<H-1; y++){
+      for (let x=1; x<W-1; x++){
+        const p = y*W+x;
+        if (cur[p] || cur[p-1] || cur[p+1] || cur[p-W] || cur[p+W] ||
+            cur[p-W-1] || cur[p-W+1] || cur[p+W-1] || cur[p+W+1]) {
+          dil[p] = 1;
+        }
       }
     }
+    cur = dil;
   }
-  return dil;
+  return cur;
 }
 
 function paintEdgesSolid(ctx, data, edgeMask, W, H){
@@ -651,8 +665,14 @@ function buildWhiteSizeMap(data, W, H){
        const sy = Math.min(H - 1, yy * SCALE + (SCALE >> 1));
        const i = (sy * W + sx) * 4;
        if (data[i+3] < ALPHA_CUTOFF) continue;
-       const L = brightness(data[i], data[i+1], data[i+2]);
-       if (L > WHITE_BRIGHTNESS_CUTOFF) mask[yy * w + xx] = 1;
+       const pr = data[i], pg = data[i+1], pb = data[i+2];
+       const L = brightness(pr, pg, pb);
+       const pmx = Math.max(pr,pg,pb), pmn = Math.min(pr,pg,pb);
+       const psat = pmx === 0 ? 0 : (pmx - pmn) / pmx;
+       // V5: só conta como "branco" se for branco REAL (sem cor dominante).
+       if (L > WHITE_BRIGHTNESS_CUTOFF && pr >= 235 && pg >= 235 && pb >= 235 && psat < 0.12) {
+         mask[yy * w + xx] = 1;
+       }
      }
    }
    const label = new Int32Array(w * h); // 0 = não-branco/visitado-por-fundo, >0 = id
@@ -702,12 +722,18 @@ function sampleCell(data, W, H, cx, cy, cell){
       const i = (y*W + x) * 4;
       if (data[i+3] < ALPHA_CUTOFF) continue;
       opaqueCount++;
-      const L = brightness(data[i], data[i+1], data[i+2]);
+      const pr = data[i], pg = data[i+1], pb = data[i+2];
+      const L = brightness(pr, pg, pb);
       lumSum += L;
       if (L > maxL) { maxL = L; maxX = x; maxY = y; }
-      if (L >= HIGHLIGHT_BRIGHTNESS_CUTOFF) brightCount++;
-      if (L > WHITE_BRIGHTNESS_CUTOFF) { whiteCount++; continue; }
-      r += data[i]; g += data[i+1]; b += data[i+2];
+      // V5: "branco real" = L alto E pouca saturação (RGB todos altos e parecidos).
+      // Amarelo/dourado/pele clara NÃO contam como branco mesmo com L alto.
+      const pmx = Math.max(pr,pg,pb), pmn = Math.min(pr,pg,pb);
+      const psat = pmx === 0 ? 0 : (pmx - pmn) / pmx;
+      const isRealWhitePix = (pr >= 235 && pg >= 235 && pb >= 235 && psat < 0.12);
+      if (L >= HIGHLIGHT_BRIGHTNESS_CUTOFF && isRealWhitePix) brightCount++;
+      if (L > WHITE_BRIGHTNESS_CUTOFF && isRealWhitePix) { whiteCount++; continue; }
+      r += pr; g += pg; b += pb;
       count++;
     }
   }
@@ -911,11 +937,27 @@ function microDotRadius(cell, coverage){
   return Math.max(MICRO_MIN_DOT_PX, Math.min(MICRO_MAX_DOT_PX, r));
 }
 
+// V5 — Branco REAL apenas (RGB > 235 + saturação < 12%).
+// Amarelo claro, pele clara, dourado e cores saturadas NÃO viram branco.
+function isRealWhiteSample(sample){
+  if (!sample) return false;
+  const r = sample.r|0, g = sample.g|0, b = sample.b|0;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  const sat = mx === 0 ? 0 : (mx - mn) / mx;
+  // Branco real = RGB todos > 235 e saturação < 12%
+  if (r >= 235 && g >= 235 && b >= 235 && sat < 0.12) return true;
+  return false;
+}
+
 function isProtectedHighlightCell(sample, data, W, H){
   if (!sample) return false;
-  if (sample.allWhite || sample.whiteRatio > 0.12) return true;
-  if (sample.l >= HIGHLIGHT_BRIGHTNESS_CUTOFF && sample.brightRatio > 0.30) return true;
-  if (sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF && isImportantLightPixel(data, W, H, sample.maxX, sample.maxY)) return true;
+  // Só protege como "highlight branco" se for branco REAL (não amarelo/dourado claro).
+  if (sample.allWhite && isRealWhiteSample(sample)) return true;
+  if (sample.whiteRatio > 0.12 && isRealWhiteSample(sample)) return true;
+  if (sample.l >= HIGHLIGHT_BRIGHTNESS_CUTOFF && sample.brightRatio > 0.30 && isRealWhiteSample(sample)) return true;
+  if (sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF
+      && isImportantLightPixel(data, W, H, sample.maxX, sample.maxY)
+      && isRealWhiteSample(sample)) return true;
   return false;
 }
 
@@ -964,7 +1006,8 @@ $('processBtn').addEventListener('click', async () => {
   await nextFrame();
 
   // 4) Edge mask (text/logos/outlines stay solid)
-  const edgeMask = computeEdgeMask(data, OUT_W, OUT_H, 60);
+  const protectText = $('protectText') ? $('protectText').checked : true;
+  const edgeMask = computeEdgeMask(data, OUT_W, OUT_H, 60, protectText);
 
   setProgress(0.38, 'Mapeando regiões brancas (olhos, dentes, acessórios)...');
   await nextFrame();
@@ -1155,9 +1198,12 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
       if (isProtectedHighlightCell(sample, data, W, H)){
-        const rr = sample.allWhite ? 255 : Math.max(r0, 238);
-        const gg = sample.allWhite ? 255 : Math.max(g0, 238);
-        const bb = sample.allWhite ? 255 : Math.max(b0, 238);
+        // V5: só forçar branco puro se for BRANCO REAL.
+        // Amarelo claro, dourado e pele permanecem com cor original (sem estouro).
+        let rr = r0, gg = g0, bb = b0;
+        if (sample.allWhite && isRealWhiteSample(sample)){
+          rr = 255; gg = 255; bb = 255;
+        }
         ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
         ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
                      Math.ceil(cell), Math.ceil(cell));
@@ -1395,9 +1441,46 @@ async function applyKnockout(target, isBlackMode){
   }
 
   finalCtx.putImageData(finalCurrentImageData, 0, 0);
+
+  // V5 — ANTI VESTÍGIO / HALO CLEANER
+  // Após remover a cor, varre pixels semitransparentes adjacentes ao alvo
+  // e: (a) zera quem ainda está dominado pela cor alvo (fantasma);
+  //     (b) descontamina a cor do pixel removendo a influência do alvo.
+  cleanKnockoutHalo(finalCurrentImageData, target, maxDist);
+  finalCtx.putImageData(finalCurrentImageData, 0, 0);
+
   await rebuildOutputBlob();
   redrawFinalPreview();
-  $('statusText').textContent = `✅ Cor removida (tol=${tolUI}${feather?', feather':''}${protect?', proteção':''}). Clique em "Baixar PNG".`;
+  $('statusText').textContent = `✅ Cor removida (tol=${tolUI}${feather?', feather':''}${protect?', proteção':''}). Sem vestígios. Clique em "Baixar PNG".`;
+}
+
+/**
+ * V5 — Halo / fringe cleaner após knockout.
+ * - Pixels com alpha < 245 e cor próxima do alvo => zera (fantasma residual).
+ * - Pixels semitransparentes restantes têm a cor do alvo "subtraída"
+ *   proporcionalmente à proximidade (decontaminate edge).
+ */
+function cleanKnockoutHalo(imageData, target, maxDist){
+  const data = imageData.data;
+  const tr = target.r, tg = target.g, tb = target.b;
+  // Zona de "fantasma": metade da tolerância, alpha não-cheio.
+  const ghostDist = Math.min(maxDist * 0.55, 80);
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i+3];
+    if (a === 0 || a === 255) continue;
+    const dr = data[i] - tr, dg = data[i+1] - tg, db = data[i+2] - tb;
+    const dist = Math.sqrt(dr*dr + dg*dg + db*db);
+    if (dist <= ghostDist) {
+      // Fantasma sólido o suficiente da cor alvo: apaga.
+      data[i+3] = 0;
+    } else if (a < 200 && dist < maxDist * 1.3) {
+      // Borda residual: empurra a cor para longe do alvo (decontaminate).
+      const k = 1 - (a / 255);                      // peso do "ar"
+      data[i  ] = clamp8(data[i  ] + (data[i  ] - tr) * k * 0.5);
+      data[i+1] = clamp8(data[i+1] + (data[i+1] - tg) * k * 0.5);
+      data[i+2] = clamp8(data[i+2] + (data[i+2] - tb) * k * 0.5);
+    }
+  }
 }
 
 /**
