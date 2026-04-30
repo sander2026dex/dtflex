@@ -1171,9 +1171,12 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
       if (isProtectedHighlightCell(sample, data, W, H)){
-        const rr = sample.allWhite ? 255 : Math.max(r0, 238);
-        const gg = sample.allWhite ? 255 : Math.max(g0, 238);
-        const bb = sample.allWhite ? 255 : Math.max(b0, 238);
+        // V5: só forçar branco puro se for BRANCO REAL.
+        // Amarelo claro, dourado e pele permanecem com cor original (sem estouro).
+        let rr = r0, gg = g0, bb = b0;
+        if (sample.allWhite && isRealWhiteSample(sample)){
+          rr = 255; gg = 255; bb = 255;
+        }
         ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
         ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
                      Math.ceil(cell), Math.ceil(cell));
