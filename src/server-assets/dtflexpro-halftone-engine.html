@@ -392,12 +392,14 @@ $('imageInput').addEventListener('change', async e => {
   $('processBtn').disabled = true;
   $('downloadBtn').disabled = true;
   outputBlob = null;
+  disableKnockoutPanel();
   const url = URL.createObjectURL(file);
   try {
     const img = await loadLocalImage(file, url);
     sourceImage = img;
     $('processBtn').disabled = false;
     drawPreviewSource(img);
+    drawUploadPickPreview(img);
     $('statusText').textContent = `Imagem carregada: ${img.width}×${img.height} · nenhum crédito cobrado`;
   } catch (err) {
     console.error(err);
