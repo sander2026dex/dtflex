@@ -981,6 +981,8 @@ $('processBtn').addEventListener('click', async () => {
   const out = document.createElement('canvas');
   out.width = OUT_W; out.height = OUT_H;
   const octx = out.getContext('2d');
+  finalCanvas = out;
+  finalCtx = octx;
   octx.clearRect(0, 0, OUT_W, OUT_H);
 
   // Paint solid edges first (under the dots)
