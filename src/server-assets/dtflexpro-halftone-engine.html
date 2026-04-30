@@ -1012,6 +1012,14 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
 
+  // Snapshot original do halftone (base imutável para resets)
+  finalBaseImageData = octx.getImageData(0, 0, OUT_W, OUT_H);
+  finalCurrentImageData = new ImageData(
+    new Uint8ClampedArray(finalBaseImageData.data),
+    finalBaseImageData.width,
+    finalBaseImageData.height
+  );
+
   out.toBlob(async blob => {
     if (!blob) {
       setProgress(1, 'Erro ao gerar PNG. Tente com outra imagem.');
@@ -1023,16 +1031,11 @@ $('processBtn').addEventListener('click', async () => {
     outputBlob = stamped;
     $('downloadBtn').disabled = false;
     $('processBtn').disabled = false;
+    enableKnockoutPanel();
 
-    const ratio = OUT_W / OUT_H;
-    const maxW = 540;
-    const maxH = Math.round(maxW / ratio);
-    previewCanvas.width = maxW;
-    previewCanvas.height = maxH;
-    pctx.clearRect(0, 0, maxW, maxH);
-    pctx.drawImage(out, 0, 0, maxW, maxH);
+    redrawFinalPreview();
 
-    setProgress(1, '✅ Pronto! PNG 3307×4930 @ 300 DPI cravado. Clique em "Baixar PNG".');
+    setProgress(1, '✅ Pronto! Use Color Knockout para remover cores ou clique em "Baixar PNG".');
   }, 'image/png');
 });
 
