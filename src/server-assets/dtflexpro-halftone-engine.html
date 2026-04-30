@@ -1006,7 +1006,8 @@ $('processBtn').addEventListener('click', async () => {
   await nextFrame();
 
   // 4) Edge mask (text/logos/outlines stay solid)
-  const edgeMask = computeEdgeMask(data, OUT_W, OUT_H, 60);
+  const protectText = $('protectText') ? $('protectText').checked : true;
+  const edgeMask = computeEdgeMask(data, OUT_W, OUT_H, 60, protectText);
 
   setProgress(0.38, 'Mapeando regiões brancas (olhos, dentes, acessórios)...');
   await nextFrame();
