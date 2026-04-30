@@ -702,12 +702,18 @@ function sampleCell(data, W, H, cx, cy, cell){
       const i = (y*W + x) * 4;
       if (data[i+3] < ALPHA_CUTOFF) continue;
       opaqueCount++;
-      const L = brightness(data[i], data[i+1], data[i+2]);
+      const pr = data[i], pg = data[i+1], pb = data[i+2];
+      const L = brightness(pr, pg, pb);
       lumSum += L;
       if (L > maxL) { maxL = L; maxX = x; maxY = y; }
-      if (L >= HIGHLIGHT_BRIGHTNESS_CUTOFF) brightCount++;
-      if (L > WHITE_BRIGHTNESS_CUTOFF) { whiteCount++; continue; }
-      r += data[i]; g += data[i+1]; b += data[i+2];
+      // V5: "branco real" = L alto E pouca saturação (RGB todos altos e parecidos).
+      // Amarelo/dourado/pele clara NÃO contam como branco mesmo com L alto.
+      const pmx = Math.max(pr,pg,pb), pmn = Math.min(pr,pg,pb);
+      const psat = pmx === 0 ? 0 : (pmx - pmn) / pmx;
+      const isRealWhitePix = (pr >= 235 && pg >= 235 && pb >= 235 && psat < 0.12);
+      if (L >= HIGHLIGHT_BRIGHTNESS_CUTOFF && isRealWhitePix) brightCount++;
+      if (L > WHITE_BRIGHTNESS_CUTOFF && isRealWhitePix) { whiteCount++; continue; }
+      r += pr; g += pg; b += pb;
       count++;
     }
   }
