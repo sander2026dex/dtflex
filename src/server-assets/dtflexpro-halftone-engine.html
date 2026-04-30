@@ -262,6 +262,49 @@
     </div>
 
     <button id="processBtn" class="btn-process" disabled>⚡ Processar PNG</button>
+
+    <div id="knockoutPanel" class="knockout-panel disabled">
+      <h3>🎯 Color Knockout</h3>
+      <p class="sub">Remove a cor escolhida da arte JÁ PRONTA, antes do download. Olhos, dentes, letras e detalhes pequenos são preservados automaticamente.</p>
+
+      <div class="ko-row">
+        <button class="ko-btn danger" id="koBlack">Remover Preto</button>
+        <button class="ko-btn" id="koReset">Restaurar</button>
+      </div>
+
+      <div class="ko-row" style="align-items:center;">
+        <span class="ko-mini-label" style="flex:0 0 100%;">Selecionar cor manual</span>
+        <input type="color" class="ko-color" id="koColor" value="#000000" />
+        <button class="ko-btn" id="koApplyColor" style="flex:1;">Remover Esta Cor</button>
+      </div>
+
+      <div class="ko-row" style="flex-direction:column; gap:6px;">
+        <span class="ko-mini-label">Capturar cor da imagem original</span>
+        <canvas id="uploadPickCanvas"></canvas>
+        <div class="ko-pickwrap">
+          <div class="ko-swatch" id="koPickedSwatch"></div>
+          <button class="ko-btn" id="koApplyPicked" style="flex:1;" disabled>Remover Cor Capturada</button>
+        </div>
+      </div>
+
+      <div class="control-group" style="margin-top:14px; margin-bottom:8px;">
+        <label>Tolerância</label>
+        <input type="range" id="koTolerance" min="0" max="100" value="32" />
+        <div class="value" id="koToleranceVal">32 — tons próximos</div>
+      </div>
+
+      <div class="control-group" style="margin-bottom:6px;">
+        <label style="display:flex; align-items:center; gap:8px; text-transform:none; color:#ccc; font-size:12px;">
+          <input type="checkbox" id="koFeather" checked style="accent-color:#f5b544; width:auto;" />
+          Anti-Halo / Feather (suaviza bordas)
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; text-transform:none; color:#ccc; font-size:12px; margin-top:8px;">
+          <input type="checkbox" id="koProtect" checked style="accent-color:#f5b544; width:auto;" />
+          Proteger detalhes pequenos (olhos, letras, logos)
+        </label>
+      </div>
+    </div>
+
     <button id="downloadBtn" class="btn-download" disabled>⬇ Baixar PNG</button>
 
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
