@@ -623,8 +623,6 @@ function computeEdgeMask(data, W, H, threshold, protectText){
   }
   return cur;
 }
-  return dil;
-}
 
 function paintEdgesSolid(ctx, data, edgeMask, W, H){
   const c = document.createElement('canvas');
