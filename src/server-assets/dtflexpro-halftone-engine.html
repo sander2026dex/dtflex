@@ -146,6 +146,71 @@
     margin-top: 6px;
     line-height: 1.4;
   }
+  /* Color Knockout Panel */
+  .knockout-panel {
+    margin-top: 6px;
+    padding: 14px;
+    border-radius: 10px;
+    background: linear-gradient(180deg,#161a22,#11141a);
+    border: 1px solid #2a3142;
+  }
+  .knockout-panel h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffd400;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 4px;
+  }
+  .knockout-panel .sub {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+  .knockout-panel.disabled { opacity: 0.45; pointer-events: none; }
+  .ko-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .ko-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 9px 10px;
+    border-radius: 7px;
+    border: 1px solid #2c3340;
+    background: #1a1e26;
+    color: #f5f5f5;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .ko-btn:hover { border-color: #f5b544; background: #20262f; }
+  .ko-btn.active { background: linear-gradient(135deg,#ffd400,#f5b544); color:#0b0d12; border-color:#ffd400; }
+  .ko-btn.danger { background:#1a0e0e; border-color:#5a2a2a; color:#ffb0b0; }
+  .ko-btn.danger:hover { border-color:#ff5a5a; background:#2a1414; }
+  .ko-color {
+    width: 38px; height: 32px; padding: 0; border-radius: 7px;
+    border: 1px solid #2c3340; background: #1a1e26; cursor: pointer;
+  }
+  .ko-color::-webkit-color-swatch-wrapper { padding: 2px; }
+  .ko-color::-webkit-color-swatch { border: none; border-radius: 5px; }
+  .ko-pickwrap { display:flex; align-items:center; gap:8px; }
+  .ko-swatch {
+    width: 22px; height: 22px; border-radius: 5px;
+    border: 1px solid #2c3340; background: #000;
+    flex-shrink: 0;
+  }
+  .ko-mini-label { font-size: 10px; color:#888; text-transform: uppercase; letter-spacing:0.4px; }
+  #uploadPickCanvas {
+    width: 100%;
+    max-height: 160px;
+    object-fit: contain;
+    background: repeating-conic-gradient(#1a1d24 0% 25%, #20242c 0% 50%) 50%/12px 12px;
+    border-radius: 6px;
+    cursor: crosshair;
+    display: block;
+    margin-top: 8px;
+  }
 </style>
 </head>
 <body>
@@ -197,6 +262,49 @@
     </div>
 
     <button id="processBtn" class="btn-process" disabled>⚡ Processar PNG</button>
+
+    <div id="knockoutPanel" class="knockout-panel disabled">
+      <h3>🎯 Color Knockout</h3>
+      <p class="sub">Remove a cor escolhida da arte JÁ PRONTA, antes do download. Olhos, dentes, letras e detalhes pequenos são preservados automaticamente.</p>
+
+      <div class="ko-row">
+        <button class="ko-btn danger" id="koBlack">Remover Preto</button>
+        <button class="ko-btn" id="koReset">Restaurar</button>
+      </div>
+
+      <div class="ko-row" style="align-items:center;">
+        <span class="ko-mini-label" style="flex:0 0 100%;">Selecionar cor manual</span>
+        <input type="color" class="ko-color" id="koColor" value="#000000" />
+        <button class="ko-btn" id="koApplyColor" style="flex:1;">Remover Esta Cor</button>
+      </div>
+
+      <div class="ko-row" style="flex-direction:column; gap:6px;">
+        <span class="ko-mini-label">Capturar cor da imagem original</span>
+        <canvas id="uploadPickCanvas"></canvas>
+        <div class="ko-pickwrap">
+          <div class="ko-swatch" id="koPickedSwatch"></div>
+          <button class="ko-btn" id="koApplyPicked" style="flex:1;" disabled>Remover Cor Capturada</button>
+        </div>
+      </div>
+
+      <div class="control-group" style="margin-top:14px; margin-bottom:8px;">
+        <label>Tolerância</label>
+        <input type="range" id="koTolerance" min="0" max="100" value="32" />
+        <div class="value" id="koToleranceVal">32 — tons próximos</div>
+      </div>
+
+      <div class="control-group" style="margin-bottom:6px;">
+        <label style="display:flex; align-items:center; gap:8px; text-transform:none; color:#ccc; font-size:12px;">
+          <input type="checkbox" id="koFeather" checked style="accent-color:#f5b544; width:auto;" />
+          Anti-Halo / Feather (suaviza bordas)
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; text-transform:none; color:#ccc; font-size:12px; margin-top:8px;">
+          <input type="checkbox" id="koProtect" checked style="accent-color:#f5b544; width:auto;" />
+          Proteger detalhes pequenos (olhos, letras, logos)
+        </label>
+      </div>
+    </div>
+
     <button id="downloadBtn" class="btn-download" disabled>⬇ Baixar PNG</button>
 
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
@@ -255,6 +363,14 @@ const MICRO_MAX_DOT_PX = 2.8;
 let sourceImage = null;
 let outputBlob = null;
 
+// === Color Knockout state (post-process, before download) ===
+let finalCanvas = null;          // canvas com a arte halftone pronta
+let finalCtx = null;
+let finalBaseImageData = null;   // estado original (logo após processamento)
+let finalCurrentImageData = null;// estado atual (com knockouts aplicados)
+let pickedColor = null;          // cor capturada da imagem original {r,g,b}
+let uploadPickImageData = null;  // ImageData da prévia do upload (eyedropper)
+
 const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
@@ -276,12 +392,14 @@ $('imageInput').addEventListener('change', async e => {
   $('processBtn').disabled = true;
   $('downloadBtn').disabled = true;
   outputBlob = null;
+  disableKnockoutPanel();
   const url = URL.createObjectURL(file);
   try {
     const img = await loadLocalImage(file, url);
     sourceImage = img;
     $('processBtn').disabled = false;
     drawPreviewSource(img);
+    drawUploadPickPreview(img);
     $('statusText').textContent = `Imagem carregada: ${img.width}×${img.height} · nenhum crédito cobrado`;
   } catch (err) {
     console.error(err);
@@ -863,6 +981,8 @@ $('processBtn').addEventListener('click', async () => {
   const out = document.createElement('canvas');
   out.width = OUT_W; out.height = OUT_H;
   const octx = out.getContext('2d');
+  finalCanvas = out;
+  finalCtx = octx;
   octx.clearRect(0, 0, OUT_W, OUT_H);
 
   // Paint solid edges first (under the dots)
@@ -892,6 +1012,14 @@ $('processBtn').addEventListener('click', async () => {
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
 
+  // Snapshot original do halftone (base imutável para resets)
+  finalBaseImageData = octx.getImageData(0, 0, OUT_W, OUT_H);
+  finalCurrentImageData = new ImageData(
+    new Uint8ClampedArray(finalBaseImageData.data),
+    finalBaseImageData.width,
+    finalBaseImageData.height
+  );
+
   out.toBlob(async blob => {
     if (!blob) {
       setProgress(1, 'Erro ao gerar PNG. Tente com outra imagem.');
@@ -903,16 +1031,11 @@ $('processBtn').addEventListener('click', async () => {
     outputBlob = stamped;
     $('downloadBtn').disabled = false;
     $('processBtn').disabled = false;
+    enableKnockoutPanel();
 
-    const ratio = OUT_W / OUT_H;
-    const maxW = 540;
-    const maxH = Math.round(maxW / ratio);
-    previewCanvas.width = maxW;
-    previewCanvas.height = maxH;
-    pctx.clearRect(0, 0, maxW, maxH);
-    pctx.drawImage(out, 0, 0, maxW, maxH);
+    redrawFinalPreview();
 
-    setProgress(1, '✅ Pronto! PNG 3307×4930 @ 300 DPI cravado. Clique em "Baixar PNG".');
+    setProgress(1, '✅ Pronto! Use Color Knockout para remover cores ou clique em "Baixar PNG".');
   }, 'image/png');
 });
 
@@ -1116,6 +1239,248 @@ function triggerDownload(blob = outputBlob){
 $('downloadBtn').addEventListener('click', () => {
   triggerDownload();
 });
+
+/* ============================================================
+   COLOR KNOCKOUT — pós-processamento antes do download
+   Atua sobre finalCurrentImageData (canvas final em 3307×4930).
+   Cumulativo: cada knockout escreve sobre o estado atual.
+   "Restaurar" volta ao snapshot original (finalBaseImageData).
+   ============================================================ */
+
+const koPanel = $('knockoutPanel');
+
+function disableKnockoutPanel(){
+  koPanel.classList.add('disabled');
+  finalBaseImageData = null;
+  finalCurrentImageData = null;
+  finalCanvas = null;
+  finalCtx = null;
+  pickedColor = null;
+  $('koPickedSwatch').style.background = '#000';
+  $('koApplyPicked').disabled = true;
+}
+function enableKnockoutPanel(){
+  koPanel.classList.remove('disabled');
+}
+
+// === Slider tolerância ===
+$('koTolerance').addEventListener('input', e => {
+  const v = parseInt(e.target.value, 10);
+  let label;
+  if (v <= 5)  label = `${v} — só cor exata`;
+  else if (v <= 30) label = `${v} — tons próximos`;
+  else if (v <= 55) label = `${v} — faixa média`;
+  else if (v <= 80) label = `${v} — faixa ampla`;
+  else label = `${v} — quase tudo parecido`;
+  $('koToleranceVal').textContent = label;
+});
+
+// === Eyedropper sobre o upload original ===
+function drawUploadPickPreview(img){
+  const canvas = $('uploadPickCanvas');
+  const ctx = canvas.getContext('2d');
+  const maxW = 280, maxH = 160;
+  const ratio = img.width / img.height;
+  let w = maxW, h = Math.round(w / ratio);
+  if (h > maxH) { h = maxH; w = Math.round(h * ratio); }
+  canvas.width = w; canvas.height = h;
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+  uploadPickImageData = ctx.getImageData(0, 0, w, h);
+}
+
+$('uploadPickCanvas').addEventListener('click', e => {
+  if (!uploadPickImageData) return;
+  const canvas = $('uploadPickCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+  const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+  if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
+  const idx = (y * canvas.width + x) * 4;
+  const d = uploadPickImageData.data;
+  pickedColor = { r: d[idx], g: d[idx+1], b: d[idx+2] };
+  const hex = '#' + [pickedColor.r, pickedColor.g, pickedColor.b]
+    .map(v => v.toString(16).padStart(2,'0')).join('');
+  $('koPickedSwatch').style.background = hex;
+  $('koApplyPicked').disabled = false;
+  $('statusText').textContent = `Cor capturada: ${hex.toUpperCase()} — clique em "Remover Cor Capturada".`;
+});
+
+// === Botões ===
+$('koBlack').addEventListener('click', () => applyKnockout({ r: 0, g: 0, b: 0 }, true));
+$('koApplyColor').addEventListener('click', () => {
+  const hex = $('koColor').value;
+  const c = hexToRgb(hex);
+  if (c) applyKnockout(c, false);
+});
+$('koApplyPicked').addEventListener('click', () => {
+  if (pickedColor) applyKnockout(pickedColor, false);
+});
+$('koReset').addEventListener('click', resetKnockout);
+
+function hexToRgb(hex){
+  const m = /^#?([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})$/i.exec(hex);
+  if (!m) return null;
+  return { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) };
+}
+
+async function resetKnockout(){
+  if (!finalBaseImageData || !finalCtx) return;
+  finalCurrentImageData = new ImageData(
+    new Uint8ClampedArray(finalBaseImageData.data),
+    finalBaseImageData.width,
+    finalBaseImageData.height
+  );
+  finalCtx.putImageData(finalCurrentImageData, 0, 0);
+  await rebuildOutputBlob();
+  redrawFinalPreview();
+  $('statusText').textContent = '↺ Arte restaurada ao estado original.';
+}
+
+/**
+ * Remove pixels cuja cor está dentro da tolerância da cor alvo.
+ * - tolerance: 0..100 (UI). Convertido para distância euclidiana RGB.
+ * - feather: anti-halo nas bordas (gradiente de alpha).
+ * - protect: preserva detalhes pequenos (componentes < N pixels da cor).
+ *   Para preto, usa lógica adicional: se o pixel preto faz parte de letra/
+ *   contorno fino isolado, mantém.
+ */
+async function applyKnockout(target, isBlackMode){
+  if (!finalCurrentImageData || !finalCtx) return;
+  const tolUI = parseInt($('koTolerance').value, 10);
+  const feather = $('koFeather').checked;
+  const protect = $('koProtect').checked;
+
+  // Distância máxima em RGB (euclidiana). 0 = exato. 100 = ~441 (max).
+  const maxDist = (tolUI / 100) * 441.6729559;
+  const featherBand = feather ? Math.max(8, maxDist * 0.18) : 0;
+  // Distância para considerar "totalmente removido"
+  const hardDist = Math.max(0, maxDist - featherBand);
+
+  $('statusText').textContent = '⏳ Removendo cor...';
+  await new Promise(r => requestAnimationFrame(r));
+
+  const W = finalCurrentImageData.width;
+  const H = finalCurrentImageData.height;
+  const src = finalCurrentImageData.data;
+  // Mapa de proteção (1 = não remover): detalhes pequenos da cor alvo.
+  let protectMask = null;
+  if (protect) {
+    protectMask = buildSmallDetailProtectMask(src, W, H, target, maxDist, isBlackMode);
+  }
+
+  const tr = target.r, tg = target.g, tb = target.b;
+  for (let i = 0; i < src.length; i += 4) {
+    const a = src[i+3];
+    if (a === 0) continue; // já transparente
+    const dr = src[i] - tr;
+    const dg = src[i+1] - tg;
+    const db = src[i+2] - tb;
+    const dist = Math.sqrt(dr*dr + dg*dg + db*db);
+    if (dist > maxDist) continue;
+
+    const px = (i >> 2);
+    if (protectMask && protectMask[px]) continue;
+
+    if (dist <= hardDist) {
+      src[i+3] = 0;
+    } else if (featherBand > 0) {
+      // anti-halo: alpha em rampa
+      const t = (dist - hardDist) / featherBand; // 0..1
+      const newA = Math.round(a * t);
+      if (newA < src[i+3]) src[i+3] = newA;
+    } else {
+      src[i+3] = 0;
+    }
+  }
+
+  finalCtx.putImageData(finalCurrentImageData, 0, 0);
+  await rebuildOutputBlob();
+  redrawFinalPreview();
+  $('statusText').textContent = `✅ Cor removida (tol=${tolUI}${feather?', feather':''}${protect?', proteção':''}). Clique em "Baixar PNG".`;
+}
+
+/**
+ * Constrói uma máscara que protege componentes pequenos (área <= LIMIT) da cor
+ * alvo — esses são detalhes (olhos, letras, logos, contornos finos) que não
+ * devem ser apagados quando o usuário pede para remover preto/cor de fundo.
+ *
+ * Implementação: flood-fill 4-conectividade marcando pixels "alvo" e medindo
+ * o tamanho do componente. Componentes com área <= SMALL_DETAIL_AREA viram
+ * protegidos.
+ */
+function buildSmallDetailProtectMask(data, W, H, target, maxDist, isBlackMode){
+  const N = W * H;
+  const isTarget = new Uint8Array(N);
+  const tr = target.r, tg = target.g, tb = target.b;
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+    if (data[i+3] < 8) continue;
+    const dr = data[i] - tr, dg = data[i+1] - tg, db = data[i+2] - tb;
+    const dist = Math.sqrt(dr*dr + dg*dg + db*db);
+    if (dist <= maxDist) isTarget[p] = 1;
+  }
+  // Limite de área para considerar "detalhe pequeno" em 3307x4930.
+  // Letras finas, olhos, contornos: até ~14000 px². Acima disso é fundo.
+  const SMALL_DETAIL_AREA = isBlackMode ? 14000 : 9000;
+
+  const protectMask = new Uint8Array(N);
+  const visited = new Uint8Array(N);
+  const stack = new Int32Array(Math.min(N, 1 << 20));
+  for (let p = 0; p < N; p++) {
+    if (!isTarget[p] || visited[p]) continue;
+    // BFS/DFS iterativo
+    let sp = 0;
+    stack[sp++] = p;
+    visited[p] = 1;
+    const compIndices = [];
+    let area = 0;
+    let aborted = false;
+    while (sp > 0) {
+      const q = stack[--sp];
+      compIndices.push(q);
+      area++;
+      if (area > SMALL_DETAIL_AREA + 1) { aborted = true; break; }
+      const x = q % W, y = (q / W) | 0;
+      // 4-conn
+      if (x > 0)     { const nq = q - 1; if (isTarget[nq] && !visited[nq] && sp < stack.length) { visited[nq]=1; stack[sp++]=nq; } }
+      if (x < W-1)  { const nq = q + 1; if (isTarget[nq] && !visited[nq] && sp < stack.length) { visited[nq]=1; stack[sp++]=nq; } }
+      if (y > 0)     { const nq = q - W; if (isTarget[nq] && !visited[nq] && sp < stack.length) { visited[nq]=1; stack[sp++]=nq; } }
+      if (y < H-1)  { const nq = q + W; if (isTarget[nq] && !visited[nq] && sp < stack.length) { visited[nq]=1; stack[sp++]=nq; } }
+    }
+    if (!aborted && area <= SMALL_DETAIL_AREA) {
+      for (let k = 0; k < compIndices.length; k++) protectMask[compIndices[k]] = 1;
+    }
+    // Se aborted, drena o resto do stack mas não protege (componente grande = fundo)
+    while (sp > 0) {
+      const q = stack[--sp];
+      const x = q % W, y = (q / W) | 0;
+      if (x > 0)     { const nq = q - 1; if (isTarget[nq] && !visited[nq] && sp < stack.length) { visited[nq]=1; stack[sp++]=nq; } }
+      if (x < W-1)  { const nq = q + 1; if (isTarget[nq] && !visited[nq] && sp < stack.length) { visited[nq]=1; stack[sp++]=nq; } }
+      if (y > 0)     { const nq = q - W; if (isTarget[nq] && !visited[nq] && sp < stack.length) { visited[nq]=1; stack[sp++]=nq; } }
+      if (y < H-1)  { const nq = q + W; if (isTarget[nq] && !visited[nq] && sp < stack.length) { visited[nq]=1; stack[sp++]=nq; } }
+    }
+  }
+  return protectMask;
+}
+
+function redrawFinalPreview(){
+  if (!finalCanvas) return;
+  const OUT_W = finalCanvas.width, OUT_H = finalCanvas.height;
+  const ratio = OUT_W / OUT_H;
+  const maxW = 540;
+  const maxH = Math.round(maxW / ratio);
+  previewCanvas.width = maxW;
+  previewCanvas.height = maxH;
+  pctx.clearRect(0, 0, maxW, maxH);
+  pctx.drawImage(finalCanvas, 0, 0, maxW, maxH);
+}
+
+async function rebuildOutputBlob(){
+  if (!finalCanvas) return;
+  const blob = await new Promise(res => finalCanvas.toBlob(res, 'image/png'));
+  if (!blob) return;
+  outputBlob = await injectPngDpi(blob, 300);
+}
 </script>
 </body>
 </html>
