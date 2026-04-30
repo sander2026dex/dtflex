@@ -583,12 +583,15 @@ function autoRemoveBackground(data, W, H){
    Returns Uint8Array (1 = edge, painted solid, no dots)
    ============================================================ */
 
-function computeEdgeMask(data, W, H, threshold){
+function computeEdgeMask(data, W, H, threshold, protectText){
   const lum = new Float32Array(W*H);
   for (let p=0, i=0; p<lum.length; p++, i+=4){
     if (data[i+3] < ALPHA_CUTOFF) { lum[p] = -1; continue; }
     lum[p] = brightness(data[i], data[i+1], data[i+2]);
   }
+  // V5: quando "Proteger Texto" está ON, abaixamos o threshold para capturar
+  // letras/números finos com mais facilidade.
+  const eff = protectText ? Math.max(28, threshold * 0.55) : threshold;
   const edge = new Uint8Array(W*H);
   for (let y=1; y<H-1; y++){
     for (let x=1; x<W-1; x++){
@@ -599,20 +602,27 @@ function computeEdgeMask(data, W, H, threshold){
       if (a<0||b<0||c<0||d<0||f<0||g<0||h<0||i2<0) continue;
       const gx = -a -2*d -g + c + 2*f + i2;
       const gy = -a -2*b -c + g + 2*h + i2;
-      if (Math.abs(gx) + Math.abs(gy) >= threshold) edge[p] = 1;
+      if (Math.abs(gx) + Math.abs(gy) >= eff) edge[p] = 1;
     }
   }
-  // Dilate 1px so the entire stroke is captured (not just the gradient edge)
-  const dil = new Uint8Array(W*H);
-  for (let y=1; y<H-1; y++){
-    for (let x=1; x<W-1; x++){
-      const p = y*W+x;
-      if (edge[p] || edge[p-1] || edge[p+1] || edge[p-W] || edge[p+W] ||
-          edge[p-W-1] || edge[p-W+1] || edge[p+W-1] || edge[p+W+1]) {
-        dil[p] = 1;
+  // Dilate 1px (ou 2px com protectText) para preencher o miolo de letras finas.
+  const passes = protectText ? 2 : 1;
+  let cur = edge;
+  for (let pass = 0; pass < passes; pass++){
+    const dil = new Uint8Array(W*H);
+    for (let y=1; y<H-1; y++){
+      for (let x=1; x<W-1; x++){
+        const p = y*W+x;
+        if (cur[p] || cur[p-1] || cur[p+1] || cur[p-W] || cur[p+W] ||
+            cur[p-W-1] || cur[p-W+1] || cur[p+W-1] || cur[p+W+1]) {
+          dil[p] = 1;
+        }
       }
     }
+    cur = dil;
   }
+  return cur;
+}
   return dil;
 }
 
