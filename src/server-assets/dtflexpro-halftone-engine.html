@@ -555,6 +555,7 @@ function applyContrast(data, contrast){
   const factor = (259 * (C + 255)) / (255 * (259 - C));
   for (let i=0; i<data.length; i+=4){
     if (data[i+3] < ALPHA_CUTOFF) continue;
+    if (isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
     data[i  ] = clamp8((data[i  ] - 128) * factor + 128);
     data[i+1] = clamp8((data[i+1] - 128) * factor + 128);
     data[i+2] = clamp8((data[i+2] - 128) * factor + 128);
