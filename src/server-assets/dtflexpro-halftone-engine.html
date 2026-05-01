@@ -1460,6 +1460,28 @@ $('koApplyPicked').addEventListener('click', () => {
 });
 $('koReset').addEventListener('click', resetKnockout);
 
+// === Desfazer Halftone: volta para o estado anterior ao processamento ===
+$('undoHalftoneBtn').addEventListener('click', () => {
+  // Cancela a arte processada e volta a exibir só a imagem original carregada
+  outputBlob = null;
+  finalBaseImageData = null;
+  finalCurrentImageData = null;
+  finalCanvas = null;
+  finalCtx = null;
+  disableKnockoutPanel();
+  $('downloadBtn').disabled = true;
+  $('undoHalftoneBtn').disabled = true;
+  if (sourceImage) {
+    drawPreviewSource(sourceImage);
+    $('processBtn').disabled = false;
+    $('statusText').textContent = '↺ Halftone desfeito. A imagem original foi mantida — clique em "Processar PNG" para refazer.';
+  } else {
+    pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    $('statusText').textContent = '↺ Halftone desfeito.';
+  }
+  setProgress(0, '');
+});
+
 function hexToRgb(hex){
   const m = /^#?([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})$/i.exec(hex);
   if (!m) return null;
