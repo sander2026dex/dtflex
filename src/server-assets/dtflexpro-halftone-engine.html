@@ -1182,7 +1182,10 @@ function dotRadius(luma, cell, minDensity, zone){
     case 'skin':       curve = 2.10; capCoverage = 0.24; floor = 0.06; break;
     case 'flatColor':  curve = 2.45; capCoverage = 0.20; floor = 0.05; break;
     case 'highSat':    curve = 1.95; capCoverage = 0.36; floor = 0.06; break;
-    case 'highlight':  curve = 1.80; capCoverage = 0.28; floor = 0.07; break;
+    // V18 — Cores claras: retículas LEVES (poucas, espaçadas, finas).
+    // Curva mais agressiva + cap baixo + floor mínimo = pontos discretos
+    // que dão textura sem pesar nem fechar a tinta.
+    case 'highlight':  curve = 2.40; capCoverage = 0.16; floor = 0.025; break;
     case 'shadow':     curve = 1.20; capCoverage = 0.82; floor = Math.max(minDensity, 0.22); break;
     default:           curve = 1.45; capCoverage = 0.72; floor = luma < 150 ? Math.max(minDensity, 0.10) : 0.05;
   }
