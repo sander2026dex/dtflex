@@ -1806,6 +1806,23 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const jx = v.dx * jitterMag;
       const jy = v.dy * jitterMag;
 
+      // V23 — DETECTOR DE BURACOS:
+      // Se a célula está dentro do corpo do sujeito (cercada por pixels
+      // coloridos), pintamos um FILL BASE suave da cor da célula por baixo
+      // do ponto. Isso garante que rosto, testa, nariz, cabelo e traços
+      // finos NUNCA virem buracos transparentes — o ponto fica por cima
+      // e a textura RIP é mantida, mas sem buraco.
+      if (isInsideSubjectBody(data, W, H, ix, iy, cell)){
+        // Tom levemente mais claro do que o ponto, ~55% de cobertura,
+        // para preservar o contraste do halftone enquanto mata o buraco.
+        const tintR = Math.min(255, r0 + Math.round((255 - r0) * 0.55));
+        const tintG = Math.min(255, g0 + Math.round((255 - g0) * 0.55));
+        const tintB = Math.min(255, b0 + Math.round((255 - b0) * 0.55));
+        const halfC = Math.ceil(cell / 2);
+        ctx.fillStyle = `rgb(${tintR},${tintG},${tintB})`;
+        ctx.fillRect(Math.round(ix - halfC), Math.round(iy - halfC), cell, cell);
+      }
+
       // Perfect circular anti-aliased dot, fully opaque cell color
       ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
       ctx.beginPath();
