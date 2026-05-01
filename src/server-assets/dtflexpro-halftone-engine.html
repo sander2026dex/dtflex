@@ -548,19 +548,58 @@ function isProtectedFlatLightSample(sample){
   return isProtectedFlatLightColor(sample.r || 0, sample.g || 0, sample.b || 0);
 }
 
+// Identifica BRANCO PURO (não bege/cinza). Usado para a micro-retícula
+// decorativa em áreas grandes de branco.
+function isPureWhitePixel(r, g, b){
+  return r >= 240 && g >= 240 && b >= 240
+    && Math.max(r,g,b) - Math.min(r,g,b) <= 8;
+}
+
 function paintProtectedFlatLights(ctx, data, W, H){
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const cx = c.getContext('2d');
   const img = cx.createImageData(W, H);
   const out = img.data;
-  for (let i=0; i<data.length; i+=4){
-    if (data[i+3] < ALPHA_CUTOFF) continue;
-    if (!isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
-    out[i  ] = data[i  ];
-    out[i+1] = data[i+1];
-    out[i+2] = data[i+2];
-    out[i+3] = 255;
+
+  // Passo da micro-retícula em áreas grandes de branco. Em 300 DPI / 3307×4930,
+  // step ≈ 22 px ≈ 1.86 mm — visível em grandes campos brancos, invisível em
+  // detalhes pequenos (porque exigimos que TODOS os 4 vizinhos a ±radius
+  // também sejam branco puro).
+  const step = 22;
+  const radius = 14; // raio mínimo de "branco contínuo" exigido
+
+  for (let y = 0; y < H; y++){
+    for (let x = 0; x < W; x++){
+      const i = (y * W + x) * 4;
+      if (data[i+3] < ALPHA_CUTOFF) continue;
+      if (!isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
+
+      // Checa se este pixel cai sobre a grade da micro-retícula E se está em
+      // uma área GRANDE de branco puro. Se sim, deixa um furo de 1 px (pula
+      // a pintura). Nunca acontece em letras finas, olhos ou detalhes <radius.
+      let skip = false;
+      if (isPureWhitePixel(data[i], data[i+1], data[i+2])
+          && (x % step === 0) && (y % step === 0)
+          && x >= radius && y >= radius && x < W - radius && y < H - radius){
+        const iL = (y * W + (x - radius)) * 4;
+        const iR = (y * W + (x + radius)) * 4;
+        const iU = ((y - radius) * W + x) * 4;
+        const iD = ((y + radius) * W + x) * 4;
+        if (isPureWhitePixel(data[iL], data[iL+1], data[iL+2])
+         && isPureWhitePixel(data[iR], data[iR+1], data[iR+2])
+         && isPureWhitePixel(data[iU], data[iU+1], data[iU+2])
+         && isPureWhitePixel(data[iD], data[iD+1], data[iD+2])){
+          skip = true;
+        }
+      }
+      if (skip) continue;
+
+      out[i  ] = data[i  ];
+      out[i+1] = data[i+1];
+      out[i+2] = data[i+2];
+      out[i+3] = 255;
+    }
   }
   cx.putImageData(img, 0, 0);
   ctx.drawImage(c, 0, 0);
