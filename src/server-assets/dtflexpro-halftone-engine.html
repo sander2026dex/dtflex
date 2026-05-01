@@ -678,10 +678,13 @@ function floodRemoveBackground(data, W, H, predicate, protectInteriorDetails = f
  * mas baixo o bastante para preservar SOMBRAS reais coloridas e detalhes
  * de meio-tom. Assim o usuário tem preto puro chapado, igual K100 na gráfica.
  */
-function enforceAbsoluteBlack(data, W, H){
-  // V17 RIP — Regra explícita do operador: RGB < 28 vira (0,0,0) puro.
-  const RGB_MAX = 28;   // limite por canal (regra principal)
-  const LUMA_MAX = 32;  // luminância perceptual auxiliar
+function enforceAbsoluteBlack(data, W, H, threshold){
+  // Threshold dinâmico controlado pelo slider "Preto Absoluto" (0..60).
+  // 0 = desligado. Padrão = 28. Pixels com cada canal RGB abaixo do limite
+  // viram (0,0,0) puro — K100 na gráfica. Luma ≤ threshold + 4 também entra.
+  const RGB_MAX = (typeof threshold === 'number') ? threshold : 28;
+  if (RGB_MAX <= 0) return 0;
+  const LUMA_MAX = RGB_MAX + 4;
   let count = 0;
   for (let i = 0; i < data.length; i += 4){
     const a = data[i+3];
