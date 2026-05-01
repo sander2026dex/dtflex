@@ -1466,7 +1466,18 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         // Highlight colorido / shadow / neutral médio -> halftone circular
       }
 
-      const radius = dotRadius(sample.l, cell, minDensity, zone);
+      // ANTI-BURACO em sombras com EFEITO ESPELHADO:
+      // Se a célula é de sombra/escura mas contém pixel muito brilhante
+      // (highlight especular dentro do mesmo cell — característico de metal,
+      // verniz, brilho, reflexo), reforça o raio mínimo para nunca abrir
+      // buraco no detalhe. Mesma regra para detalhes finos pretos isolados.
+      let radius = dotRadius(sample.l, cell, minDensity, zone);
+      const specularDelta = (sample.maxL - sample.l);
+      const hasSpecularInside = (specularDelta > 70) || (sample.maxL > 230 && sample.l < 140);
+      if ((zone === 'shadow' || sample.l < 90) && hasSpecularInside){
+        const minRadius = cell * 0.42; // coverage ≈ 55% — sombra "respira" mas não fura
+        if (radius < minRadius) radius = minRadius;
+      }
       if (radius <= 0) continue;
 
       // Perfect circular anti-aliased dot, fully opaque cell color
