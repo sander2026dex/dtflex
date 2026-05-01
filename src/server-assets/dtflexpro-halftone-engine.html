@@ -397,8 +397,13 @@ $('imageInput').addEventListener('change', async e => {
   $('statusText').textContent = 'Abrindo imagem localmente...';
   $('processBtn').disabled = true;
   $('downloadBtn').disabled = true;
+  $('undoHalftoneBtn').disabled = true;
   outputBlob = null;
+  // Limpa COMPLETAMENTE qualquer arte anterior (não deixa a anterior aparecendo)
   disableKnockoutPanel();
+  sourceImage = null;
+  pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  previewCanvas.width = 1; previewCanvas.height = 1;
   const url = URL.createObjectURL(file);
   try {
     const img = await loadLocalImage(file, url);
@@ -413,6 +418,23 @@ $('imageInput').addEventListener('change', async e => {
   } finally {
     URL.revokeObjectURL(url);
   }
+});
+
+// Avisa antes de sair / minimizar / recarregar quando há trabalho não baixado
+window.addEventListener('beforeunload', (e) => {
+  // Só avisa se existe arte processada na sessão e ela ainda não foi baixada explicitamente
+  if (sourceImage || finalCurrentImageData) {
+    e.preventDefault();
+    e.returnValue = 'Você tem uma arte em andamento. Se sair agora, vai perder o progresso.';
+    return e.returnValue;
+  }
+});
+
+// Não deixa a página "atualizar sozinha" ao minimizar / trocar de aba.
+// Apenas garante que nenhum reset implícito aconteça quando a aba volta a ficar visível.
+document.addEventListener('visibilitychange', () => {
+  // No-op intencional: mantemos sourceImage/finalCurrentImageData no estado em que estavam.
+  // Isto existe para documentar que NÃO há reload nem reset ao voltar para a aba.
 });
 
 function loadLocalImage(file, url){
