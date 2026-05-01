@@ -1222,11 +1222,12 @@ $('processBtn').addEventListener('click', async () => {
   // Preencher Sombras automático: densidade mínima fixa em 18% (evita buracos em sombras).
   const minDensity = 0.18;
   const protectSkin = $('protectSkin').checked;
+  const lightMode = $('lightMode') ? $('lightMode').checked : true;
   // Branco Inteligente automático: rigor fixo (RGB ≥ 236, Sat < 12%).
   WHITE_SENSITIVITY = 0.70;
   const cell = DPI / lpi; // grade AM real: espaçamento matemático exato em 300 DPI
 
-  await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
+  await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType, lightMode);
 
   // Restauração final obrigatória: qualquer pixel branco/cinza claro/bege volta
   // exatamente como veio da imagem original, por cima da retícula.
