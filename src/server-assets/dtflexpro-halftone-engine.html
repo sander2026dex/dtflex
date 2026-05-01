@@ -1250,6 +1250,22 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
         ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
                      Math.ceil(cell), Math.ceil(cell));
+
+        // V10: Tons claros coloridos (creme/bege/pele clara/amarelo claro/pastéis)
+        // que ficam sólidos recebem micro-retícula 2% (furo mínimo transparente)
+        // para nunca parecer 100% chapado. Branco real puro fica intocado.
+        const _mx = Math.max(r0,g0,b0), _mn = Math.min(r0,g0,b0);
+        const _sat = _mx === 0 ? 0 : (_mx - _mn) / _mx;
+        const _isLightColored = (sample.l >= 190) && (_sat >= 0.05) && !isRealWhiteSample(sample);
+        if (_isLightColored){
+          const microR = Math.max(0.5, cell * 0.14); // ~2% da área da célula
+          const prev = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.beginPath();
+          ctx.arc(ix, iy, microR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalCompositeOperation = prev;
+        }
         continue;
       }
 
