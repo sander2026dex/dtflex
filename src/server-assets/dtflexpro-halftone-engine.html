@@ -1315,8 +1315,10 @@ $('processBtn').addEventListener('click', async () => {
   //     ANTES do contraste e do halftone. Isso garante preto chapado sem matiz
   //     residual (azul/verde/marrom) na impressão. Detalhes finos e sombras
   //     com luminância acima do threshold ficam intactos.
-  if ($('absoluteBlack') && $('absoluteBlack').checked) {
-    enforceAbsoluteBlack(data, OUT_W, OUT_H);
+  const blackThrEl = $('blackThreshold');
+  const blackThr = blackThrEl ? parseInt(blackThrEl.value, 10) : 28;
+  if (blackThr > 0) {
+    enforceAbsoluteBlack(data, OUT_W, OUT_H, blackThr);
   }
 
   // 2c) PROTEÇÃO DO BRANCO (V17): RGB > 238 → comprime para (245,245,245).
