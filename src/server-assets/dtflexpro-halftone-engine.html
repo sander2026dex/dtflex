@@ -1261,9 +1261,12 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
-       if (isProtectedHighlightCell(sample, data, W, H)){
-          // Branco/cinza/bege protegidos já foram pintados chapados pixel-a-pixel.
-          // Não desenhar retícula por cima e não remover nada.
+       if (isProtectedFlatLightSample(sample) || isProtectedHighlightCell(sample, data, W, H)){
+          // Branco, cinza claro e bege devem ficar chapados com a cor real.
+          // Pinta a célula completa para não sobrar transparência entre pontos.
+          const half = Math.ceil(cell / 2);
+          ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+          ctx.fillRect(Math.round(ix - half), Math.round(iy - half), cell, cell);
           continue;
         }
 
