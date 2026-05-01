@@ -1123,6 +1123,14 @@ $('processBtn').addEventListener('click', async () => {
   // 2) Auto background removal (black edge-flood only). White/light colors are print ink.
   autoRemoveBackground(data, OUT_W, OUT_H);
 
+  // 2b) PRETO ABSOLUTO (CMYK K100): converte tons muito escuros em #000000 puro
+  //     ANTES do contraste e do halftone. Isso garante preto chapado sem matiz
+  //     residual (azul/verde/marrom) na impressão. Detalhes finos e sombras
+  //     com luminância acima do threshold ficam intactos.
+  if ($('absoluteBlack') && $('absoluteBlack').checked) {
+    enforceAbsoluteBlack(data, OUT_W, OUT_H);
+  }
+
   setProgress(0.20, 'Aplicando contraste profissional...');
   await nextFrame();
 
