@@ -256,6 +256,13 @@
     </div>
 
     <div class="control-group">
+      <label>Branco Inteligente (rigor)</label>
+      <input type="range" id="whiteSensitivity" min="0" max="100" value="70" />
+      <div class="value" id="whiteSensitivityVal">70%</div>
+      <p class="info-text">Define o quanto o motor é rigoroso ao identificar branco real. Quanto maior, menos creme/amarelo claro/pele clara vira branco. Tons claros coloridos recebem micro-retícula em vez de virarem chapados.</p>
+    </div>
+
+    <div class="control-group">
       <label>Proteger Pele (tom de pele)</label>
       <input type="checkbox" id="protectSkin" checked style="accent-color:#f5b544;width:auto;" />
       <p class="info-text">Detecta tons de pele (anime ou foto) e aplica retícula em vez de tratar como branco de fundo.</p>
@@ -363,8 +370,8 @@ const ALPHA_CUTOFF = 10;
 // Acima de LARGE -> superfície branca grande, mantém SOLID (não retícula).
 const WHITE_SMALL_MAX  = 4500;    // ~ olhos, dentes, brilhos pontuais
 const WHITE_MEDIUM_MAX = 28000;   // ~ acessórios, gloves, capacetes pequenos
-const MICRO_MIN_DOT_PX = 0.18;
-const MICRO_MAX_DOT_PX = 2.8;
+const MICRO_MIN_DOT_PX = 0.22;
+const MICRO_MAX_DOT_PX = 4.2;  // V6: malha mais respirável em mid/highlight (RIP-like)
 
 let sourceImage = null;
 let outputBlob = null;
@@ -381,12 +388,13 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','contrast','minDensity'].forEach(id => {
+['lpi','angle','contrast','minDensity','whiteSensitivity'].forEach(id => {
   const el = $(id);
+  if (!el) return;
   el.addEventListener('input', () => {
     const suffix = id === 'lpi' ? ' LPI'
                  : id === 'angle' ? '°'
-                 : (id === 'contrast' || id === 'minDensity') ? '%' : '';
+                 : (id === 'contrast' || id === 'minDensity' || id === 'whiteSensitivity') ? '%' : '';
     $(id+'Val').textContent = el.value + suffix;
   });
 });
@@ -787,6 +795,9 @@ function classifyZone(sample, isSkinCell){
   // Flat vibrant fabric (yellow / red / blue jersey) — bright AND saturated
   if (sat > 0.55 && L > 92) return 'flatColor';
   if (sat > 0.40) return 'highSat';
+  // V6: claro colorido (creme, bege, amarelo claro, pele clara, cinza-quente)
+  // recebe MICRO-RETÍCULA em vez de virar branco chapado.
+  if (L >= 195 && sat >= 0.05 && sat <= 0.40) return 'highlight';
   return 'neutral';
 }
 
@@ -798,27 +809,28 @@ function shouldKeepSolidCommercial(sample, zone, artType){
   const { h } = rgbToHsv(r, g, b);
   const isYellowEffect = h >= 32 && h <= 76 && sat > 0.24 && r > b * 1.35 && g > b * 1.25;
   const L = sample.l;
+  const realWhite = isRealWhiteSample(sample);
 
-  // Regra principal pedida: acima de 90% fica 100% limpo.
-  if (sample.allWhite || L >= CLEAN_LIGHT_THRESHOLD || sample.whiteRatio > 0.30 || sample.brightRatio > 0.55) return true;
+  // V6 BRANCO INTELIGENTE:
+  // Só fica chapado/sólido se for BRANCO REAL.
+  // Claro colorido (creme, bege, amarelo claro, pele clara) NÃO entra aqui —
+  // vai para halftone com micro-retícula no renderAMScreen (zone 'highlight').
+  if (sample.allWhite && realWhite) return true;
+  if (L >= CLEAN_LIGHT_THRESHOLD && realWhite) return true;
+  if (sample.whiteRatio > 0.45 && realWhite) return true;
 
-  // Pele/rosto iluminado: não reticular tudo. Só sombras reais passam.
-  if (zone === 'skin' && L >= SKIN_SOLID_LIGHT_THRESHOLD) return true;
+  // Cores SATURADAS chapadas (amarelo vivo de camisa, vermelho, azul forte):
+  // mantêm superfície lisa em tom médio-claro. Só sombra real reticula.
+  if (isYellowEffect && L >= YELLOW_EFFECT_SOLID_THRESHOLD && sat > 0.30) return true;
+  if (zone === 'flatColor' && L >= FLAT_COLOR_SOLID_LIGHT_THRESHOLD && sat > 0.35) return true;
+  if (zone === 'highSat' && L >= HIGH_SAT_SOLID_LIGHT_THRESHOLD && sat > 0.30) return true;
 
-  // Amarelo/fabric/anime/efeitos: preservar liso; retícula só na sombra profunda.
-  if (isYellowEffect && L >= YELLOW_EFFECT_SOLID_THRESHOLD) return true;
+  // Pele: só zonas realmente claras de pele permanecem sólidas; resto recebe micro-retícula.
+  if (zone === 'skin' && L >= SKIN_SOLID_LIGHT_THRESHOLD && sat > 0.18) return true;
 
-  // Cores chapadas/efeitos claros: preservar superfície premium lisa.
-  if (zone === 'flatColor' && L >= FLAT_COLOR_SOLID_LIGHT_THRESHOLD) return true;
-
-  // Cores fortes claras e cinzas claros ficam sólidos; retícula só em escuros.
-  if (zone === 'highSat' && L >= HIGH_SAT_SOLID_LIGHT_THRESHOLD) return true;
-  if (zone === 'neutral' && L >= COMMERCIAL_SOLID_LIGHT_THRESHOLD) return true;
-
-  // Em arte limpa, seja ainda mais conservador: não sujar superfícies já bonitas.
+  // Em arte limpa: superfícies neutras MUITO claras ficam sólidas só se forem branco real.
   if (artType === 'clean'){
-    if ((zone === 'flatColor' || zone === 'skin' || zone === 'highSat') && L >= 95) return true;
-    if (sat < 0.20 && L >= 150) return true;
+    if (sat < 0.08 && L >= 200 && realWhite) return true;
   }
 
   return false;
@@ -910,25 +922,26 @@ function dotRadius(luma, cell, minDensity, zone){
 
   let curve, capCoverage, floor;
   switch (zone){
-    case 'skin':       curve = 2.65; capCoverage = 0.14; floor = 0.00; break;
-    case 'flatColor':  curve = 3.10; capCoverage = 0.12; floor = 0.00; break;
-    case 'highSat':    curve = 2.55; capCoverage = 0.22; floor = 0.00; break;
+    case 'skin':       curve = 2.45; capCoverage = 0.18; floor = 0.04; break;
+    case 'flatColor':  curve = 2.85; capCoverage = 0.16; floor = 0.03; break;
+    case 'highSat':    curve = 2.30; capCoverage = 0.28; floor = 0.04; break;
+    case 'highlight':  curve = 2.10; capCoverage = 0.22; floor = 0.05; break; // V6: claros coloridos
     case 'shadow':     curve = 1.45; capCoverage = 0.70; floor = Math.max(minDensity, 0.16); break;
-    default:           curve = 1.85; capCoverage = 0.58; floor = luma < 115 ? minDensity : 0;
+    default:           curve = 1.75; capCoverage = 0.60; floor = luma < 130 ? Math.max(minDensity, 0.06) : 0.03;
   }
 
   let t = Math.pow(tone, curve);
   if (floor > 0) t = Math.max(t, floor);
-  // Black cap — never let any cell go fully solid (prevents black blobs)
   t = Math.min(t, capCoverage);
 
   if (t <= 0.005) return 0;
-  // maxR derived from capCoverage so cap is honored geometrically too.
-  // Area = pi*r^2 within a cell of area cell^2. Coverage = pi*r^2 / cell^2.
-  // r_max for coverage C => r = cell * sqrt(C/pi)
-  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.38; // precisão visual sem borrar a simetria
+  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.38;
   const r = rMax * Math.sqrt(t / capCoverage);
-  const zoneMax = zone === 'shadow' ? cell * 0.46 : MICRO_MAX_DOT_PX;
+  // V6: cada zona com seu teto de ponto — shadow grande, highlight pequeno mas visível.
+  let zoneMax;
+  if (zone === 'shadow') zoneMax = cell * 0.46;
+  else if (zone === 'highlight' || zone === 'skin' || zone === 'flatColor') zoneMax = Math.min(cell * 0.30, MICRO_MAX_DOT_PX);
+  else zoneMax = Math.min(cell * 0.40, MICRO_MAX_DOT_PX * 1.4);
   return r < MICRO_MIN_DOT_PX ? 0 : Math.min(zoneMax, r);
 }
 
@@ -937,16 +950,24 @@ function microDotRadius(cell, coverage){
   return Math.max(MICRO_MIN_DOT_PX, Math.min(MICRO_MAX_DOT_PX, r));
 }
 
-// V5 — Branco REAL apenas (RGB > 235 + saturação < 12%).
-// Amarelo claro, pele clara, dourado e cores saturadas NÃO viram branco.
+// V5+ — Branco REAL apenas. Rigor controlado pelo slider "Branco Inteligente".
+// whiteSensitivity 0..1: 0 = permissivo (qualquer claro vira branco),
+//                        1 = só branco neutro absoluto (RGB>=245 + sat<6%).
+let WHITE_SENSITIVITY = 0.70;
+function getWhiteThresholds(){
+  // Interpola entre permissivo (220, sat<0.20) e rigoroso (245, sat<0.06).
+  const s = Math.max(0, Math.min(1, WHITE_SENSITIVITY));
+  const minRGB = Math.round(220 + s * 25);   // 220..245
+  const maxSat = 0.20 - s * 0.14;            // 0.20..0.06
+  return { minRGB, maxSat };
+}
 function isRealWhiteSample(sample){
   if (!sample) return false;
   const r = sample.r|0, g = sample.g|0, b = sample.b|0;
   const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
   const sat = mx === 0 ? 0 : (mx - mn) / mx;
-  // Branco real = RGB todos > 235 e saturação < 12%
-  if (r >= 235 && g >= 235 && b >= 235 && sat < 0.12) return true;
-  return false;
+  const { minRGB, maxSat } = getWhiteThresholds();
+  return (r >= minRGB && g >= minRGB && b >= minRGB && sat < maxSat);
 }
 
 function isProtectedHighlightCell(sample, data, W, H){
@@ -1048,6 +1069,9 @@ $('processBtn').addEventListener('click', async () => {
   const angleDeg = parseFloat($('angle').value);
   const minDensity = parseInt($('minDensity').value, 10) / 100;
   const protectSkin = $('protectSkin').checked;
+  // V6: lê o slider Branco Inteligente e ajusta o rigor do branco real globalmente.
+  const wsEl = $('whiteSensitivity');
+  WHITE_SENSITIVITY = wsEl ? (parseInt(wsEl.value, 10) / 100) : 0.70;
   const cell = DPI / lpi; // grade AM real: espaçamento matemático exato em 300 DPI
 
   await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
@@ -1228,20 +1252,22 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         continue;
       }
 
-      // CLEAN GRAPHIC ART rule:
-      //   Halftone ONLY in shadows / dark folds.
-      //   Flat colors, skin, vibrant areas and bright midtones stay SOLID.
+      // CLEAN GRAPHIC ART rule (V6):
+      //   Halftone só em sombras E em highlight colorido (creme/amarelo claro/pele clara).
+      //   Cores chapadas saturadas continuam sólidas.
+      //   Highlight colorido NÃO é mais chapado — recebe micro-retícula consistente.
       if (artType === 'clean'){
-        const isFlatLike = (zone === 'flatColor' || zone === 'skin' || zone === 'highSat');
-        const isBrightNeutral = (zone === 'neutral' && sample.l > 150);
-        if (isFlatLike || isBrightNeutral){
-          // Paint solid cell — preserve premium clean surface
+        const sat0 = (Math.max(r0,g0,b0) - Math.min(r0,g0,b0)) / Math.max(1, Math.max(r0,g0,b0));
+        const isFlatSaturated = ((zone === 'flatColor' || zone === 'highSat') && sat0 > 0.30);
+        const isFlatSkin = (zone === 'skin' && sat0 > 0.18);
+        const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06);
+        if (isFlatSaturated || isFlatSkin || isBrightNeutralReal){
           ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
           ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
                        Math.ceil(cell), Math.ceil(cell));
           continue;
         }
-        // Otherwise (shadow / darker neutral) -> screen with reduced floor
+        // Highlight colorido / shadow / neutral médio -> halftone
       }
 
       const radius = dotRadius(sample.l, cell, minDensity, zone);
