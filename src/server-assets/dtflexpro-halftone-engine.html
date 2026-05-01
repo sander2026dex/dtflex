@@ -1047,13 +1047,13 @@ $('processBtn').addEventListener('click', async () => {
   else { dh = OUT_H; dw = OUT_H * ir; dx = (OUT_W-dw)/2; dy = 0; }
   sctx.drawImage(sourceImage, dx, dy, dw, dh);
 
-  setProgress(0.10, 'Removendo fundo automaticamente...');
+  setProgress(0.10, 'Preservando branco, cinza claro e bege...');
   await nextFrame();
 
   const imgData = sctx.getImageData(0, 0, OUT_W, OUT_H);
   const data = imgData.data;
 
-  // 2) Auto background removal (white OR black, edge-flood)
+  // 2) Auto background removal (black edge-flood only). White/light colors are print ink.
   autoRemoveBackground(data, OUT_W, OUT_H);
 
   setProgress(0.20, 'Aplicando contraste profissional...');
