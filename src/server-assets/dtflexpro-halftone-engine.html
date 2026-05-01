@@ -1806,20 +1806,15 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const jx = v.dx * jitterMag;
       const jy = v.dy * jitterMag;
 
-      // V23 — DETECTOR DE BURACOS:
-      // Se a célula está dentro do corpo do sujeito (cercada por pixels
-      // coloridos), pintamos um FILL BASE suave da cor da célula por baixo
-      // do ponto. Isso garante que rosto, testa, nariz, cabelo e traços
-      // finos NUNCA virem buracos transparentes — o ponto fica por cima
-      // e a textura RIP é mantida, mas sem buraco.
-      if (isInsideSubjectBody(data, W, H, ix, iy, cell)){
-        // Tom levemente mais claro do que o ponto, ~55% de cobertura,
-        // para preservar o contraste do halftone enquanto mata o buraco.
-        const tintR = Math.min(255, r0 + Math.round((255 - r0) * 0.55));
-        const tintG = Math.min(255, g0 + Math.round((255 - g0) * 0.55));
-        const tintB = Math.min(255, b0 + Math.round((255 - b0) * 0.55));
+      // V25 — DETECTOR DE BURACOS (fill base SEM CLAREAR):
+      // Se a célula está dentro do corpo do sujeito, pintamos um fill base
+      // com a PRÓPRIA cor da célula (não clareada) por baixo do ponto. Isso
+      // mata buraco transparente em rosto/testa/cabelo sem deixar a imagem
+      // esbranquiçada. O reticulado preto vem em seguida por cima.
+      const insideBody = isInsideSubjectBody(data, W, H, ix, iy, cell);
+      if (insideBody){
         const halfC = Math.ceil(cell / 2);
-        ctx.fillStyle = `rgb(${tintR},${tintG},${tintB})`;
+        ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
         ctx.fillRect(Math.round(ix - halfC), Math.round(iy - halfC), cell, cell);
       }
 
@@ -1829,36 +1824,31 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       ctx.arc(ix + jx, iy + jy, radius, 0, Math.PI * 2);
       ctx.fill();
 
-      // V24 — BLACK CHANNEL HALFTONE OVERLAY (DTF K simulation):
-      // Apply a fine black dot screen ONLY on dark regions to simulate the
-      // professional K (preto) channel of a DTF RIP. Highlights are preserved
-      // because we gate by luminance (sample.l) and require the cell to be
-      // genuinely dark — not just colored. This adds shadow depth and kills
-      // the "flat plastic" feel without burning skin/highlights.
+      // V25 — BLACK HALFTONE SHADOW LAYER (DTF K channel):
+      // "Apply black halftone shadow layer on dark regions only.
+      //  Use fine dot screen texture. Preserve highlights.
+      //  Simulate professional DTF black channel."
       //
-      // Rules:
-      //   - Skip skin cells (don't dirty the face).
-      //   - Skip protected light samples (whites, pastels).
-      //   - Coverage scales with darkness: l<60 -> strong, l<100 -> medium,
-      //     l<140 -> very light dust, l>=140 -> none.
-      //   - Dot is much smaller than the color dot (fine screen).
-      if (!isSkinCell &&
-          !isProtectedFlatLightSample(sample) &&
-          sample.l < 140) {
-        let kCoverage;
-        if (sample.l < 60)       kCoverage = 0.55;
-        else if (sample.l < 90)  kCoverage = 0.38;
-        else if (sample.l < 115) kCoverage = 0.22;
-        else                     kCoverage = 0.10;
+      // Aplica reticulado PRETO em qualquer célula escura DENTRO do sujeito,
+      // inclusive sombras de pele e cabelo — é o que dá profundidade. Só
+      // protege HIGHLIGHTS reais (l >= 170) e fundo transparente.
+      // Sem essa camada o resultado fica "esbranquiçado" / chapado.
+      if (insideBody && sample.l < 170) {
+        // Curva tonal: quanto mais escuro, mais cobertura preta.
+        // Mapeia l (0..170) -> kCoverage (0.62..0.04) suave.
+        const t = Math.max(0, Math.min(1, (170 - sample.l) / 170));
+        // gamma 1.6 — preto pesa nas sombras, fica leve nos meios-tons
+        const tg = Math.pow(t, 1.6);
+        let kCoverage = 0.04 + tg * 0.58;
 
-        // Extra boost for true shadow zone (deep blacks / hair shadows).
-        if (zone === 'shadow' && sample.l < 80) kCoverage = Math.min(0.65, kCoverage + 0.08);
+        // Em pele clara, segura para não sujar o rosto: máximo 18%.
+        if (isSkinCell && sample.l > 110) kCoverage = Math.min(kCoverage, 0.18);
+        // Em zona de sombra real, reforça.
+        if (zone === 'shadow' && sample.l < 80) kCoverage = Math.min(0.72, kCoverage + 0.08);
 
-        // Fine screen: black dot is 0.55x..0.85x of the color dot radius.
         const kRadius = cell * Math.sqrt(kCoverage / Math.PI) * 0.95;
-        if (kRadius > 0.4) {
-          // Sub-pixel offset on opposite vector to avoid perfect overlap —
-          // creates the classic CMYK rosette feel.
+        if (kRadius > 0.35) {
+          // Offset sub-pixel para criar sensação de roseta CMYK.
           const kx = ix - jx * 0.5;
           const ky = iy - jy * 0.5;
           ctx.fillStyle = 'rgb(0,0,0)';
