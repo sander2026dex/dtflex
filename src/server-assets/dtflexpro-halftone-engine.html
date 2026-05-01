@@ -1074,11 +1074,11 @@ function dotRadius(luma, cell, minDensity, zone){
   if (t <= 0.005) return 0;
   const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.38;
   const r = rMax * Math.sqrt(t / capCoverage);
-  // V6: cada zona com seu teto de ponto — shadow grande, highlight pequeno mas visível.
+  // V16: tetos por zona ampliados para preservar detalhe sem virar blob.
   let zoneMax;
-  if (zone === 'shadow') zoneMax = cell * 0.46;
-  else if (zone === 'highlight' || zone === 'skin' || zone === 'flatColor') zoneMax = Math.min(cell * 0.30, MICRO_MAX_DOT_PX);
-  else zoneMax = Math.min(cell * 0.40, MICRO_MAX_DOT_PX * 1.4);
+  if (zone === 'shadow') zoneMax = cell * 0.50;
+  else if (zone === 'highlight' || zone === 'skin' || zone === 'flatColor') zoneMax = Math.min(cell * 0.34, MICRO_MAX_DOT_PX * 1.15);
+  else zoneMax = Math.min(cell * 0.46, MICRO_MAX_DOT_PX * 1.55);
   return r < MICRO_MIN_DOT_PX ? 0 : Math.min(zoneMax, r);
 }
 
