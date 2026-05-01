@@ -1248,31 +1248,33 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       // Premium commercial rule: light colors, face highlights, yellow fabric,
       // reflections and clean effects stay solid. Retícula only in dark tone.
       if (shouldKeepSolidCommercial(sample, zone, artType)){
+        // V12: Mesmo em tons que ficariam sólidos, aplicar micro-retícula quadrada
+        // fina (gap ~30%) para criar textura de malha de impressão visível,
+        // como em RIPs profissionais. Cor original 100% preservada.
+        const sq = Math.max(1, Math.round(cell * 0.70));
         ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
-        ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
-                     Math.ceil(cell), Math.ceil(cell));
-
-        // V11: NÃO perfurar mais tons claros. Branco, cinza claro e tons claros
-        // coloridos ficam 100% sólidos, preservando cor original. Nada é removido.
+        ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
         continue;
       }
 
-      // CLEAN GRAPHIC ART rule (V6):
-      //   Halftone só em sombras E em highlight colorido (creme/amarelo claro/pele clara).
-      //   Cores chapadas saturadas continuam sólidas.
-      //   Highlight colorido NÃO é mais chapado — recebe micro-retícula consistente.
+      // CLEAN GRAPHIC ART rule (V12):
+      //   Cores saturadas chapadas (vermelho, azul, etc.) recebem MICRO-RETÍCULA
+      //   quadrada fina com gap visível — não mais bloco 100% chapado.
+      //   Isso cria a malha característica de impressão profissional, igualando
+      //   o look de RIPs como o da referência Base44.
       if (artType === 'clean'){
         const sat0 = (Math.max(r0,g0,b0) - Math.min(r0,g0,b0)) / Math.max(1, Math.max(r0,g0,b0));
         const isFlatSaturated = ((zone === 'flatColor' || zone === 'highSat') && sat0 > 0.30);
         const isFlatSkin = (zone === 'skin' && sat0 > 0.18);
         const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06);
         if (isFlatSaturated || isFlatSkin || isBrightNeutralReal){
+          // Micro-retícula quadrada: 70% da célula, ~30% gap = malha fina visível
+          const sq = Math.max(1, Math.round(cell * 0.70));
           ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
-          ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
-                       Math.ceil(cell), Math.ceil(cell));
+          ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
           continue;
         }
-        // Highlight colorido / shadow / neutral médio -> halftone
+        // Highlight colorido / shadow / neutral médio -> halftone circular
       }
 
       const radius = dotRadius(sample.l, cell, minDensity, zone);
