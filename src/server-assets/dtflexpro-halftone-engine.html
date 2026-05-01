@@ -1843,7 +1843,7 @@ function buildSmallDetailProtectMask(data, W, H, target, maxDist, isBlackMode){
   // Linhas finas, olhos, contornos, fios de cabelo, traços: até ~28000 px²
   // em modo preto (mais protetivo — detalhes finos NUNCA somem). Para outras
   // cores, mantém ~9000 px².
-  const SMALL_DETAIL_AREA = isBlackMode ? 28000 : 9000;
+  const SMALL_DETAIL_AREA = isBlackMode ? 36000 : 14000;
 
   const protectMask = new Uint8Array(N);
   const visited = new Uint8Array(N);
