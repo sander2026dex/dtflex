@@ -1200,7 +1200,8 @@ function dotRadius(luma, cell, minDensity, zone){
   // V16: tetos por zona ampliados para preservar detalhe sem virar blob.
   let zoneMax;
   if (zone === 'shadow') zoneMax = cell * 0.50;
-  else if (zone === 'highlight' || zone === 'skin' || zone === 'flatColor') zoneMax = Math.min(cell * 0.34, MICRO_MAX_DOT_PX * 1.15);
+  else if (zone === 'highlight') zoneMax = Math.min(cell * 0.26, MICRO_MAX_DOT_PX * 0.85);
+  else if (zone === 'skin' || zone === 'flatColor') zoneMax = Math.min(cell * 0.34, MICRO_MAX_DOT_PX * 1.15);
   else zoneMax = Math.min(cell * 0.46, MICRO_MAX_DOT_PX * 1.55);
   return r < MICRO_MIN_DOT_PX ? 0 : Math.min(zoneMax, r);
 }
