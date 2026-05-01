@@ -1054,13 +1054,17 @@ function dotRadius(luma, cell, minDensity, zone){
   if (tone < 0) tone = 0;
 
   let curve, capCoverage, floor;
+  // V16 — PRESERVAÇÃO DE DETALHES: gamma mais suave + caps maiores +
+  // pisos mais altos para meios-tons. Detalhes finos (sombras, contornos,
+  // texturas, fios de cabelo, olhos, pontilhados internos) deixam de sumir
+  // porque cada zona agora carrega tinta suficiente para registrar o detalhe.
   switch (zone){
-    case 'skin':       curve = 2.45; capCoverage = 0.18; floor = 0.04; break;
-    case 'flatColor':  curve = 2.85; capCoverage = 0.16; floor = 0.03; break;
-    case 'highSat':    curve = 2.30; capCoverage = 0.28; floor = 0.04; break;
-    case 'highlight':  curve = 2.10; capCoverage = 0.22; floor = 0.05; break; // V6: claros coloridos
-    case 'shadow':     curve = 1.45; capCoverage = 0.70; floor = Math.max(minDensity, 0.16); break;
-    default:           curve = 1.75; capCoverage = 0.60; floor = luma < 130 ? Math.max(minDensity, 0.06) : 0.03;
+    case 'skin':       curve = 2.10; capCoverage = 0.24; floor = 0.06; break;
+    case 'flatColor':  curve = 2.45; capCoverage = 0.20; floor = 0.05; break;
+    case 'highSat':    curve = 1.95; capCoverage = 0.36; floor = 0.06; break;
+    case 'highlight':  curve = 1.80; capCoverage = 0.28; floor = 0.07; break;
+    case 'shadow':     curve = 1.20; capCoverage = 0.82; floor = Math.max(minDensity, 0.22); break;
+    default:           curve = 1.45; capCoverage = 0.72; floor = luma < 150 ? Math.max(minDensity, 0.10) : 0.05;
   }
 
   let t = Math.pow(tone, curve);
