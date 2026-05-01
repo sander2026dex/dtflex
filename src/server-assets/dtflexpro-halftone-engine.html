@@ -255,13 +255,7 @@
       <p class="info-text">Evita buracos em sombras e objetos coloridos. Branco puro continua sólido e limpo.</p>
     </div>
 
-    <div class="control-group">
-      <label>Branco Inteligente (rigor)</label>
-      <input type="range" id="whiteSensitivity" min="0" max="100" value="70" />
-      <div class="value" id="whiteSensitivityVal">70%</div>
-      <p class="info-text">Define o quanto o motor é rigoroso ao identificar branco real. Quanto maior, menos creme/amarelo claro/pele clara vira branco. Tons claros coloridos recebem micro-retícula em vez de virarem chapados.</p>
-    </div>
-
+<!-- Branco Inteligente: agora 100% automático (RGB ≥ 236, Sat < 12%). Slider removido. -->
     <div class="control-group">
       <label>Proteger Pele (tom de pele)</label>
       <input type="checkbox" id="protectSkin" checked style="accent-color:#f5b544;width:auto;" />
@@ -388,13 +382,13 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','contrast','minDensity','whiteSensitivity'].forEach(id => {
+['lpi','angle','contrast','minDensity'].forEach(id => {
   const el = $(id);
   if (!el) return;
   el.addEventListener('input', () => {
     const suffix = id === 'lpi' ? ' LPI'
                  : id === 'angle' ? '°'
-                 : (id === 'contrast' || id === 'minDensity' || id === 'whiteSensitivity') ? '%' : '';
+                 : (id === 'contrast' || id === 'minDensity') ? '%' : '';
     $(id+'Val').textContent = el.value + suffix;
   });
 });
@@ -1077,9 +1071,8 @@ $('processBtn').addEventListener('click', async () => {
   const angleDeg = parseFloat($('angle').value);
   const minDensity = parseInt($('minDensity').value, 10) / 100;
   const protectSkin = $('protectSkin').checked;
-  // V6: lê o slider Branco Inteligente e ajusta o rigor do branco real globalmente.
-  const wsEl = $('whiteSensitivity');
-  WHITE_SENSITIVITY = wsEl ? (parseInt(wsEl.value, 10) / 100) : 0.70;
+  // Branco Inteligente automático: rigor fixo (RGB ≥ 236, Sat < 12%).
+  WHITE_SENSITIVITY = 0.70;
   const cell = DPI / lpi; // grade AM real: espaçamento matemático exato em 300 DPI
 
   await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
