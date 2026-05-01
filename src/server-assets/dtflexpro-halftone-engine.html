@@ -945,16 +945,24 @@ function microDotRadius(cell, coverage){
   return Math.max(MICRO_MIN_DOT_PX, Math.min(MICRO_MAX_DOT_PX, r));
 }
 
-// V5 — Branco REAL apenas (RGB > 235 + saturação < 12%).
-// Amarelo claro, pele clara, dourado e cores saturadas NÃO viram branco.
+// V5+ — Branco REAL apenas. Rigor controlado pelo slider "Branco Inteligente".
+// whiteSensitivity 0..1: 0 = permissivo (qualquer claro vira branco),
+//                        1 = só branco neutro absoluto (RGB>=245 + sat<6%).
+let WHITE_SENSITIVITY = 0.70;
+function getWhiteThresholds(){
+  // Interpola entre permissivo (220, sat<0.20) e rigoroso (245, sat<0.06).
+  const s = Math.max(0, Math.min(1, WHITE_SENSITIVITY));
+  const minRGB = Math.round(220 + s * 25);   // 220..245
+  const maxSat = 0.20 - s * 0.14;            // 0.20..0.06
+  return { minRGB, maxSat };
+}
 function isRealWhiteSample(sample){
   if (!sample) return false;
   const r = sample.r|0, g = sample.g|0, b = sample.b|0;
   const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
   const sat = mx === 0 ? 0 : (mx - mn) / mx;
-  // Branco real = RGB todos > 235 e saturação < 12%
-  if (r >= 235 && g >= 235 && b >= 235 && sat < 0.12) return true;
-  return false;
+  const { minRGB, maxSat } = getWhiteThresholds();
+  return (r >= minRGB && g >= minRGB && b >= minRGB && sat < maxSat);
 }
 
 function isProtectedHighlightCell(sample, data, W, H){
