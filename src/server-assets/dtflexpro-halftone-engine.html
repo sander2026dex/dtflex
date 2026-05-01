@@ -266,11 +266,12 @@
     </div>
 
     <div class="control-group" style="border:1px solid #2a2a2a;border-radius:8px;padding:10px;background:#0d0d0d;">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="absoluteBlack" style="accent-color:#f5b544;width:auto;" />
-        <span>⬛ Preto Absoluto (#000000 / K100)</span>
+      <label style="display:flex;align-items:center;gap:8px;">
+        <span>⬛ Preto Absoluto (K100) — ao vivo</span>
       </label>
-      <p class="info-text">Antes do halftone, converte qualquer pixel escuro (R,G,B ≤ 38) em <b>preto puro #000000</b> — equivalente a <b>CMYK K100</b> na impressão. Garante preto 100% sólido sem matiz residual de azul/verde/marrom.</p>
+      <input type="range" id="blackThreshold" min="0" max="60" value="28" />
+      <div class="value" id="blackThresholdVal">RGB &lt; 28 → #000000</div>
+      <p class="info-text">Arraste e veja na hora: pixels com R,G,B abaixo do limite viram <b>preto puro #000000</b> (CMYK K100). Valor 0 = desligado. Padrão profissional: 28.</p>
     </div>
 
     <div class="control-group" style="border:1px solid #2a2a2a;border-radius:8px;padding:10px;background:#0d0d0d;">
@@ -396,16 +397,82 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','contrast'].forEach(id => {
+['lpi','angle','contrast','blackThreshold'].forEach(id => {
   const el = $(id);
   if (!el) return;
   el.addEventListener('input', () => {
-    const suffix = id === 'lpi' ? ' LPI'
-                 : id === 'angle' ? '°'
-                 : (id === 'contrast') ? '%' : '';
-    $(id+'Val').textContent = el.value + suffix;
+    if (id === 'lpi') $('lpiVal').textContent = el.value + ' LPI';
+    else if (id === 'angle') $('angleVal').textContent = el.value + '°';
+    else if (id === 'contrast') $('contrastVal').textContent = el.value + '%';
+    else if (id === 'blackThreshold') {
+      const v = parseInt(el.value, 10);
+      $('blackThresholdVal').textContent = v === 0
+        ? 'Desligado'
+        : `RGB < ${v} → #000000`;
+    }
+    if (id === 'contrast' || id === 'blackThreshold') scheduleLivePreview();
   });
 });
+
+// === LIVE PREVIEW (contraste + preto absoluto em tempo real) =================
+let livePreviewSourceData = null;
+let livePreviewRaf = 0;
+function buildLivePreviewSource(img){
+  const ratio = OUT_W / OUT_H;
+  const maxW = 540;
+  const maxH = Math.round(maxW / ratio);
+  const c = document.createElement('canvas');
+  c.width = maxW; c.height = maxH;
+  const cx = c.getContext('2d', { willReadFrequently: true });
+  cx.clearRect(0, 0, maxW, maxH);
+  const ir = img.width / img.height;
+  const cr = maxW / maxH;
+  let dw, dh;
+  if (ir > cr) { dw = maxW; dh = maxW / ir; }
+  else { dh = maxH; dw = maxH * ir; }
+  cx.drawImage(img, (maxW - dw) / 2, (maxH - dh) / 2, dw, dh);
+  livePreviewSourceData = cx.getImageData(0, 0, maxW, maxH);
+}
+function scheduleLivePreview(){
+  if (!livePreviewSourceData || !sourceImage) return;
+  if (livePreviewRaf) return;
+  livePreviewRaf = requestAnimationFrame(() => {
+    livePreviewRaf = 0;
+    renderLivePreview();
+  });
+}
+function renderLivePreview(){
+  if (!livePreviewSourceData) return;
+  const src = livePreviewSourceData;
+  const W = src.width, H = src.height;
+  const out = new ImageData(new Uint8ClampedArray(src.data), W, H);
+  const data = out.data;
+  const cUI = parseInt($('contrast').value, 10) || 0;
+  const C = Math.max(-255, Math.min(255, cUI * 2));
+  const factor = (259 * (C + 255)) / (255 * (259 - C));
+  const blackThr = parseInt($('blackThreshold').value, 10) || 0;
+  const lumaMax = blackThr + 4;
+  for (let i = 0; i < data.length; i += 4){
+    if (data[i+3] < 8) continue;
+    let r = data[i], g = data[i+1], b = data[i+2];
+    if (cUI !== 0){
+      r = (r - 128) * factor + 128;
+      g = (g - 128) * factor + 128;
+      b = (b - 128) * factor + 128;
+      r = r < 0 ? 0 : r > 255 ? 255 : r;
+      g = g < 0 ? 0 : g > 255 ? 255 : g;
+      b = b < 0 ? 0 : b > 255 ? 255 : b;
+    }
+    if (blackThr > 0 && r < blackThr && g < blackThr && b < blackThr){
+      const luma = 0.2126*r + 0.7152*g + 0.0722*b;
+      if (luma <= lumaMax){ r = 0; g = 0; b = 0; }
+    }
+    data[i] = r; data[i+1] = g; data[i+2] = b;
+  }
+  previewCanvas.width = W;
+  previewCanvas.height = H;
+  pctx.putImageData(out, 0, 0);
+}
 
 $('imageInput').addEventListener('change', async e => {
   const file = e.target.files[0];
@@ -426,6 +493,8 @@ $('imageInput').addEventListener('change', async e => {
     sourceImage = img;
     $('processBtn').disabled = false;
     drawPreviewSource(img);
+    buildLivePreviewSource(img);
+    scheduleLivePreview();
     drawUploadPickPreview(img);
     $('statusText').textContent = `Imagem carregada: ${img.width}×${img.height} · nenhum crédito cobrado`;
   } catch (err) {
@@ -677,10 +746,13 @@ function floodRemoveBackground(data, W, H, predicate, protectInteriorDetails = f
  * mas baixo o bastante para preservar SOMBRAS reais coloridas e detalhes
  * de meio-tom. Assim o usuário tem preto puro chapado, igual K100 na gráfica.
  */
-function enforceAbsoluteBlack(data, W, H){
-  // V17 RIP — Regra explícita do operador: RGB < 28 vira (0,0,0) puro.
-  const RGB_MAX = 28;   // limite por canal (regra principal)
-  const LUMA_MAX = 32;  // luminância perceptual auxiliar
+function enforceAbsoluteBlack(data, W, H, threshold){
+  // Threshold dinâmico controlado pelo slider "Preto Absoluto" (0..60).
+  // 0 = desligado. Padrão = 28. Pixels com cada canal RGB abaixo do limite
+  // viram (0,0,0) puro — K100 na gráfica. Luma ≤ threshold + 4 também entra.
+  const RGB_MAX = (typeof threshold === 'number') ? threshold : 28;
+  if (RGB_MAX <= 0) return 0;
+  const LUMA_MAX = RGB_MAX + 4;
   let count = 0;
   for (let i = 0; i < data.length; i += 4){
     const a = data[i+3];
@@ -1273,6 +1345,33 @@ function isNearSubjectEdge(data, W, H, ix, iy, cell){
   return false;
 }
 
+// V23 — DETECTOR DE BURACOS:
+// Verifica se a célula está claramente DENTRO do corpo do sujeito (cercada
+// por pixels opacos e coloridos / não-brancos). Quando true, garantimos que
+// a célula NUNCA fique transparente — pintamos um fill base por baixo do
+// halftone, eliminando os "buracos" brancos no rosto, testa, nariz, cabelo
+// e traços finos. Probes em raio maior que isNearSubjectEdge.
+function isInsideSubjectBody(data, W, H, ix, iy, cell){
+  const r = Math.max(cell * 2, 10);
+  const probes = [
+    [ix - r, iy], [ix + r, iy], [ix, iy - r], [ix, iy + r],
+    [ix - r, iy - r], [ix + r, iy + r], [ix - r, iy + r], [ix + r, iy - r]
+  ];
+  let opaqueColored = 0;
+  for (const [px, py] of probes){
+    const xi = Math.round(px), yi = Math.round(py);
+    if (xi < 0 || yi < 0 || xi >= W || yi >= H) continue;
+    const idx = (yi * W + xi) * 4;
+    if (data[idx + 3] < ALPHA_CUTOFF) continue; // transparente, fora do sujeito
+    const rr = data[idx], gg = data[idx+1], bb = data[idx+2];
+    const mn = Math.min(rr,gg,bb);
+    // Pixel realmente "cor de sujeito" — não branco/quase-branco.
+    if (mn < 230) opaqueColored++;
+  }
+  // Se 5+ de 8 probes são corpo colorido, a célula está dentro do sujeito.
+  return opaqueColored >= 5;
+}
+
 /* ============================================================
    MAIN PIPELINE
    ============================================================ */
@@ -1311,8 +1410,10 @@ $('processBtn').addEventListener('click', async () => {
   //     ANTES do contraste e do halftone. Isso garante preto chapado sem matiz
   //     residual (azul/verde/marrom) na impressão. Detalhes finos e sombras
   //     com luminância acima do threshold ficam intactos.
-  if ($('absoluteBlack') && $('absoluteBlack').checked) {
-    enforceAbsoluteBlack(data, OUT_W, OUT_H);
+  const blackThrEl = $('blackThreshold');
+  const blackThr = blackThrEl ? parseInt(blackThrEl.value, 10) : 28;
+  if (blackThr > 0) {
+    enforceAbsoluteBlack(data, OUT_W, OUT_H, blackThr);
   }
 
   // 2c) PROTEÇÃO DO BRANCO (V17): RGB > 238 → comprime para (245,245,245).
@@ -1704,6 +1805,23 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const jitterMag = (((h & 0xFF) / 255) - 0.5) * (cell * 0.22);
       const jx = v.dx * jitterMag;
       const jy = v.dy * jitterMag;
+
+      // V23 — DETECTOR DE BURACOS:
+      // Se a célula está dentro do corpo do sujeito (cercada por pixels
+      // coloridos), pintamos um FILL BASE suave da cor da célula por baixo
+      // do ponto. Isso garante que rosto, testa, nariz, cabelo e traços
+      // finos NUNCA virem buracos transparentes — o ponto fica por cima
+      // e a textura RIP é mantida, mas sem buraco.
+      if (isInsideSubjectBody(data, W, H, ix, iy, cell)){
+        // Tom levemente mais claro do que o ponto, ~55% de cobertura,
+        // para preservar o contraste do halftone enquanto mata o buraco.
+        const tintR = Math.min(255, r0 + Math.round((255 - r0) * 0.55));
+        const tintG = Math.min(255, g0 + Math.round((255 - g0) * 0.55));
+        const tintB = Math.min(255, b0 + Math.round((255 - b0) * 0.55));
+        const halfC = Math.ceil(cell / 2);
+        ctx.fillStyle = `rgb(${tintR},${tintG},${tintB})`;
+        ctx.fillRect(Math.round(ix - halfC), Math.round(iy - halfC), cell, cell);
+      }
 
       // Perfect circular anti-aliased dot, fully opaque cell color
       ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
