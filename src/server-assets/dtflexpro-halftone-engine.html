@@ -224,7 +224,7 @@
     <div class="file-input">
       <label for="imageInput">📁 Selecionar Imagem (PNG/JPG)</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Fundo removido com proteção de branco estrutural: olhos, dentes, letras, reflexos e emblemas viram micro-retícula, nunca buracos.</p>
+      <p class="info-text">Imagem encaixada inteira no quadrante (sem corte) a 300 DPI. Branco, cinza claro e bege são preservados chapados: sem remoção, sem transparência e sem furos.</p>
     </div>
 
     <div class="control-group">
@@ -249,9 +249,8 @@
     </div>
 
     <!-- Preencher Sombras agora 100% automático (densidade mínima fixa em 18%). Slider removido. -->
-    <!-- Highlights coloridos (creme/bege/pele clara/amarelo claro/pastéis) e branco real
-         recebem micro-retícula quadrada fina (62% da célula) automaticamente.
-         Tons claros coloridos sólidos recebem micro-retícula 2% no final para nunca ficarem chapados. -->
+    <!-- Branco, cinza claro, off-white e bege claro ficam chapados automaticamente.
+         Não recebem retícula, não viram transparência e não são removidos. -->
 
 <!-- Branco Inteligente: agora 100% automático (RGB ≥ 236, Sat < 12%). Slider removido. -->
     <div class="control-group">
@@ -331,7 +330,7 @@
      - Fixed rotated grid, dots grow with tone
      - Gamma 1.55 tonal curve
      - Photoshop-style contrast pre-pass
-     - White (luma>240) -> no dot (transparent)
+     - White/light gray/beige -> solid preserved ink, never transparent
      - Alpha < 10 -> skipped (preserves transparency)
      - Shadow fill = minimum dot density floor
      - Skin protection (HSV-based, softer curve)
@@ -515,8 +514,8 @@ function isProtectedFlatLightColor(r, g, b){
   const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
   const sat = mx === 0 ? 0 : (mx - mn) / mx;
   const { h } = rgbToHsv(r, g, b);
-  const isNeutralLight = L >= 188 && sat <= 0.16; // branco, cinza claro, off-white
-  const isBeigeLight = L >= 178 && sat <= 0.30 && h >= 28 && h <= 62 && r >= g && g >= b * 0.82;
+  const isNeutralLight = L >= 155 && sat <= 0.22; // branco, cinza claro/médio-claro, off-white
+  const isBeigeLight = L >= 160 && sat <= 0.34 && h >= 24 && h <= 66 && r >= g && g >= b * 0.78;
   return isNeutralLight || isBeigeLight;
 }
 
@@ -556,6 +555,7 @@ function applyContrast(data, contrast){
   const factor = (259 * (C + 255)) / (255 * (259 - C));
   for (let i=0; i<data.length; i+=4){
     if (data[i+3] < ALPHA_CUTOFF) continue;
+    if (isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
     data[i  ] = clamp8((data[i  ] - 128) * factor + 128);
     data[i+1] = clamp8((data[i+1] - 128) * factor + 128);
     data[i+2] = clamp8((data[i+2] - 128) * factor + 128);
@@ -768,7 +768,7 @@ function sampleCell(data, W, H, cx, cy, cell){
       const psat = pmx === 0 ? 0 : (pmx - pmn) / pmx;
       const isRealWhitePix = (pr >= 235 && pg >= 235 && pb >= 235 && psat < 0.12);
       if (L >= HIGHLIGHT_BRIGHTNESS_CUTOFF && isRealWhitePix) brightCount++;
-      if (L > WHITE_BRIGHTNESS_CUTOFF && isRealWhitePix) { whiteCount++; continue; }
+      if (L > WHITE_BRIGHTNESS_CUTOFF && isRealWhitePix) { whiteCount++; }
       r += pr; g += pg; b += pb;
       count++;
     }
@@ -777,10 +777,7 @@ function sampleCell(data, W, H, cx, cy, cell){
   const total = (x1-x0+1) * (y1-y0+1);
   const coverage = opaqueCount / total;
   const avgLum = lumSum / opaqueCount;
-  if (count === 0){
-    // Whole cell is highlight white — return null so caller skips it
-    return { allWhite: true, coverage, l: avgLum, whiteRatio: whiteCount / opaqueCount, brightRatio: brightCount / opaqueCount, maxL, maxX, maxY };
-  }
+  if (count === 0) return null;
   const ar = r / count, ag = g / count, ab = b / count;
   return {
     r: ar, g: ag, b: ab,
@@ -1047,13 +1044,13 @@ $('processBtn').addEventListener('click', async () => {
   else { dh = OUT_H; dw = OUT_H * ir; dx = (OUT_W-dw)/2; dy = 0; }
   sctx.drawImage(sourceImage, dx, dy, dw, dh);
 
-  setProgress(0.10, 'Removendo fundo automaticamente...');
+  setProgress(0.10, 'Preservando branco, cinza claro e bege...');
   await nextFrame();
 
   const imgData = sctx.getImageData(0, 0, OUT_W, OUT_H);
   const data = imgData.data;
 
-  // 2) Auto background removal (white OR black, edge-flood)
+  // 2) Auto background removal (black edge-flood only). White/light colors are print ink.
   autoRemoveBackground(data, OUT_W, OUT_H);
 
   setProgress(0.20, 'Aplicando contraste profissional...');
@@ -1118,6 +1115,10 @@ $('processBtn').addEventListener('click', async () => {
   const cell = DPI / lpi; // grade AM real: espaçamento matemático exato em 300 DPI
 
   await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
+
+  // Restauração final obrigatória: qualquer pixel branco/cinza claro/bege volta
+  // exatamente como veio da imagem original, por cima da retícula.
+  paintProtectedFlatLights(octx, data, OUT_W, OUT_H);
 
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
@@ -1264,9 +1265,12 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
-       if (isProtectedHighlightCell(sample, data, W, H)){
-          // Branco/cinza/bege protegidos já foram pintados chapados pixel-a-pixel.
-          // Não desenhar retícula por cima e não remover nada.
+       if (isProtectedFlatLightSample(sample) || isProtectedHighlightCell(sample, data, W, H)){
+          // Branco, cinza claro e bege devem ficar chapados com a cor real.
+          // Pinta a célula completa para não sobrar transparência entre pontos.
+          const half = Math.ceil(cell / 2);
+          ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+          ctx.fillRect(Math.round(ix - half), Math.round(iy - half), cell, cell);
           continue;
         }
 
@@ -1465,6 +1469,11 @@ async function applyKnockout(target, isBlackMode){
   const feather = $('koFeather').checked;
   const protect = $('koProtect').checked;
 
+  if (isProtectedFlatLightColor(target.r, target.g, target.b)) {
+    $('statusText').textContent = '⚠️ Branco, cinza claro e bege são preservados e não podem ser removidos.';
+    return;
+  }
+
   // Distância máxima em RGB (euclidiana). 0 = exato. 100 = ~441 (max).
   const maxDist = (tolUI / 100) * 441.6729559;
   const featherBand = feather ? Math.max(8, maxDist * 0.18) : 0;
@@ -1487,6 +1496,7 @@ async function applyKnockout(target, isBlackMode){
   for (let i = 0; i < src.length; i += 4) {
     const a = src[i+3];
     if (a === 0) continue; // já transparente
+    if (isProtectedFlatLightColor(src[i], src[i+1], src[i+2])) continue;
     const dr = src[i] - tr;
     const dg = src[i+1] - tg;
     const db = src[i+2] - tb;
@@ -1529,6 +1539,7 @@ async function applyKnockout(target, isBlackMode){
  *   proporcionalmente à proximidade (decontaminate edge).
  */
 function cleanKnockoutHalo(imageData, target, maxDist){
+  if (isProtectedFlatLightColor(target.r, target.g, target.b)) return;
   const data = imageData.data;
   const tr = target.r, tg = target.g, tb = target.b;
   // Zona de "fantasma": metade da tolerância, alpha não-cheio.
@@ -1536,6 +1547,7 @@ function cleanKnockoutHalo(imageData, target, maxDist){
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i+3];
     if (a === 0 || a === 255) continue;
+    if (isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
     const dr = data[i] - tr, dg = data[i+1] - tg, db = data[i+2] - tb;
     const dist = Math.sqrt(dr*dr + dg*dg + db*db);
     if (dist <= ghostDist) {
