@@ -1222,13 +1222,21 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
        if (isProtectedHighlightCell(sample, data, W, H)){
-          // V13: Branco real e tons claros coloridos = SÓLIDOS com micro-retícula
-          //   muito fina (95% da célula = ~5% gap). Cor original 100% preservada,
-          //   sem furos, sem transparência, sem remoção. Apenas leve textura RIP.
+          // V14: Branco real = 100% SÓLIDO REAL, sem retícula, sem gap, sem
+          //   remoção, sem transparência. Cor branca preservada totalmente.
+          //   Tons claros coloridos = SÓLIDOS com micro-retícula muito fina
+          //   (95%) preservando a cor original do pixel.
           const isRealW = isRealWhiteSample(sample);
-          const sq = Math.max(1, Math.round(cell * 0.95));
-          ctx.fillStyle = isRealW ? 'rgb(255,255,255)' : `rgb(${r0},${g0},${b0})`;
-          ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
+          if (isRealW){
+            // Branco real: preencher célula inteira, 100% sólido
+            const half = Math.ceil(cell / 2);
+            ctx.fillStyle = 'rgb(255,255,255)';
+            ctx.fillRect(Math.round(ix - half), Math.round(iy - half), cell, cell);
+          } else {
+            const sq = Math.max(1, Math.round(cell * 0.95));
+            ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+            ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
+          }
           continue;
         }
 
