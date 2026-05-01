@@ -1067,7 +1067,8 @@ $('processBtn').addEventListener('click', async () => {
   // 6) AM screening parameters from UI
   const lpi = parseInt($('lpi').value, 10);
   const angleDeg = parseFloat($('angle').value);
-  const minDensity = parseInt($('minDensity').value, 10) / 100;
+  // Preencher Sombras automático: densidade mínima fixa em 18% (evita buracos em sombras).
+  const minDensity = 0.18;
   const protectSkin = $('protectSkin').checked;
   // Branco Inteligente automático: rigor fixo (RGB ≥ 236, Sat < 12%).
   WHITE_SENSITIVITY = 0.70;
