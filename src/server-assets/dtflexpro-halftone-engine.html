@@ -1289,7 +1289,18 @@ $('processBtn').addEventListener('click', async () => {
     enforceAbsoluteBlack(data, OUT_W, OUT_H);
   }
 
-  setProgress(0.20, 'Aplicando contraste profissional...');
+  // 2c) PROTEÇÃO DO BRANCO (V17): RGB > 238 → comprime para (245,245,245).
+  //     Evita queimar highlights em chapado e mantém respiro tonal.
+  compressNearWhite(data, OUT_W, OUT_H);
+
+  setProgress(0.16, 'Aplicando local contrast / clarity / micro-contrast...');
+  await nextFrame();
+
+  // 2d) PRO ENHANCEMENT — local contrast +25, clarity +18, micro contrast +20,
+  //     edge sharpen +12. Pré-pass profissional estilo RIP DTF, ANTES do halftone.
+  applyProEnhancements(data, OUT_W, OUT_H);
+
+  setProgress(0.20, 'Aplicando contraste global...');
   await nextFrame();
 
   // 3) Contrast pre-pass (Photoshop formula). UI 0..40 -> contrast 0..80.
