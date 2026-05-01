@@ -839,6 +839,10 @@ function shouldKeepSolidCommercial(sample, zone, artType){
   const L = sample.l;
   const realWhite = isRealWhiteSample(sample);
 
+  // Regra absoluta: branco, cinza claro, off-white e bege claro permanecem
+  // chapados com a cor original. Nunca reticular, remover ou perfurar.
+  if (isProtectedFlatLightSample(sample)) return true;
+
   // V6 BRANCO INTELIGENTE:
   // Só fica chapado/sólido se for BRANCO REAL.
   // Claro colorido (creme, bege, amarelo claro, pele clara) NÃO entra aqui —
