@@ -1555,11 +1555,28 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
        if (isProtectedFlatLightSample(sample) || isProtectedHighlightCell(sample, data, W, H)){
-          // Branco, cinza claro e bege devem ficar chapados com a cor real.
-          // Pinta a célula completa para não sobrar transparência entre pontos.
+          // V20: Branco / neutro claro NÃO fica mais 100% chapado.
+          // Pinta a célula com a cor base e adiciona um micropontinho discreto
+          // (retícula ultra-leve) para dar a textura de retícula RIP no branco.
           const half = Math.ceil(cell / 2);
           ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
           ctx.fillRect(Math.round(ix - half), Math.round(iy - half), cell, cell);
+          // Micro-dot ultra-leve no branco: ~6% de cobertura, espaçado.
+          // Só aplica em células ímpares (xor) para gerar gap visível.
+          const cx = (ix / cell) | 0, cy = (iy / cell) | 0;
+          if (((cx + cy) & 1) === 0) {
+            const microR = Math.max(0.6, cell * 0.09);
+            // Tom levemente mais escuro que a base, para a retícula ser visível
+            // sem sujar o branco.
+            const dim = 18; // 7% mais escuro
+            const dr = Math.max(0, r0 - dim);
+            const dg = Math.max(0, g0 - dim);
+            const db = Math.max(0, b0 - dim);
+            ctx.fillStyle = `rgb(${dr},${dg},${db})`;
+            ctx.beginPath();
+            ctx.arc(ix, iy, microR, 0, Math.PI * 2);
+            ctx.fill();
+          }
           continue;
         }
 
