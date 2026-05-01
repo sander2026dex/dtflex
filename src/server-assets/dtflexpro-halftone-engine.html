@@ -678,20 +678,140 @@ function floodRemoveBackground(data, W, H, predicate, protectInteriorDetails = f
  * de meio-tom. Assim o usuário tem preto puro chapado, igual K100 na gráfica.
  */
 function enforceAbsoluteBlack(data, W, H){
-  const RGB_MAX = 38;   // R, G, B individualmente
-  const LUMA_MAX = 42;  // luminância perceptual
+  // V17 RIP — Regra explícita do operador: RGB < 28 vira (0,0,0) puro.
+  const RGB_MAX = 28;   // limite por canal (regra principal)
+  const LUMA_MAX = 32;  // luminância perceptual auxiliar
   let count = 0;
   for (let i = 0; i < data.length; i += 4){
     const a = data[i+3];
     if (a < 8) continue;
     const r = data[i], g = data[i+1], b = data[i+2];
-    if (r > RGB_MAX || g > RGB_MAX || b > RGB_MAX) continue;
+    if (r >= RGB_MAX || g >= RGB_MAX || b >= RGB_MAX) continue;
     const luma = 0.2126*r + 0.7152*g + 0.0722*b;
     if (luma > LUMA_MAX) continue;
     data[i] = 0; data[i+1] = 0; data[i+2] = 0;
     count++;
   }
   return count;
+}
+
+/* ============================================================
+   PROTEÇÃO DO BRANCO (V17): se RGB > 238 NÃO virar branco puro.
+   Comprime para RGB(245,245,245) — preserva textura sem queimar.
+   Ignora pixels totalmente transparentes (fundo).
+   ============================================================ */
+function compressNearWhite(data, W, H){
+  for (let i = 0; i < data.length; i += 4){
+    if (data[i+3] < ALPHA_CUTOFF) continue;
+    const r = data[i], g = data[i+1], b = data[i+2];
+    if (r > 238 && g > 238 && b > 238){
+      // Não deixa passar de 245 — mantém respiro tonal antes do halftone.
+      data[i]   = 245;
+      data[i+1] = 245;
+      data[i+2] = 245;
+    }
+  }
+}
+
+/* ============================================================
+   PRO ENHANCEMENT (V17) — local contrast + clarity + micro-contrast
+   + edge sharpen. Roda ANTES do halftone para entregar separação
+   estilo RIP profissional (não filtro de browser).
+
+   Valores fixos pedidos pelo operador:
+     local contrast +25, clarity +18, micro contrast +20, edge sharpen +12
+   ============================================================ */
+function applyProEnhancements(data, W, H){
+  const N = W * H;
+  // Luminância em buffer próprio para todos os passes.
+  const lum = new Float32Array(N);
+  for (let p = 0, i = 0; p < N; p++, i += 4){
+    lum[p] = 0.2126*data[i] + 0.7152*data[i+1] + 0.0722*data[i+2];
+  }
+
+  // --- Box blur separável (raio variável) usado pelos 3 passes locais ---
+  function boxBlur(src, radius){
+    const dst = new Float32Array(N);
+    const tmp = new Float32Array(N);
+    const win = radius * 2 + 1;
+    // horizontal
+    for (let y = 0; y < H; y++){
+      let sum = 0;
+      const row = y * W;
+      for (let x = -radius; x <= radius; x++){
+        const xx = Math.min(W-1, Math.max(0, x));
+        sum += src[row + xx];
+      }
+      for (let x = 0; x < W; x++){
+        tmp[row + x] = sum / win;
+        const xOut = x - radius;
+        const xIn  = x + radius + 1;
+        const aOut = src[row + Math.min(W-1, Math.max(0, xOut))];
+        const aIn  = src[row + Math.min(W-1, Math.max(0, xIn))];
+        sum += aIn - aOut;
+      }
+    }
+    // vertical
+    for (let x = 0; x < W; x++){
+      let sum = 0;
+      for (let y = -radius; y <= radius; y++){
+        const yy = Math.min(H-1, Math.max(0, y));
+        sum += tmp[yy * W + x];
+      }
+      for (let y = 0; y < H; y++){
+        dst[y * W + x] = sum / win;
+        const yOut = y - radius;
+        const yIn  = y + radius + 1;
+        const aOut = tmp[Math.min(H-1, Math.max(0, yOut)) * W + x];
+        const aIn  = tmp[Math.min(H-1, Math.max(0, yIn))  * W + x];
+        sum += aIn - aOut;
+      }
+    }
+    return dst;
+  }
+
+  // Raios proporcionais à dimensão (3307×4930 → ~14 / 6 / 2 px)
+  const rLocal = Math.max(8, Math.round(Math.min(W,H) * 0.0040));   // local contrast
+  const rClar  = Math.max(4, Math.round(Math.min(W,H) * 0.0018));   // clarity
+  const rMicro = Math.max(2, Math.round(Math.min(W,H) * 0.0008));   // micro contrast
+
+  const blurLocal = boxBlur(lum, rLocal);
+  const blurClar  = boxBlur(lum, rClar);
+  const blurMicro = boxBlur(lum, rMicro);
+
+  // Pesos perceptuais (mapeados para uma escala suave 0..1).
+  const wLocal = 0.25; // +25
+  const wClar  = 0.18; // +18
+  const wMicro = 0.20; // +20
+  const wEdge  = 0.12; // +12 unsharp mask
+
+  // Combina os 3 deltas + unsharp em um único delta de luminância,
+  // depois reaplica preservando a crominância (escala R/G/B em torno de 128).
+  for (let p = 0, i = 0; p < N; p++, i += 4){
+    if (data[i+3] < ALPHA_CUTOFF) continue;
+    if (isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
+
+    const L  = lum[p];
+    const dL = (L - blurLocal[p]) * wLocal;
+    const dC = (L - blurClar[p])  * wClar;
+    const dM = (L - blurMicro[p]) * wMicro;
+    // Edge sharpen (unsharp simples baseado no blur de microcontraste).
+    const dE = (L - blurMicro[p]) * wEdge;
+
+    const delta = dL + dC + dM + dE;
+    if (delta === 0) continue;
+
+    // Aplica preservando matiz: cada canal recebe o delta perceptual.
+    let r = data[i]   + delta;
+    let g = data[i+1] + delta;
+    let b = data[i+2] + delta;
+
+    // Clamps com proteção do branco (não passar de 245 — bate com compressNearWhite).
+    if (r > 245 && g > 245 && b > 245){ r = 245; g = 245; b = 245; }
+    data[i]   = r < 0 ? 0 : r > 255 ? 255 : r;
+    data[i+1] = g < 0 ? 0 : g > 255 ? 255 : g;
+    data[i+2] = b < 0 ? 0 : b > 255 ? 255 : b;
+  }
 }
 
 function autoRemoveBackground(data, W, H){
@@ -1169,7 +1289,18 @@ $('processBtn').addEventListener('click', async () => {
     enforceAbsoluteBlack(data, OUT_W, OUT_H);
   }
 
-  setProgress(0.20, 'Aplicando contraste profissional...');
+  // 2c) PROTEÇÃO DO BRANCO (V17): RGB > 238 → comprime para (245,245,245).
+  //     Evita queimar highlights em chapado e mantém respiro tonal.
+  compressNearWhite(data, OUT_W, OUT_H);
+
+  setProgress(0.16, 'Aplicando local contrast / clarity / micro-contrast...');
+  await nextFrame();
+
+  // 2d) PRO ENHANCEMENT — local contrast +25, clarity +18, micro contrast +20,
+  //     edge sharpen +12. Pré-pass profissional estilo RIP DTF, ANTES do halftone.
+  applyProEnhancements(data, OUT_W, OUT_H);
+
+  setProgress(0.20, 'Aplicando contraste global...');
   await nextFrame();
 
   // 3) Contrast pre-pass (Photoshop formula). UI 0..40 -> contrast 0..80.
@@ -1348,6 +1479,32 @@ function crc32(bytes){
    ============================================================ */
 
 async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, angleDeg, minDensity, protectSkin, artType, lightMode){
+  // V17 — RIP-style screen angles per dominant channel
+  // Padrão de gráfica: K=45°, C=15°, M=75°, Y=0°.
+  // O canal dominante de cada célula determina o ângulo local da malha,
+  // simulando a textura visível de impressão CMYK.
+  const ANGLES = {
+    K: 45 * Math.PI / 180,
+    C: 15 * Math.PI / 180,
+    M: 75 * Math.PI / 180,
+    Y:  0 * Math.PI / 180,
+  };
+  // Pré-calcula sin/cos por canal para jitter sub-pixel direcional
+  const CHAN_VEC = {
+    K: { dx: Math.cos(ANGLES.K), dy: Math.sin(ANGLES.K) },
+    C: { dx: Math.cos(ANGLES.C), dy: Math.sin(ANGLES.C) },
+    M: { dx: Math.cos(ANGLES.M), dy: Math.sin(ANGLES.M) },
+    Y: { dx: Math.cos(ANGLES.Y), dy: Math.sin(ANGLES.Y) },
+  };
+  function dominantChannel(r, g, b){
+    const luma = 0.2126*r + 0.7152*g + 0.0722*b;
+    if (luma < 60) return 'K';                        // sombra/preto → K 45°
+    // Aproximação CMY a partir de RGB
+    const c = 255 - r, m = 255 - g, y = 255 - b;
+    if (c >= m && c >= y) return 'C';
+    if (m >= c && m >= y) return 'M';
+    return 'Y';
+  }
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const cx = W / 2, cy = H / 2;
@@ -1488,10 +1645,24 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       }
       if (radius <= 0) continue;
 
+      // V17 — Dot gain spread (~+4%) simulando absorção de tinta no tecido.
+      radius = radius * 1.04;
+
+      // V17 — Screen angle por canal dominante (K=45 / C=15 / M=75 / Y=0).
+      // Aplicamos um deslocamento sub-pixel direcional (até ~22% da célula)
+      // que muda a textura visível por canal sem quebrar a malha global.
+      const ch = dominantChannel(r0, g0, b0);
+      const v = CHAN_VEC[ch];
+      // Hash simples baseado em (gxIndex, gyIndex) — estável e rápido.
+      const h = ((gxIndex * 73856093) ^ (gyIndex * 19349663)) >>> 0;
+      const jitterMag = (((h & 0xFF) / 255) - 0.5) * (cell * 0.22);
+      const jx = v.dx * jitterMag;
+      const jy = v.dy * jitterMag;
+
       // Perfect circular anti-aliased dot, fully opaque cell color
       ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
       ctx.beginPath();
-      ctx.arc(ix, iy, radius, 0, Math.PI * 2);
+      ctx.arc(ix + jx, iy + jy, radius, 0, Math.PI * 2);
       ctx.fill();
     }
 
