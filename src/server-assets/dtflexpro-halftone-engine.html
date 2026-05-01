@@ -768,7 +768,7 @@ function sampleCell(data, W, H, cx, cy, cell){
       const psat = pmx === 0 ? 0 : (pmx - pmn) / pmx;
       const isRealWhitePix = (pr >= 235 && pg >= 235 && pb >= 235 && psat < 0.12);
       if (L >= HIGHLIGHT_BRIGHTNESS_CUTOFF && isRealWhitePix) brightCount++;
-      if (L > WHITE_BRIGHTNESS_CUTOFF && isRealWhitePix) { whiteCount++; continue; }
+      if (L > WHITE_BRIGHTNESS_CUTOFF && isRealWhitePix) { whiteCount++; }
       r += pr; g += pg; b += pb;
       count++;
     }
@@ -777,10 +777,7 @@ function sampleCell(data, W, H, cx, cy, cell){
   const total = (x1-x0+1) * (y1-y0+1);
   const coverage = opaqueCount / total;
   const avgLum = lumSum / opaqueCount;
-  if (count === 0){
-    // Whole cell is highlight white — return null so caller skips it
-    return { allWhite: true, coverage, l: avgLum, whiteRatio: whiteCount / opaqueCount, brightRatio: brightCount / opaqueCount, maxL, maxX, maxY };
-  }
+  if (count === 0) return null;
   const ar = r / count, ag = g / count, ab = b / count;
   return {
     r: ar, g: ag, b: ab,
