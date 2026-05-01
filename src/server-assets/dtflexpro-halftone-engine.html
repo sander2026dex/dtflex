@@ -919,25 +919,26 @@ function dotRadius(luma, cell, minDensity, zone){
 
   let curve, capCoverage, floor;
   switch (zone){
-    case 'skin':       curve = 2.65; capCoverage = 0.14; floor = 0.00; break;
-    case 'flatColor':  curve = 3.10; capCoverage = 0.12; floor = 0.00; break;
-    case 'highSat':    curve = 2.55; capCoverage = 0.22; floor = 0.00; break;
+    case 'skin':       curve = 2.45; capCoverage = 0.18; floor = 0.04; break;
+    case 'flatColor':  curve = 2.85; capCoverage = 0.16; floor = 0.03; break;
+    case 'highSat':    curve = 2.30; capCoverage = 0.28; floor = 0.04; break;
+    case 'highlight':  curve = 2.10; capCoverage = 0.22; floor = 0.05; break; // V6: claros coloridos
     case 'shadow':     curve = 1.45; capCoverage = 0.70; floor = Math.max(minDensity, 0.16); break;
-    default:           curve = 1.85; capCoverage = 0.58; floor = luma < 115 ? minDensity : 0;
+    default:           curve = 1.75; capCoverage = 0.60; floor = luma < 130 ? Math.max(minDensity, 0.06) : 0.03;
   }
 
   let t = Math.pow(tone, curve);
   if (floor > 0) t = Math.max(t, floor);
-  // Black cap — never let any cell go fully solid (prevents black blobs)
   t = Math.min(t, capCoverage);
 
   if (t <= 0.005) return 0;
-  // maxR derived from capCoverage so cap is honored geometrically too.
-  // Area = pi*r^2 within a cell of area cell^2. Coverage = pi*r^2 / cell^2.
-  // r_max for coverage C => r = cell * sqrt(C/pi)
-  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.38; // precisão visual sem borrar a simetria
+  const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.38;
   const r = rMax * Math.sqrt(t / capCoverage);
-  const zoneMax = zone === 'shadow' ? cell * 0.46 : MICRO_MAX_DOT_PX;
+  // V6: cada zona com seu teto de ponto — shadow grande, highlight pequeno mas visível.
+  let zoneMax;
+  if (zone === 'shadow') zoneMax = cell * 0.46;
+  else if (zone === 'highlight' || zone === 'skin' || zone === 'flatColor') zoneMax = Math.min(cell * 0.30, MICRO_MAX_DOT_PX);
+  else zoneMax = Math.min(cell * 0.40, MICRO_MAX_DOT_PX * 1.4);
   return r < MICRO_MIN_DOT_PX ? 0 : Math.min(zoneMax, r);
 }
 
