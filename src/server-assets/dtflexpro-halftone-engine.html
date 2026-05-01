@@ -1615,8 +1615,10 @@ async function applyKnockout(target, isBlackMode){
   const H = finalCurrentImageData.height;
   const src = finalCurrentImageData.data;
   // Mapa de proteção (1 = não remover): detalhes pequenos da cor alvo.
+  // Em modo preto, FORÇA a proteção independente do checkbox: detalhes finos
+  // (linhas, olhos, contornos, traços) NUNCA somem ao remover preto.
   let protectMask = null;
-  if (protect) {
+  if (protect || isBlackMode) {
     protectMask = buildSmallDetailProtectMask(src, W, H, target, maxDist, isBlackMode);
   }
 
