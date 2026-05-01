@@ -1222,16 +1222,15 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
        if (isProtectedHighlightCell(sample, data, W, H)){
-         // V9: TODO highlight protegido → micro-retícula QUADRADA fina, NUNCA chapado.
-         //   • Branco real (olhos, dentes, reflexos, letras brancas) → quadrado branco puro.
-         //   • Highlight colorido (creme, bege, pele clara, amarelo claro) → quadrado
-         //     com a COR ORIGINAL preservada (não vira branco, não fica chapado).
-         // Tamanho ~62% da célula → grid de retícula claramente visível, sem buracos.
+         // V11: NUNCA remover branco real nem cinza claro neutro.
+         //   • Branco real (olhos, dentes, reflexos, letras) → BLOCO SÓLIDO branco puro.
+         //   • Cinza claro neutro → BLOCO SÓLIDO com cor original preservada.
+         //   • Highlight colorido (creme, bege, pele clara, amarelo claro) → bloco sólido
+         //     com a COR ORIGINAL preservada (sem perfurar, sem virar transparente).
          const isRealW = isRealWhiteSample(sample);
-         const sq = Math.max(1, cell * 0.62);
          ctx.fillStyle = isRealW ? 'rgb(255,255,255)' : `rgb(${r0},${g0},${b0})`;
-         ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2),
-                      Math.ceil(sq), Math.ceil(sq));
+         ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
+                      Math.ceil(cell), Math.ceil(cell));
          continue;
        }
 
@@ -1251,21 +1250,8 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
                      Math.ceil(cell), Math.ceil(cell));
 
-        // V10: Tons claros coloridos (creme/bege/pele clara/amarelo claro/pastéis)
-        // que ficam sólidos recebem micro-retícula 2% (furo mínimo transparente)
-        // para nunca parecer 100% chapado. Branco real puro fica intocado.
-        const _mx = Math.max(r0,g0,b0), _mn = Math.min(r0,g0,b0);
-        const _sat = _mx === 0 ? 0 : (_mx - _mn) / _mx;
-        const _isLightColored = (sample.l >= 190) && (_sat >= 0.05) && !isRealWhiteSample(sample);
-        if (_isLightColored){
-          const microR = Math.max(0.5, cell * 0.14); // ~2% da área da célula
-          const prev = ctx.globalCompositeOperation;
-          ctx.globalCompositeOperation = 'destination-out';
-          ctx.beginPath();
-          ctx.arc(ix, iy, microR, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalCompositeOperation = prev;
-        }
+        // V11: NÃO perfurar mais tons claros. Branco, cinza claro e tons claros
+        // coloridos ficam 100% sólidos, preservando cor original. Nada é removido.
         continue;
       }
 
