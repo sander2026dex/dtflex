@@ -493,6 +493,8 @@ $('imageInput').addEventListener('change', async e => {
     sourceImage = img;
     $('processBtn').disabled = false;
     drawPreviewSource(img);
+    buildLivePreviewSource(img);
+    scheduleLivePreview();
     drawUploadPickPreview(img);
     $('statusText').textContent = `Imagem carregada: ${img.width}×${img.height} · nenhum crédito cobrado`;
   } catch (err) {
