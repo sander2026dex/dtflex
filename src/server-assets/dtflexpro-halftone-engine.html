@@ -255,13 +255,7 @@
       <p class="info-text">Evita buracos em sombras e objetos coloridos. Branco puro continua sólido e limpo.</p>
     </div>
 
-    <div class="control-group">
-      <label>Branco Inteligente (rigor)</label>
-      <input type="range" id="whiteSensitivity" min="0" max="100" value="70" />
-      <div class="value" id="whiteSensitivityVal">70%</div>
-      <p class="info-text">Define o quanto o motor é rigoroso ao identificar branco real. Quanto maior, menos creme/amarelo claro/pele clara vira branco. Tons claros coloridos recebem micro-retícula em vez de virarem chapados.</p>
-    </div>
-
+<!-- Branco Inteligente: agora 100% automático (RGB ≥ 236, Sat < 12%). Slider removido. -->
     <div class="control-group">
       <label>Proteger Pele (tom de pele)</label>
       <input type="checkbox" id="protectSkin" checked style="accent-color:#f5b544;width:auto;" />
