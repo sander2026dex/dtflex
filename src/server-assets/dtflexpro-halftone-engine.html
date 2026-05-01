@@ -1089,6 +1089,9 @@ $('processBtn').addEventListener('click', async () => {
   finalCtx = octx;
   octx.clearRect(0, 0, OUT_W, OUT_H);
 
+  // Paint protected light colors first: branco, cinza claro e bege ficam chapados.
+  paintProtectedFlatLights(octx, data, OUT_W, OUT_H);
+
   // Paint solid edges first (under the dots)
   paintEdgesSolid(octx, data, edgeMask, OUT_W, OUT_H);
 
@@ -1262,21 +1265,8 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
        if (isProtectedHighlightCell(sample, data, W, H)){
-          // V14: Branco real = 100% SÓLIDO REAL, sem retícula, sem gap, sem
-          //   remoção, sem transparência. Cor branca preservada totalmente.
-          //   Tons claros coloridos = SÓLIDOS com micro-retícula muito fina
-          //   (95%) preservando a cor original do pixel.
-          const isRealW = isRealWhiteSample(sample);
-          if (isRealW){
-            // Branco real: preencher célula inteira, 100% sólido
-            const half = Math.ceil(cell / 2);
-            ctx.fillStyle = 'rgb(255,255,255)';
-            ctx.fillRect(Math.round(ix - half), Math.round(iy - half), cell, cell);
-          } else {
-            const sq = Math.max(1, Math.round(cell * 0.95));
-            ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
-            ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
-          }
+          // Branco/cinza/bege protegidos já foram pintados chapados pixel-a-pixel.
+          // Não desenhar retícula por cima e não remover nada.
           continue;
         }
 
@@ -1292,12 +1282,11 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       // Premium commercial rule: light colors, face highlights, yellow fabric,
       // reflections and clean effects stay solid. Retícula only in dark tone.
       if (shouldKeepSolidCommercial(sample, zone, artType)){
-        // V13: Tons claros coloridos (creme, bege, pele clara, amarelo claro,
-        // cinza claro) = SÓLIDOS com micro-retícula muito fina (95% da célula).
-        // Cor original 100% preservada, sem furos nem transparência.
-        const sq = Math.max(1, Math.round(cell * 0.95));
+        // Cores claras protegidas já estão chapadas; demais cores comerciais
+        // preservadas ficam sólidas na célula, sem perfuração.
+        const half = Math.ceil(cell / 2);
         ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
-        ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
+        ctx.fillRect(Math.round(ix - half), Math.round(iy - half), cell, cell);
         continue;
       }
 
@@ -1310,7 +1299,7 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         const sat0 = (Math.max(r0,g0,b0) - Math.min(r0,g0,b0)) / Math.max(1, Math.max(r0,g0,b0));
         const isFlatSaturated = ((zone === 'flatColor' || zone === 'highSat') && sat0 > 0.30);
         const isFlatSkin = (zone === 'skin' && sat0 > 0.18);
-        const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06);
+        const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06 && !isProtectedFlatLightSample(sample));
         if (isFlatSaturated || isFlatSkin || isBrightNeutralReal){
           // V13: Brancos/neutros claros = sólidos com micro-retícula 95% (quase
           // sólido). Saturados = micro-retícula 70% (textura RIP visível).
