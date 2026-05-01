@@ -1372,6 +1372,10 @@ function isInsideSubjectBody(data, W, H, ix, iy, cell){
   return opaqueColored >= 5;
 }
 
+/* ============================================================
+   MAIN PIPELINE
+   ============================================================ */
+
 $('processBtn').addEventListener('click', async () => {
   if (!sourceImage) return;
   $('processBtn').disabled = true;
