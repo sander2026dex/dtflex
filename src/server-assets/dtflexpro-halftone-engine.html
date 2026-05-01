@@ -551,14 +551,11 @@ function isSkin(r, g, b){
 // manteiga, lavanda, pêssego, creme) NÃO entram aqui — vão receber retícula
 // leve via zone 'highlight'. Bege também recebe micro-retícula agora.
 function isProtectedFlatLightColor(r, g, b){
-  const L = brightness(r, g, b);
-  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
-  const sat = mx === 0 ? 0 : (mx - mn) / mx;
-  // Apenas neutros bem dessaturados e MUITO claros são chapados absolutos.
-  // sat <= 0.06 garante que rosa bebê (sat ~0.10–0.20), azul claro, lavanda,
-  // verde menta etc. caiam em halftone leve em vez de virarem chapado.
-  const isPureNeutralLight = L >= 235 && sat <= 0.06;
-  return isPureNeutralLight;
+  // V22: SEM BURACOS. Não protegemos mais nenhuma cor clara como "chapada
+  // absoluta". Toda área — incluindo branco puro, pele iluminada e cabelo
+  // claro — recebe halftone normal. Isso elimina os buracos brancos que
+  // apareciam no rosto/cabelo (testa, nariz, mecha clara virando vazio).
+  return false;
 }
 
 function isProtectedFlatLightSample(sample){
@@ -1194,7 +1191,7 @@ function dotRadius(luma, cell, minDensity, zone){
     // Curva alta deixa a maior parte da área quase limpa, com pontos pequenos
     // distribuídos que quebram o "plastificado" sem pesar a estampa.
     // Floor 0.045 garante que mesmo áreas muito claras tenham PONTINHOS visíveis.
-    case 'highlight':  curve = 2.20; capCoverage = 0.20; floor = 0.045; break;
+    case 'highlight':  curve = 1.80; capCoverage = 0.32; floor = 0.10; break;
     case 'shadow':     curve = 1.20; capCoverage = 0.82; floor = Math.max(minDensity, 0.22); break;
     default:           curve = 1.45; capCoverage = 0.72; floor = luma < 150 ? Math.max(minDensity, 0.10) : 0.05;
   }
@@ -1249,20 +1246,9 @@ function isRealWhiteSample(sample){
 }
 
 function isProtectedHighlightCell(sample, data, W, H){
-  if (!sample) return false;
-  // V21: Pele iluminada (testa, bochecha, nariz) NÃO deve ser tratada como
-  // "branco protegido". Se a célula tiver tom quente (r > g > b com diferença
-  // perceptível), preserva como pele com retícula leve em vez de chapar branco.
-  const r = sample.r|0, g = sample.g|0, b = sample.b|0;
-  const isWarmSkinTone = (r > b + 8) && (r >= g) && (g > b) && r >= 180;
-  if (isWarmSkinTone) return false;
-  // Só protege como "highlight branco" se for branco REAL (não amarelo/dourado claro).
-  if (sample.allWhite && isRealWhiteSample(sample)) return true;
-  if (sample.whiteRatio > 0.12 && isRealWhiteSample(sample)) return true;
-  if (sample.l >= HIGHLIGHT_BRIGHTNESS_CUTOFF && sample.brightRatio > 0.30 && isRealWhiteSample(sample)) return true;
-  if (sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF
-      && isImportantLightPixel(data, W, H, sample.maxX, sample.maxY)
-      && isRealWhiteSample(sample)) return true;
+  // V22: SEM BURACOS. Nenhuma célula é tratada como "highlight protegido".
+  // Highlights (testa, nariz, brilho do cabelo, reflexos) recebem halftone
+  // dinâmico normal, evitando que virem manchas brancas/transparentes.
   return false;
 }
 
