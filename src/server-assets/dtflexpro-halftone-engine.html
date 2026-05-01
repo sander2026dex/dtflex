@@ -1400,7 +1400,14 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
 
       // Premium commercial rule: light colors, face highlights, yellow fabric,
       // reflections and clean effects stay solid. Retícula only in dark tone.
-      if (shouldKeepSolidCommercial(sample, zone, artType)){
+      // MODO LEVE: blocos chapados saturados NÃO ficam sólidos — viram
+      // micro-retícula com gap visível para tirar o aspecto plastificado.
+      const keepSolid = shouldKeepSolidCommercial(sample, zone, artType);
+      const isLightModeFlatBlock = lightMode && keepSolid &&
+        (zone === 'flatColor' || zone === 'highSat' || zone === 'skin') &&
+        !isProtectedFlatLightSample(sample);
+
+      if (keepSolid && !isLightModeFlatBlock){
         // Cores claras protegidas já estão chapadas; demais cores comerciais
         // preservadas ficam sólidas na célula, sem perfuração.
         const half = Math.ceil(cell / 2);
@@ -1409,20 +1416,24 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         continue;
       }
 
-      // CLEAN GRAPHIC ART rule (V12):
+      // CLEAN GRAPHIC ART rule (V12) + MODO LEVE (photo):
       //   Cores saturadas chapadas (vermelho, azul, etc.) recebem MICRO-RETÍCULA
       //   quadrada fina com gap visível — não mais bloco 100% chapado.
       //   Isso cria a malha característica de impressão profissional, igualando
       //   o look de RIPs como o da referência Base44.
-      if (artType === 'clean'){
+      if (artType === 'clean' || isLightModeFlatBlock){
         const sat0 = (Math.max(r0,g0,b0) - Math.min(r0,g0,b0)) / Math.max(1, Math.max(r0,g0,b0));
         const isFlatSaturated = ((zone === 'flatColor' || zone === 'highSat') && sat0 > 0.30);
         const isFlatSkin = (zone === 'skin' && sat0 > 0.18);
         const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06 && !isProtectedFlatLightSample(sample));
-        if (isFlatSaturated || isFlatSkin || isBrightNeutralReal){
-          // V13: Brancos/neutros claros = sólidos com micro-retícula 95% (quase
-          // sólido). Saturados = micro-retícula 70% (textura RIP visível).
-          const ratio = isBrightNeutralReal ? 0.95 : 0.70;
+        if (isFlatSaturated || isFlatSkin || isBrightNeutralReal || isLightModeFlatBlock){
+          // V13 + MODO LEVE: Brancos/neutros claros = 95% (quase sólido).
+          // Saturados em modo leve = 0.82 (gap mais visível, anti-plastificado).
+          // Saturados em modo normal = 0.70.
+          let ratio;
+          if (isBrightNeutralReal) ratio = 0.95;
+          else if (lightMode) ratio = 0.82;
+          else ratio = 0.70;
           const sq = Math.max(1, Math.round(cell * ratio));
           ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
           ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
