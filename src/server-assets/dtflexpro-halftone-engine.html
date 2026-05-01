@@ -508,6 +508,42 @@ function isSkin(r, g, b){
   return false;
 }
 
+// Proteção absoluta: branco, cinza claro, off-white e bege claro ficam CHAPADOS.
+// Não entram no meio-tom, não recebem furos e não viram transparência.
+function isProtectedFlatLightColor(r, g, b){
+  const L = brightness(r, g, b);
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  const sat = mx === 0 ? 0 : (mx - mn) / mx;
+  const { h } = rgbToHsv(r, g, b);
+  const isNeutralLight = L >= 188 && sat <= 0.16; // branco, cinza claro, off-white
+  const isBeigeLight = L >= 178 && sat <= 0.30 && h >= 28 && h <= 62 && r >= g && g >= b * 0.82;
+  return isNeutralLight || isBeigeLight;
+}
+
+function isProtectedFlatLightSample(sample){
+  if (!sample) return false;
+  if (sample.allWhite) return true;
+  return isProtectedFlatLightColor(sample.r || 0, sample.g || 0, sample.b || 0);
+}
+
+function paintProtectedFlatLights(ctx, data, W, H){
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const cx = c.getContext('2d');
+  const img = cx.createImageData(W, H);
+  const out = img.data;
+  for (let i=0; i<data.length; i+=4){
+    if (data[i+3] < ALPHA_CUTOFF) continue;
+    if (!isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
+    out[i  ] = data[i  ];
+    out[i+1] = data[i+1];
+    out[i+2] = data[i+2];
+    out[i+3] = 255;
+  }
+  cx.putImageData(img, 0, 0);
+  ctx.drawImage(c, 0, 0);
+}
+
 /* ============================================================
    PRE-PASS: CONTRAST (Photoshop formula)
    factor = (259*(C+255)) / (255*(259-C))
