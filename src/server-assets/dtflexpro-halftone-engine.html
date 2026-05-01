@@ -1252,20 +1252,22 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         continue;
       }
 
-      // CLEAN GRAPHIC ART rule:
-      //   Halftone ONLY in shadows / dark folds.
-      //   Flat colors, skin, vibrant areas and bright midtones stay SOLID.
+      // CLEAN GRAPHIC ART rule (V6):
+      //   Halftone só em sombras E em highlight colorido (creme/amarelo claro/pele clara).
+      //   Cores chapadas saturadas continuam sólidas.
+      //   Highlight colorido NÃO é mais chapado — recebe micro-retícula consistente.
       if (artType === 'clean'){
-        const isFlatLike = (zone === 'flatColor' || zone === 'skin' || zone === 'highSat');
-        const isBrightNeutral = (zone === 'neutral' && sample.l > 150);
-        if (isFlatLike || isBrightNeutral){
-          // Paint solid cell — preserve premium clean surface
+        const sat0 = (Math.max(r0,g0,b0) - Math.min(r0,g0,b0)) / Math.max(1, Math.max(r0,g0,b0));
+        const isFlatSaturated = ((zone === 'flatColor' || zone === 'highSat') && sat0 > 0.30);
+        const isFlatSkin = (zone === 'skin' && sat0 > 0.18);
+        const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06);
+        if (isFlatSaturated || isFlatSkin || isBrightNeutralReal){
           ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
           ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
                        Math.ceil(cell), Math.ceil(cell));
           continue;
         }
-        // Otherwise (shadow / darker neutral) -> screen with reduced floor
+        // Highlight colorido / shadow / neutral médio -> halftone
       }
 
       const radius = dotRadius(sample.l, cell, minDensity, zone);
