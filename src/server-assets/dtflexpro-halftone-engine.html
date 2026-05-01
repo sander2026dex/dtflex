@@ -266,13 +266,14 @@
     </div>
 
     <button id="processBtn" class="btn-process" disabled>⚡ Processar PNG</button>
+    <button id="undoHalftoneBtn" class="btn-process" disabled style="background:#444;margin-top:6px;">↺ Desfazer Halftone</button>
 
     <div id="knockoutPanel" class="knockout-panel disabled">
       <h3>🎯 Color Knockout</h3>
       <p class="sub">Remove a cor escolhida da arte JÁ PRONTA, antes do download. Olhos, dentes, letras e detalhes pequenos são preservados automaticamente.</p>
 
       <div class="ko-row">
-        <button class="ko-btn danger" id="koBlack">Remover Preto</button>
+        <button class="ko-btn danger" id="koBlack" title="Remove apenas o preto vazado (conectado às áreas transparentes). Sombras reticuladas em preto NÃO são tocadas.">Remover Preto (vazado)</button>
         <button class="ko-btn" id="koReset">Restaurar</button>
       </div>
 
@@ -396,8 +397,13 @@ $('imageInput').addEventListener('change', async e => {
   $('statusText').textContent = 'Abrindo imagem localmente...';
   $('processBtn').disabled = true;
   $('downloadBtn').disabled = true;
+  $('undoHalftoneBtn').disabled = true;
   outputBlob = null;
+  // Limpa COMPLETAMENTE qualquer arte anterior (não deixa a anterior aparecendo)
   disableKnockoutPanel();
+  sourceImage = null;
+  pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  previewCanvas.width = 1; previewCanvas.height = 1;
   const url = URL.createObjectURL(file);
   try {
     const img = await loadLocalImage(file, url);
@@ -412,6 +418,23 @@ $('imageInput').addEventListener('change', async e => {
   } finally {
     URL.revokeObjectURL(url);
   }
+});
+
+// Avisa antes de sair / minimizar / recarregar quando há trabalho não baixado
+window.addEventListener('beforeunload', (e) => {
+  // Só avisa se existe arte processada na sessão e ela ainda não foi baixada explicitamente
+  if (sourceImage || finalCurrentImageData) {
+    e.preventDefault();
+    e.returnValue = 'Você tem uma arte em andamento. Se sair agora, vai perder o progresso.';
+    return e.returnValue;
+  }
+});
+
+// Não deixa a página "atualizar sozinha" ao minimizar / trocar de aba.
+// Apenas garante que nenhum reset implícito aconteça quando a aba volta a ficar visível.
+document.addEventListener('visibilitychange', () => {
+  // No-op intencional: mantemos sourceImage/finalCurrentImageData no estado em que estavam.
+  // Isto existe para documentar que NÃO há reload nem reset ao voltar para a aba.
 });
 
 function loadLocalImage(file, url){
@@ -525,19 +548,58 @@ function isProtectedFlatLightSample(sample){
   return isProtectedFlatLightColor(sample.r || 0, sample.g || 0, sample.b || 0);
 }
 
+// Identifica BRANCO PURO (não bege/cinza). Usado para a micro-retícula
+// decorativa em áreas grandes de branco.
+function isPureWhitePixel(r, g, b){
+  return r >= 240 && g >= 240 && b >= 240
+    && Math.max(r,g,b) - Math.min(r,g,b) <= 8;
+}
+
 function paintProtectedFlatLights(ctx, data, W, H){
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const cx = c.getContext('2d');
   const img = cx.createImageData(W, H);
   const out = img.data;
-  for (let i=0; i<data.length; i+=4){
-    if (data[i+3] < ALPHA_CUTOFF) continue;
-    if (!isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
-    out[i  ] = data[i  ];
-    out[i+1] = data[i+1];
-    out[i+2] = data[i+2];
-    out[i+3] = 255;
+
+  // Passo da micro-retícula em áreas grandes de branco. Em 300 DPI / 3307×4930,
+  // step ≈ 22 px ≈ 1.86 mm — visível em grandes campos brancos, invisível em
+  // detalhes pequenos (porque exigimos que TODOS os 4 vizinhos a ±radius
+  // também sejam branco puro).
+  const step = 22;
+  const radius = 14; // raio mínimo de "branco contínuo" exigido
+
+  for (let y = 0; y < H; y++){
+    for (let x = 0; x < W; x++){
+      const i = (y * W + x) * 4;
+      if (data[i+3] < ALPHA_CUTOFF) continue;
+      if (!isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
+
+      // Checa se este pixel cai sobre a grade da micro-retícula E se está em
+      // uma área GRANDE de branco puro. Se sim, deixa um furo de 1 px (pula
+      // a pintura). Nunca acontece em letras finas, olhos ou detalhes <radius.
+      let skip = false;
+      if (isPureWhitePixel(data[i], data[i+1], data[i+2])
+          && (x % step === 0) && (y % step === 0)
+          && x >= radius && y >= radius && x < W - radius && y < H - radius){
+        const iL = (y * W + (x - radius)) * 4;
+        const iR = (y * W + (x + radius)) * 4;
+        const iU = ((y - radius) * W + x) * 4;
+        const iD = ((y + radius) * W + x) * 4;
+        if (isPureWhitePixel(data[iL], data[iL+1], data[iL+2])
+         && isPureWhitePixel(data[iR], data[iR+1], data[iR+2])
+         && isPureWhitePixel(data[iU], data[iU+1], data[iU+2])
+         && isPureWhitePixel(data[iD], data[iD+1], data[iD+2])){
+          skip = true;
+        }
+      }
+      if (skip) continue;
+
+      out[i  ] = data[i  ];
+      out[i+1] = data[i+1];
+      out[i+2] = data[i+2];
+      out[i+3] = 255;
+    }
   }
   cx.putImageData(img, 0, 0);
   ctx.drawImage(c, 0, 0);
@@ -1142,6 +1204,7 @@ $('processBtn').addEventListener('click', async () => {
     outputBlob = stamped;
     $('downloadBtn').disabled = false;
     $('processBtn').disabled = false;
+    $('undoHalftoneBtn').disabled = false;
     enableKnockoutPanel();
 
     redrawFinalPreview();
@@ -1436,6 +1499,28 @@ $('koApplyPicked').addEventListener('click', () => {
 });
 $('koReset').addEventListener('click', resetKnockout);
 
+// === Desfazer Halftone: volta para o estado anterior ao processamento ===
+$('undoHalftoneBtn').addEventListener('click', () => {
+  // Cancela a arte processada e volta a exibir só a imagem original carregada
+  outputBlob = null;
+  finalBaseImageData = null;
+  finalCurrentImageData = null;
+  finalCanvas = null;
+  finalCtx = null;
+  disableKnockoutPanel();
+  $('downloadBtn').disabled = true;
+  $('undoHalftoneBtn').disabled = true;
+  if (sourceImage) {
+    drawPreviewSource(sourceImage);
+    $('processBtn').disabled = false;
+    $('statusText').textContent = '↺ Halftone desfeito. A imagem original foi mantida — clique em "Processar PNG" para refazer.';
+  } else {
+    pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    $('statusText').textContent = '↺ Halftone desfeito.';
+  }
+  setProgress(0, '');
+});
+
 function hexToRgb(hex){
   const m = /^#?([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})$/i.exec(hex);
   if (!m) return null;
@@ -1492,6 +1577,55 @@ async function applyKnockout(target, isBlackMode){
     protectMask = buildSmallDetailProtectMask(src, W, H, target, maxDist, isBlackMode);
   }
 
+  // === VAZADO MASK (modo preto) ===
+  // O usuário pediu: "Remover Preto" deve apagar SOMENTE o preto que está em
+  // áreas vazadas (transparentes). Sombras reticuladas em preto sobre cor
+  // sólida não são tocadas — assim evitamos sujeira nos buracos sem destruir
+  // sombras desenhadas. Lógica: flood-fill 4-vizinhos a partir de cada pixel
+  // de alpha 0; só pixels pretos alcançados por essa frente entram na máscara.
+  let vazadoMask = null;
+  if (isBlackMode) {
+    vazadoMask = new Uint8Array(W * H);
+    const visited = new Uint8Array(W * H);
+    const stack = [];
+    // Sementes: todo pixel transparente.
+    for (let p = 0; p < W * H; p++){
+      if (src[p*4+3] === 0) { visited[p] = 1; stack.push(p); }
+    }
+    // Tolerância local para "preto" (tom muito escuro). Independente do slider:
+    // o usuário quer só PRETO de verdade aqui.
+    const blackMax = 60; // R,G,B individualmente
+    while (stack.length){
+      const p = stack.pop();
+      const x = p % W;
+      const y = (p / W) | 0;
+      // Vizinhos 4-conexos
+      const neigh = [
+        x > 0      ? p - 1 : -1,
+        x < W - 1  ? p + 1 : -1,
+        y > 0      ? p - W : -1,
+        y < H - 1  ? p + W : -1,
+      ];
+      for (let k = 0; k < 4; k++){
+        const np = neigh[k];
+        if (np < 0 || visited[np]) continue;
+        const ni = np * 4;
+        const na = src[ni+3];
+        if (na === 0) {
+          visited[np] = 1;
+          stack.push(np);
+          continue;
+        }
+        // Pixel opaco: só propaga (e marca como vazado) se for PRETO.
+        if (src[ni] <= blackMax && src[ni+1] <= blackMax && src[ni+2] <= blackMax){
+          visited[np] = 1;
+          vazadoMask[np] = 1;
+          stack.push(np); // continua o flood através do preto vazado
+        }
+      }
+    }
+  }
+
   const tr = target.r, tg = target.g, tb = target.b;
   for (let i = 0; i < src.length; i += 4) {
     const a = src[i+3];
@@ -1505,6 +1639,10 @@ async function applyKnockout(target, isBlackMode){
 
     const px = (i >> 2);
     if (protectMask && protectMask[px]) continue;
+
+    // Modo preto: só remove se estiver no vazado (conectado a transparente).
+    // Isso preserva sombras reticuladas em preto sobre cor sólida.
+    if (isBlackMode && !(vazadoMask && vazadoMask[px])) continue;
 
     if (dist <= hardDist) {
       src[i+3] = 0;
