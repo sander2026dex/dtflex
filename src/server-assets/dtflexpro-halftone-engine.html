@@ -1264,8 +1264,10 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         const isFlatSkin = (zone === 'skin' && sat0 > 0.18);
         const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06);
         if (isFlatSaturated || isFlatSkin || isBrightNeutralReal){
-          // Micro-retícula quadrada: 70% da célula, ~30% gap = malha fina visível
-          const sq = Math.max(1, Math.round(cell * 0.70));
+          // V13: Brancos/neutros claros = sólidos com micro-retícula 95% (quase
+          // sólido). Saturados = micro-retícula 70% (textura RIP visível).
+          const ratio = isBrightNeutralReal ? 0.95 : 0.70;
+          const sq = Math.max(1, Math.round(cell * ratio));
           ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
           ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
           continue;
