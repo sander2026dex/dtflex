@@ -1222,19 +1222,15 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
        if (isProtectedHighlightCell(sample, data, W, H)){
-         // V12: Highlights recebem MICRO-RETÍCULA quadrada fina (não bloco chapado).
-         //   • Branco real (olhos, dentes, reflexos, letras) → micro-quadrado branco puro
-         //     com gap visível, criando malha fina característica de RIP profissional.
-         //   • Highlight colorido (creme, bege, pele clara, cinza claro) → micro-quadrado
-         //     com a COR ORIGINAL preservada e gap visível.
-         //   Nada é removido — apenas estruturado em malha de impressão.
-         const isRealW = isRealWhiteSample(sample);
-         // Quadrado a 70% da célula → deixa ~30% de gap em malha quadrada fina
-         const sq = Math.max(1, Math.round(cell * 0.70));
-         ctx.fillStyle = isRealW ? 'rgb(255,255,255)' : `rgb(${r0},${g0},${b0})`;
-         ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
-         continue;
-       }
+          // V13: Branco real e tons claros coloridos = SÓLIDOS com micro-retícula
+          //   muito fina (95% da célula = ~5% gap). Cor original 100% preservada,
+          //   sem furos, sem transparência, sem remoção. Apenas leve textura RIP.
+          const isRealW = isRealWhiteSample(sample);
+          const sq = Math.max(1, Math.round(cell * 0.95));
+          ctx.fillStyle = isRealW ? 'rgb(255,255,255)' : `rgb(${r0},${g0},${b0})`;
+          ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
+          continue;
+        }
 
       // Skin detection on cell average color
       let isSkinCell = false;
