@@ -1764,8 +1764,10 @@ function buildSmallDetailProtectMask(data, W, H, target, maxDist, isBlackMode){
     if (dist <= maxDist) isTarget[p] = 1;
   }
   // Limite de área para considerar "detalhe pequeno" em 3307x4930.
-  // Letras finas, olhos, contornos: até ~14000 px². Acima disso é fundo.
-  const SMALL_DETAIL_AREA = isBlackMode ? 14000 : 9000;
+  // Linhas finas, olhos, contornos, fios de cabelo, traços: até ~28000 px²
+  // em modo preto (mais protetivo — detalhes finos NUNCA somem). Para outras
+  // cores, mantém ~9000 px².
+  const SMALL_DETAIL_AREA = isBlackMode ? 28000 : 9000;
 
   const protectMask = new Uint8Array(N);
   const visited = new Uint8Array(N);
