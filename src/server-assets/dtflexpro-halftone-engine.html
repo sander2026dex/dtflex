@@ -1046,7 +1046,10 @@ function classifyZone(sample, isSkinCell){
   if (sat > 0.40) return 'highSat';
   // V6: claro colorido (creme, bege, amarelo claro, pele clara, cinza-quente)
   // recebe MICRO-RETÍCULA em vez de virar branco chapado.
-  if (L >= 195 && sat >= 0.05 && sat <= 0.40) return 'highlight';
+  // V19: cores claras CHAPADAS (não só quase-brancas) recebem micro-retícula.
+  // Faixa ampliada: L>=175 captura cremes, beges, amarelos claros, azuis claros,
+  // rosas claros, cinzas-quentes, etc. — tudo recebe pontinhos leves espaçados.
+  if (L >= 175 && sat >= 0.04 && sat <= 0.45) return 'highlight';
   return 'neutral';
 }
 
@@ -1182,10 +1185,11 @@ function dotRadius(luma, cell, minDensity, zone){
     case 'skin':       curve = 2.10; capCoverage = 0.24; floor = 0.06; break;
     case 'flatColor':  curve = 2.45; capCoverage = 0.20; floor = 0.05; break;
     case 'highSat':    curve = 1.95; capCoverage = 0.36; floor = 0.06; break;
-    // V18 — Cores claras: retículas LEVES (poucas, espaçadas, finas).
-    // Curva mais agressiva + cap baixo + floor mínimo = pontos discretos
-    // que dão textura sem pesar nem fechar a tinta.
-    case 'highlight':  curve = 2.40; capCoverage = 0.16; floor = 0.025; break;
+    // V19 — Cores claras CHAPADAS: retícula leve, visível mas espaçada.
+    // Curva alta deixa a maior parte da área quase limpa, com pontos pequenos
+    // distribuídos que quebram o "plastificado" sem pesar a estampa.
+    // Floor 0.045 garante que mesmo áreas muito claras tenham PONTINHOS visíveis.
+    case 'highlight':  curve = 2.20; capCoverage = 0.20; floor = 0.045; break;
     case 'shadow':     curve = 1.20; capCoverage = 0.82; floor = Math.max(minDensity, 0.22); break;
     default:           curve = 1.45; capCoverage = 0.72; floor = luma < 150 ? Math.max(minDensity, 0.10) : 0.05;
   }
