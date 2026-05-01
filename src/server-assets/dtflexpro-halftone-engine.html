@@ -1250,6 +1250,12 @@ function isRealWhiteSample(sample){
 
 function isProtectedHighlightCell(sample, data, W, H){
   if (!sample) return false;
+  // V21: Pele iluminada (testa, bochecha, nariz) NÃO deve ser tratada como
+  // "branco protegido". Se a célula tiver tom quente (r > g > b com diferença
+  // perceptível), preserva como pele com retícula leve em vez de chapar branco.
+  const r = sample.r|0, g = sample.g|0, b = sample.b|0;
+  const isWarmSkinTone = (r > b + 8) && (r >= g) && (g > b) && r >= 180;
+  if (isWarmSkinTone) return false;
   // Só protege como "highlight branco" se for branco REAL (não amarelo/dourado claro).
   if (sample.allWhite && isRealWhiteSample(sample)) return true;
   if (sample.whiteRatio > 0.12 && isRealWhiteSample(sample)) return true;
@@ -1257,6 +1263,27 @@ function isProtectedHighlightCell(sample, data, W, H){
   if (sample.maxL >= HIGHLIGHT_BRIGHTNESS_CUTOFF
       && isImportantLightPixel(data, W, H, sample.maxX, sample.maxY)
       && isRealWhiteSample(sample)) return true;
+  return false;
+}
+
+// V21: Detecta se a célula está perto da borda do sujeito (subject edge).
+// Usado para restringir a micro-retícula em branco apenas às pontas/bordas.
+function isNearSubjectEdge(data, W, H, ix, iy, cell){
+  const r = Math.max(cell, 6);
+  const probes = [
+    [ix - r, iy], [ix + r, iy], [ix, iy - r], [ix, iy + r],
+    [ix - r, iy - r], [ix + r, iy + r], [ix - r, iy + r], [ix + r, iy - r]
+  ];
+  for (const [px, py] of probes){
+    const xi = Math.round(px), yi = Math.round(py);
+    if (xi < 0 || yi < 0 || xi >= W || yi >= H) return true; // borda do canvas
+    const idx = (yi * W + xi) * 4;
+    if (data[idx + 3] < ALPHA_CUTOFF) return true; // próximo de transparência
+    // Próximo de cor não-branca (subject body): conta como borda também.
+    const rr = data[idx], gg = data[idx+1], bb = data[idx+2];
+    const mn = Math.min(rr,gg,bb);
+    if (mn < 220) return true;
+  }
   return false;
 }
 
@@ -1555,27 +1582,30 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
        if (isProtectedFlatLightSample(sample) || isProtectedHighlightCell(sample, data, W, H)){
-          // V20: Branco / neutro claro NÃO fica mais 100% chapado.
-          // Pinta a célula com a cor base e adiciona um micropontinho discreto
-          // (retícula ultra-leve) para dar a textura de retícula RIP no branco.
+          // V21: Branco/neutro claro fica chapado por padrão.
+          // Micro-retícula leve APENAS nas pontas/bordas do sujeito —
+          // não em campos grandes de branco. Isso elimina o "ruído" de
+          // pontos brancos espalhados pela área transparente/limpa.
           const half = Math.ceil(cell / 2);
           ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
           ctx.fillRect(Math.round(ix - half), Math.round(iy - half), cell, cell);
-          // Micro-dot ultra-leve no branco: ~6% de cobertura, espaçado.
-          // Só aplica em células ímpares (xor) para gerar gap visível.
-          const cx = (ix / cell) | 0, cy = (iy / cell) | 0;
-          if (((cx + cy) & 1) === 0) {
-            const microR = Math.max(0.6, cell * 0.09);
-            // Tom levemente mais escuro que a base, para a retícula ser visível
-            // sem sujar o branco.
-            const dim = 18; // 7% mais escuro
-            const dr = Math.max(0, r0 - dim);
-            const dg = Math.max(0, g0 - dim);
-            const db = Math.max(0, b0 - dim);
-            ctx.fillStyle = `rgb(${dr},${dg},${db})`;
-            ctx.beginPath();
-            ctx.arc(ix, iy, microR, 0, Math.PI * 2);
-            ctx.fill();
+
+          const nearEdge = isNearSubjectEdge(data, W, H, ix, iy, cell);
+          if (nearEdge) {
+            // Pouquíssimas retículas: 1 em cada 3 células de borda (mod 3),
+            // pontinho mínimo, tom suave.
+            const cx = (ix / cell) | 0, cy = (iy / cell) | 0;
+            if (((cx + cy) % 3) === 0) {
+              const microR = Math.max(0.5, cell * 0.07);
+              const dim = 14;
+              const dr = Math.max(0, r0 - dim);
+              const dg = Math.max(0, g0 - dim);
+              const db = Math.max(0, b0 - dim);
+              ctx.fillStyle = `rgb(${dr},${dg},${db})`;
+              ctx.beginPath();
+              ctx.arc(ix, iy, microR, 0, Math.PI * 2);
+              ctx.fill();
+            }
           }
           continue;
         }
