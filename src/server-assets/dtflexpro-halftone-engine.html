@@ -1535,6 +1535,7 @@ async function applyKnockout(target, isBlackMode){
  *   proporcionalmente à proximidade (decontaminate edge).
  */
 function cleanKnockoutHalo(imageData, target, maxDist){
+  if (isProtectedFlatLightColor(target.r, target.g, target.b)) return;
   const data = imageData.data;
   const tr = target.r, tg = target.g, tb = target.b;
   // Zona de "fantasma": metade da tolerância, alpha não-cheio.
@@ -1542,6 +1543,7 @@ function cleanKnockoutHalo(imageData, target, maxDist){
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i+3];
     if (a === 0 || a === 255) continue;
+    if (isProtectedFlatLightColor(data[i], data[i+1], data[i+2])) continue;
     const dr = data[i] - tr, dg = data[i+1] - tg, db = data[i+2] - tb;
     const dist = Math.sqrt(dr*dr + dg*dg + db*db);
     if (dist <= ghostDist) {
