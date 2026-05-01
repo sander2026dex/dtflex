@@ -660,6 +660,32 @@ function floodRemoveBackground(data, W, H, predicate, protectInteriorDetails = f
   }
 }
 
+/**
+ * PRETO ABSOLUTO — converte qualquer pixel "quase preto" para #000000 puro.
+ *
+ * Regra (CMYK K100): qualquer pixel opaco cujo R,G,B individualmente ≤ 38
+ * E luminância ≤ 42 vira (0,0,0). Esse threshold é alto o bastante para
+ * limpar matizes residuais (azul/verde/marrom escuros que parecem preto)
+ * mas baixo o bastante para preservar SOMBRAS reais coloridas e detalhes
+ * de meio-tom. Assim o usuário tem preto puro chapado, igual K100 na gráfica.
+ */
+function enforceAbsoluteBlack(data, W, H){
+  const RGB_MAX = 38;   // R, G, B individualmente
+  const LUMA_MAX = 42;  // luminância perceptual
+  let count = 0;
+  for (let i = 0; i < data.length; i += 4){
+    const a = data[i+3];
+    if (a < 8) continue;
+    const r = data[i], g = data[i+1], b = data[i+2];
+    if (r > RGB_MAX || g > RGB_MAX || b > RGB_MAX) continue;
+    const luma = 0.2126*r + 0.7152*g + 0.0722*b;
+    if (luma > LUMA_MAX) continue;
+    data[i] = 0; data[i+1] = 0; data[i+2] = 0;
+    count++;
+  }
+  return count;
+}
+
 function autoRemoveBackground(data, W, H){
   // Sample border colors to decide what to remove.
   // Branco nunca é removido automaticamente: em DTF ele pode ser olho, brilho,
