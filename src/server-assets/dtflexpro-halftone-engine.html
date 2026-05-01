@@ -1645,10 +1645,24 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       }
       if (radius <= 0) continue;
 
+      // V17 — Dot gain spread (~+4%) simulando absorção de tinta no tecido.
+      radius = radius * 1.04;
+
+      // V17 — Screen angle por canal dominante (K=45 / C=15 / M=75 / Y=0).
+      // Aplicamos um deslocamento sub-pixel direcional (até ~22% da célula)
+      // que muda a textura visível por canal sem quebrar a malha global.
+      const ch = dominantChannel(r0, g0, b0);
+      const v = CHAN_VEC[ch];
+      // Hash simples baseado em (gxIndex, gyIndex) — estável e rápido.
+      const h = ((gxIndex * 73856093) ^ (gyIndex * 19349663)) >>> 0;
+      const jitterMag = (((h & 0xFF) / 255) - 0.5) * (cell * 0.22);
+      const jx = v.dx * jitterMag;
+      const jy = v.dy * jitterMag;
+
       // Perfect circular anti-aliased dot, fully opaque cell color
       ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
       ctx.beginPath();
-      ctx.arc(ix, iy, radius, 0, Math.PI * 2);
+      ctx.arc(ix + jx, iy + jy, radius, 0, Math.PI * 2);
       ctx.fill();
     }
 
