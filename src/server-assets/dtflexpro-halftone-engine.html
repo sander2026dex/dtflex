@@ -546,16 +546,19 @@ function isSkin(r, g, b){
   return false;
 }
 
-// Proteção absoluta: branco, cinza claro, off-white e bege claro ficam CHAPADOS.
-// Não entram no meio-tom, não recebem furos e não viram transparência.
+// V20: Proteção restrita APENAS a neutros verdadeiros (branco puro, cinza claro
+// quase neutro). Pastéis coloridos (rosa bebê, azul claro, verde menta, amarelo
+// manteiga, lavanda, pêssego, creme) NÃO entram aqui — vão receber retícula
+// leve via zone 'highlight'. Bege também recebe micro-retícula agora.
 function isProtectedFlatLightColor(r, g, b){
   const L = brightness(r, g, b);
   const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
   const sat = mx === 0 ? 0 : (mx - mn) / mx;
-  const { h } = rgbToHsv(r, g, b);
-  const isNeutralLight = L >= 155 && sat <= 0.22; // branco, cinza claro/médio-claro, off-white
-  const isBeigeLight = L >= 160 && sat <= 0.34 && h >= 24 && h <= 66 && r >= g && g >= b * 0.78;
-  return isNeutralLight || isBeigeLight;
+  // Apenas neutros bem dessaturados e MUITO claros são chapados absolutos.
+  // sat <= 0.06 garante que rosa bebê (sat ~0.10–0.20), azul claro, lavanda,
+  // verde menta etc. caiam em halftone leve em vez de virarem chapado.
+  const isPureNeutralLight = L >= 235 && sat <= 0.06;
+  return isPureNeutralLight;
 }
 
 function isProtectedFlatLightSample(sample){
