@@ -1244,10 +1244,10 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       // Premium commercial rule: light colors, face highlights, yellow fabric,
       // reflections and clean effects stay solid. Retícula only in dark tone.
       if (shouldKeepSolidCommercial(sample, zone, artType)){
-        // V12: Mesmo em tons que ficariam sólidos, aplicar micro-retícula quadrada
-        // fina (gap ~30%) para criar textura de malha de impressão visível,
-        // como em RIPs profissionais. Cor original 100% preservada.
-        const sq = Math.max(1, Math.round(cell * 0.70));
+        // V13: Tons claros coloridos (creme, bege, pele clara, amarelo claro,
+        // cinza claro) = SÓLIDOS com micro-retícula muito fina (95% da célula).
+        // Cor original 100% preservada, sem furos nem transparência.
+        const sq = Math.max(1, Math.round(cell * 0.95));
         ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
         ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
         continue;
