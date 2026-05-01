@@ -248,12 +248,10 @@
       <div class="value" id="contrastVal">18%</div>
     </div>
 
-    <div class="control-group">
-      <label>Preencher Sombras (densidade mín. %)</label>
-      <input type="range" id="minDensity" min="0" max="35" value="18" />
-      <div class="value" id="minDensityVal">18%</div>
-      <p class="info-text">Evita buracos em sombras e objetos coloridos. Branco puro continua sólido e limpo.</p>
-    </div>
+    <!-- Preencher Sombras agora 100% automático (densidade mínima fixa em 18%). Slider removido. -->
+    <!-- Highlights coloridos (creme/bege/pele clara/amarelo claro/pastéis) e branco real
+         recebem micro-retícula quadrada fina (62% da célula) automaticamente.
+         Tons claros coloridos sólidos recebem micro-retícula 2% no final para nunca ficarem chapados. -->
 
 <!-- Branco Inteligente: agora 100% automático (RGB ≥ 236, Sat < 12%). Slider removido. -->
     <div class="control-group">
