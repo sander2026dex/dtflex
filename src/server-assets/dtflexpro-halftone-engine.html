@@ -273,6 +273,14 @@
       <p class="info-text">Antes do halftone, converte qualquer pixel escuro (R,G,B ≤ 38) em <b>preto puro #000000</b> — equivalente a <b>CMYK K100</b> na impressão. Garante preto 100% sólido sem matiz residual de azul/verde/marrom.</p>
     </div>
 
+    <div class="control-group" style="border:1px solid #2a2a2a;border-radius:8px;padding:10px;background:#0d0d0d;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="lightMode" checked style="accent-color:#f5b544;width:auto;" />
+        <span>🪶 Modo Leve (anti-plastificado)</span>
+      </label>
+      <p class="info-text">Transforma <b>blocos chapados</b> de cor (vermelho, azul, amarelo, etc.) em <b>retícula com pontos visíveis</b> — degradês e sombras ficam suaves, fotos ganham profundidade. Estampa fica <b>mais leve, respira no tecido</b> e perde o aspecto plastificado/pesado. Branco, cinza claro e bege continuam 100% protegidos.</p>
+    </div>
+
     <button id="processBtn" class="btn-process" disabled>⚡ Processar PNG</button>
     <button id="undoHalftoneBtn" class="btn-process" disabled style="background:#444;margin-top:6px;">↺ Desfazer Halftone</button>
 
@@ -1214,11 +1222,12 @@ $('processBtn').addEventListener('click', async () => {
   // Preencher Sombras automático: densidade mínima fixa em 18% (evita buracos em sombras).
   const minDensity = 0.18;
   const protectSkin = $('protectSkin').checked;
+  const lightMode = $('lightMode') ? $('lightMode').checked : true;
   // Branco Inteligente automático: rigor fixo (RGB ≥ 236, Sat < 12%).
   WHITE_SENSITIVITY = 0.70;
   const cell = DPI / lpi; // grade AM real: espaçamento matemático exato em 300 DPI
 
-  await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
+  await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType, lightMode);
 
   // Restauração final obrigatória: qualquer pixel branco/cinza claro/bege volta
   // exatamente como veio da imagem original, por cima da retícula.
@@ -1334,7 +1343,7 @@ function crc32(bytes){
      - draw a perfectly circular, anti-aliased dot
    ============================================================ */
 
-async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, angleDeg, minDensity, protectSkin, artType){
+async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, angleDeg, minDensity, protectSkin, artType, lightMode){
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const cx = W / 2, cy = H / 2;
@@ -1391,7 +1400,14 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
 
       // Premium commercial rule: light colors, face highlights, yellow fabric,
       // reflections and clean effects stay solid. Retícula only in dark tone.
-      if (shouldKeepSolidCommercial(sample, zone, artType)){
+      // MODO LEVE: blocos chapados saturados NÃO ficam sólidos — viram
+      // micro-retícula com gap visível para tirar o aspecto plastificado.
+      const keepSolid = shouldKeepSolidCommercial(sample, zone, artType);
+      const isLightModeFlatBlock = lightMode && keepSolid &&
+        (zone === 'flatColor' || zone === 'highSat' || zone === 'skin') &&
+        !isProtectedFlatLightSample(sample);
+
+      if (keepSolid && !isLightModeFlatBlock){
         // Cores claras protegidas já estão chapadas; demais cores comerciais
         // preservadas ficam sólidas na célula, sem perfuração.
         const half = Math.ceil(cell / 2);
@@ -1400,20 +1416,24 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         continue;
       }
 
-      // CLEAN GRAPHIC ART rule (V12):
+      // CLEAN GRAPHIC ART rule (V12) + MODO LEVE (photo):
       //   Cores saturadas chapadas (vermelho, azul, etc.) recebem MICRO-RETÍCULA
       //   quadrada fina com gap visível — não mais bloco 100% chapado.
       //   Isso cria a malha característica de impressão profissional, igualando
       //   o look de RIPs como o da referência Base44.
-      if (artType === 'clean'){
+      if (artType === 'clean' || isLightModeFlatBlock){
         const sat0 = (Math.max(r0,g0,b0) - Math.min(r0,g0,b0)) / Math.max(1, Math.max(r0,g0,b0));
         const isFlatSaturated = ((zone === 'flatColor' || zone === 'highSat') && sat0 > 0.30);
         const isFlatSkin = (zone === 'skin' && sat0 > 0.18);
         const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06 && !isProtectedFlatLightSample(sample));
-        if (isFlatSaturated || isFlatSkin || isBrightNeutralReal){
-          // V13: Brancos/neutros claros = sólidos com micro-retícula 95% (quase
-          // sólido). Saturados = micro-retícula 70% (textura RIP visível).
-          const ratio = isBrightNeutralReal ? 0.95 : 0.70;
+        if (isFlatSaturated || isFlatSkin || isBrightNeutralReal || isLightModeFlatBlock){
+          // V13 + MODO LEVE: Brancos/neutros claros = 95% (quase sólido).
+          // Saturados em modo leve = 0.82 (gap mais visível, anti-plastificado).
+          // Saturados em modo normal = 0.70.
+          let ratio;
+          if (isBrightNeutralReal) ratio = 0.95;
+          else if (lightMode) ratio = 0.82;
+          else ratio = 0.70;
           const sq = Math.max(1, Math.round(cell * ratio));
           ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
           ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
