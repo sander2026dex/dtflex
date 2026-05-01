@@ -950,15 +950,20 @@ function microDotRadius(cell, coverage){
   return Math.max(MICRO_MIN_DOT_PX, Math.min(MICRO_MAX_DOT_PX, r));
 }
 
-// V5+ — Branco REAL apenas. Rigor controlado pelo slider "Branco Inteligente".
-// whiteSensitivity 0..1: 0 = permissivo (qualquer claro vira branco),
-//                        1 = só branco neutro absoluto (RGB>=245 + sat<6%).
+// V7 — BRANCO INTELIGENTE (regra absoluta do usuário):
+//   Branco real SOMENTE quando RGB > 235 E saturação < 12%.
+//   Esses são pisos rígidos — nada abaixo disso pode ser tratado como branco,
+//   independente do slider. O slider apenas RESTRINGE ainda mais (mais rigoroso),
+//   nunca AFROUXA. Assim: amarelo claro, bege, pele clara e cinza claro
+//   NUNCA caem na zona "branco" e seguem para micro-retícula no halftone.
+const WHITE_RGB_FLOOR = 236;   // RGB > 235  →  >= 236
+const WHITE_SAT_CEIL  = 0.12;  // sat < 12%
 let WHITE_SENSITIVITY = 0.70;
 function getWhiteThresholds(){
-  // Interpola entre permissivo (220, sat<0.20) e rigoroso (245, sat<0.06).
   const s = Math.max(0, Math.min(1, WHITE_SENSITIVITY));
-  const minRGB = Math.round(220 + s * 25);   // 220..245
-  const maxSat = 0.20 - s * 0.14;            // 0.20..0.06
+  // Slider só endurece a regra: 236→248 RGB, 0.12→0.05 sat.
+  const minRGB = Math.round(WHITE_RGB_FLOOR + s * 12);   // 236..248
+  const maxSat = WHITE_SAT_CEIL - s * 0.07;              // 0.12..0.05
   return { minRGB, maxSat };
 }
 function isRealWhiteSample(sample){
@@ -966,6 +971,9 @@ function isRealWhiteSample(sample){
   const r = sample.r|0, g = sample.g|0, b = sample.b|0;
   const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
   const sat = mx === 0 ? 0 : (mx - mn) / mx;
+  // Piso absoluto: jamais aceitar nada abaixo de RGB 236 ou sat >= 12%.
+  if (r < WHITE_RGB_FLOOR || g < WHITE_RGB_FLOOR || b < WHITE_RGB_FLOOR) return false;
+  if (sat >= WHITE_SAT_CEIL) return false;
   const { minRGB, maxSat } = getWhiteThresholds();
   return (r >= minRGB && g >= minRGB && b >= minRGB && sat < maxSat);
 }
