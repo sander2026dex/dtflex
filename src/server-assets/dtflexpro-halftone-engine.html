@@ -397,16 +397,82 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','contrast'].forEach(id => {
+['lpi','angle','contrast','blackThreshold'].forEach(id => {
   const el = $(id);
   if (!el) return;
   el.addEventListener('input', () => {
-    const suffix = id === 'lpi' ? ' LPI'
-                 : id === 'angle' ? '°'
-                 : (id === 'contrast') ? '%' : '';
-    $(id+'Val').textContent = el.value + suffix;
+    if (id === 'lpi') $('lpiVal').textContent = el.value + ' LPI';
+    else if (id === 'angle') $('angleVal').textContent = el.value + '°';
+    else if (id === 'contrast') $('contrastVal').textContent = el.value + '%';
+    else if (id === 'blackThreshold') {
+      const v = parseInt(el.value, 10);
+      $('blackThresholdVal').textContent = v === 0
+        ? 'Desligado'
+        : `RGB < ${v} → #000000`;
+    }
+    if (id === 'contrast' || id === 'blackThreshold') scheduleLivePreview();
   });
 });
+
+// === LIVE PREVIEW (contraste + preto absoluto em tempo real) =================
+let livePreviewSourceData = null;
+let livePreviewRaf = 0;
+function buildLivePreviewSource(img){
+  const ratio = OUT_W / OUT_H;
+  const maxW = 540;
+  const maxH = Math.round(maxW / ratio);
+  const c = document.createElement('canvas');
+  c.width = maxW; c.height = maxH;
+  const cx = c.getContext('2d', { willReadFrequently: true });
+  cx.clearRect(0, 0, maxW, maxH);
+  const ir = img.width / img.height;
+  const cr = maxW / maxH;
+  let dw, dh;
+  if (ir > cr) { dw = maxW; dh = maxW / ir; }
+  else { dh = maxH; dw = maxH * ir; }
+  cx.drawImage(img, (maxW - dw) / 2, (maxH - dh) / 2, dw, dh);
+  livePreviewSourceData = cx.getImageData(0, 0, maxW, maxH);
+}
+function scheduleLivePreview(){
+  if (!livePreviewSourceData || !sourceImage) return;
+  if (livePreviewRaf) return;
+  livePreviewRaf = requestAnimationFrame(() => {
+    livePreviewRaf = 0;
+    renderLivePreview();
+  });
+}
+function renderLivePreview(){
+  if (!livePreviewSourceData) return;
+  const src = livePreviewSourceData;
+  const W = src.width, H = src.height;
+  const out = new ImageData(new Uint8ClampedArray(src.data), W, H);
+  const data = out.data;
+  const cUI = parseInt($('contrast').value, 10) || 0;
+  const C = Math.max(-255, Math.min(255, cUI * 2));
+  const factor = (259 * (C + 255)) / (255 * (259 - C));
+  const blackThr = parseInt($('blackThreshold').value, 10) || 0;
+  const lumaMax = blackThr + 4;
+  for (let i = 0; i < data.length; i += 4){
+    if (data[i+3] < 8) continue;
+    let r = data[i], g = data[i+1], b = data[i+2];
+    if (cUI !== 0){
+      r = (r - 128) * factor + 128;
+      g = (g - 128) * factor + 128;
+      b = (b - 128) * factor + 128;
+      r = r < 0 ? 0 : r > 255 ? 255 : r;
+      g = g < 0 ? 0 : g > 255 ? 255 : g;
+      b = b < 0 ? 0 : b > 255 ? 255 : b;
+    }
+    if (blackThr > 0 && r < blackThr && g < blackThr && b < blackThr){
+      const luma = 0.2126*r + 0.7152*g + 0.0722*b;
+      if (luma <= lumaMax){ r = 0; g = 0; b = 0; }
+    }
+    data[i] = r; data[i+1] = g; data[i+2] = b;
+  }
+  previewCanvas.width = W;
+  previewCanvas.height = H;
+  pctx.putImageData(out, 0, 0);
+}
 
 $('imageInput').addEventListener('change', async e => {
   const file = e.target.files[0];
