@@ -795,6 +795,9 @@ function classifyZone(sample, isSkinCell){
   // Flat vibrant fabric (yellow / red / blue jersey) — bright AND saturated
   if (sat > 0.55 && L > 92) return 'flatColor';
   if (sat > 0.40) return 'highSat';
+  // V6: claro colorido (creme, bege, amarelo claro, pele clara, cinza-quente)
+  // recebe MICRO-RETÍCULA em vez de virar branco chapado.
+  if (L >= 195 && sat >= 0.05 && sat <= 0.40) return 'highlight';
   return 'neutral';
 }
 
