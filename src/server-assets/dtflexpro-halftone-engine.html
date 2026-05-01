@@ -1116,6 +1116,10 @@ $('processBtn').addEventListener('click', async () => {
 
   await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
 
+  // Restauração final obrigatória: qualquer pixel branco/cinza claro/bege volta
+  // exatamente como veio da imagem original, por cima da retícula.
+  paintProtectedFlatLights(octx, data, OUT_W, OUT_H);
+
   setProgress(0.96, 'Gerando PNG transparente...');
   await nextFrame();
 
