@@ -1191,7 +1191,7 @@ function dotRadius(luma, cell, minDensity, zone){
     // Curva alta deixa a maior parte da área quase limpa, com pontos pequenos
     // distribuídos que quebram o "plastificado" sem pesar a estampa.
     // Floor 0.045 garante que mesmo áreas muito claras tenham PONTINHOS visíveis.
-    case 'highlight':  curve = 2.20; capCoverage = 0.20; floor = 0.045; break;
+    case 'highlight':  curve = 1.80; capCoverage = 0.32; floor = 0.10; break;
     case 'shadow':     curve = 1.20; capCoverage = 0.82; floor = Math.max(minDensity, 0.22); break;
     default:           curve = 1.45; capCoverage = 0.72; floor = luma < 150 ? Math.max(minDensity, 0.10) : 0.05;
   }
