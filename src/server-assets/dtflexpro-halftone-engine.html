@@ -1780,6 +1780,10 @@ function cleanKnockoutHalo(imageData, target, maxDist){
   if (isProtectedFlatLightColor(target.r, target.g, target.b)) return;
   const data = imageData.data;
   const tr = target.r, tg = target.g, tb = target.b;
+  // Se o alvo é PRETO PURO, NÃO fazemos decontaminate de canal — isso
+  // alteraria vermelho/verde/azul adjacentes (saturação/brilho falso).
+  // Só zera fantasmas que são realmente pretos semitransparentes.
+  const isBlackTarget = (tr <= 18 && tg <= 18 && tb <= 18);
   // Zona de "fantasma": metade da tolerância, alpha não-cheio.
   const ghostDist = Math.min(maxDist * 0.55, 80);
   for (let i = 0; i < data.length; i += 4) {
@@ -1790,10 +1794,17 @@ function cleanKnockoutHalo(imageData, target, maxDist){
     const dist = Math.sqrt(dr*dr + dg*dg + db*db);
     if (dist <= ghostDist) {
       // Fantasma sólido o suficiente da cor alvo: apaga.
+      // Em modo preto, só apaga se o pixel for realmente escuro
+      // (preserva vermelho/verde mesmo com alpha baixo).
+      if (isBlackTarget){
+        const lum = 0.2126*data[i] + 0.7152*data[i+1] + 0.0722*data[i+2];
+        if (lum > 55) continue; // pixel não é preto — preserva cor
+      }
       data[i+3] = 0;
-    } else if (a < 200 && dist < maxDist * 1.3) {
-      // Borda residual: empurra a cor para longe do alvo (decontaminate).
-      const k = 1 - (a / 255);                      // peso do "ar"
+    } else if (!isBlackTarget && a < 200 && dist < maxDist * 1.3) {
+      // Decontaminate só para alvos coloridos. Em modo preto, NÃO mexe
+      // nos canais — preserva vermelho/verde/azul originais.
+      const k = 1 - (a / 255);
       data[i  ] = clamp8(data[i  ] + (data[i  ] - tr) * k * 0.5);
       data[i+1] = clamp8(data[i+1] + (data[i+1] - tg) * k * 0.5);
       data[i+2] = clamp8(data[i+2] + (data[i+2] - tb) * k * 0.5);
