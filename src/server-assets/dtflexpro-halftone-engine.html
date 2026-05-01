@@ -1427,22 +1427,57 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         const isFlatSkin = (zone === 'skin' && sat0 > 0.18);
         const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06 && !isProtectedFlatLightSample(sample));
         if (isFlatSaturated || isFlatSkin || isBrightNeutralReal || isLightModeFlatBlock){
-          // V13 + MODO LEVE: Brancos/neutros claros = 95% (quase sólido).
-          // Saturados em modo leve = 0.82 (gap mais visível, anti-plastificado).
-          // Saturados em modo normal = 0.70.
-          let ratio;
-          if (isBrightNeutralReal) ratio = 0.95;
-          else if (lightMode) ratio = 0.82;
-          else ratio = 0.70;
-          const sq = Math.max(1, Math.round(cell * ratio));
-          ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
-          ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
+          // V14 — CORES FORTES = 50% RETÍCULA AUTOMÁTICA (circular AM):
+          //   Vermelho, verde, azul, amarelo saturados ganham retícula circular
+          //   em coverage = 0.50 (cinquenta por cento), padrão profissional de
+          //   RIP DTF. Brancos/neutros claros continuam quase sólidos (95%).
+          //   Pele e saturação intermediária ficam em ~70% (modo normal) ou
+          //   65% (modo leve) com retícula circular para tirar o plástico
+          //   sem buraco em detalhes.
+          if (isBrightNeutralReal){
+            // Quase sólido — micro-gap só pra respirar.
+            const sq = Math.max(1, Math.round(cell * 0.95));
+            ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+            ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
+          } else {
+            // Coverage automático conforme inteligência de zona/saturação.
+            // 50% para cores FORTES (sat alta + L médio-alto). Cores menos
+            // saturadas (skin/highSat moderado) sobem coverage pra preservar
+            // detalhe e evitar buraco.
+            let coverage50;
+            if (isFlatSaturated && sat0 >= 0.45){
+              coverage50 = 0.50; // ★ regra principal: cores fortes = 50%
+            } else if (isFlatSaturated){
+              coverage50 = 0.62; // saturação média
+            } else if (isFlatSkin){
+              coverage50 = lightMode ? 0.68 : 0.74; // pele: mais coberta
+            } else {
+              coverage50 = lightMode ? 0.60 : 0.70;
+            }
+            // Raio para retícula circular AM equivalente à coverage desejada.
+            const radius50 = cell * Math.sqrt(coverage50 / Math.PI) * 1.05;
+            ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+            ctx.beginPath();
+            ctx.arc(ix, iy, radius50, 0, Math.PI * 2);
+            ctx.fill();
+          }
           continue;
         }
         // Highlight colorido / shadow / neutral médio -> halftone circular
       }
 
-      const radius = dotRadius(sample.l, cell, minDensity, zone);
+      // ANTI-BURACO em sombras com EFEITO ESPELHADO:
+      // Se a célula é de sombra/escura mas contém pixel muito brilhante
+      // (highlight especular dentro do mesmo cell — característico de metal,
+      // verniz, brilho, reflexo), reforça o raio mínimo para nunca abrir
+      // buraco no detalhe. Mesma regra para detalhes finos pretos isolados.
+      let radius = dotRadius(sample.l, cell, minDensity, zone);
+      const specularDelta = (sample.maxL - sample.l);
+      const hasSpecularInside = (specularDelta > 70) || (sample.maxL > 230 && sample.l < 140);
+      if ((zone === 'shadow' || sample.l < 90) && hasSpecularInside){
+        const minRadius = cell * 0.42; // coverage ≈ 55% — sombra "respira" mas não fura
+        if (radius < minRadius) radius = minRadius;
+      }
       if (radius <= 0) continue;
 
       // Perfect circular anti-aliased dot, fully opaque cell color
@@ -1745,6 +1780,10 @@ function cleanKnockoutHalo(imageData, target, maxDist){
   if (isProtectedFlatLightColor(target.r, target.g, target.b)) return;
   const data = imageData.data;
   const tr = target.r, tg = target.g, tb = target.b;
+  // Se o alvo é PRETO PURO, NÃO fazemos decontaminate de canal — isso
+  // alteraria vermelho/verde/azul adjacentes (saturação/brilho falso).
+  // Só zera fantasmas que são realmente pretos semitransparentes.
+  const isBlackTarget = (tr <= 18 && tg <= 18 && tb <= 18);
   // Zona de "fantasma": metade da tolerância, alpha não-cheio.
   const ghostDist = Math.min(maxDist * 0.55, 80);
   for (let i = 0; i < data.length; i += 4) {
@@ -1755,10 +1794,17 @@ function cleanKnockoutHalo(imageData, target, maxDist){
     const dist = Math.sqrt(dr*dr + dg*dg + db*db);
     if (dist <= ghostDist) {
       // Fantasma sólido o suficiente da cor alvo: apaga.
+      // Em modo preto, só apaga se o pixel for realmente escuro
+      // (preserva vermelho/verde mesmo com alpha baixo).
+      if (isBlackTarget){
+        const lum = 0.2126*data[i] + 0.7152*data[i+1] + 0.0722*data[i+2];
+        if (lum > 55) continue; // pixel não é preto — preserva cor
+      }
       data[i+3] = 0;
-    } else if (a < 200 && dist < maxDist * 1.3) {
-      // Borda residual: empurra a cor para longe do alvo (decontaminate).
-      const k = 1 - (a / 255);                      // peso do "ar"
+    } else if (!isBlackTarget && a < 200 && dist < maxDist * 1.3) {
+      // Decontaminate só para alvos coloridos. Em modo preto, NÃO mexe
+      // nos canais — preserva vermelho/verde/azul originais.
+      const k = 1 - (a / 255);
       data[i  ] = clamp8(data[i  ] + (data[i  ] - tr) * k * 0.5);
       data[i+1] = clamp8(data[i+1] + (data[i+1] - tg) * k * 0.5);
       data[i+2] = clamp8(data[i+2] + (data[i+2] - tb) * k * 0.5);
