@@ -1344,6 +1344,7 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
 
   ctx.globalCompositeOperation = 'source-over';
   ctx.imageSmoothingEnabled = true;
+  if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
 
   let rowIndex = 0;
   const totalRows = Math.ceil((2 * half) / cell);
