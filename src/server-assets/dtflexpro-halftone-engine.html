@@ -248,12 +248,10 @@
       <div class="value" id="contrastVal">18%</div>
     </div>
 
-    <div class="control-group">
-      <label>Preencher Sombras (densidade mín. %)</label>
-      <input type="range" id="minDensity" min="0" max="35" value="18" />
-      <div class="value" id="minDensityVal">18%</div>
-      <p class="info-text">Evita buracos em sombras e objetos coloridos. Branco puro continua sólido e limpo.</p>
-    </div>
+    <!-- Preencher Sombras agora 100% automático (densidade mínima fixa em 18%). Slider removido. -->
+    <!-- Highlights coloridos (creme/bege/pele clara/amarelo claro/pastéis) e branco real
+         recebem micro-retícula quadrada fina (62% da célula) automaticamente.
+         Tons claros coloridos sólidos recebem micro-retícula 2% no final para nunca ficarem chapados. -->
 
 <!-- Branco Inteligente: agora 100% automático (RGB ≥ 236, Sat < 12%). Slider removido. -->
     <div class="control-group">
@@ -382,13 +380,13 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','contrast','minDensity'].forEach(id => {
+['lpi','angle','contrast'].forEach(id => {
   const el = $(id);
   if (!el) return;
   el.addEventListener('input', () => {
     const suffix = id === 'lpi' ? ' LPI'
                  : id === 'angle' ? '°'
-                 : (id === 'contrast' || id === 'minDensity') ? '%' : '';
+                 : (id === 'contrast') ? '%' : '';
     $(id+'Val').textContent = el.value + suffix;
   });
 });
@@ -1069,7 +1067,8 @@ $('processBtn').addEventListener('click', async () => {
   // 6) AM screening parameters from UI
   const lpi = parseInt($('lpi').value, 10);
   const angleDeg = parseFloat($('angle').value);
-  const minDensity = parseInt($('minDensity').value, 10) / 100;
+  // Preencher Sombras automático: densidade mínima fixa em 18% (evita buracos em sombras).
+  const minDensity = 0.18;
   const protectSkin = $('protectSkin').checked;
   // Branco Inteligente automático: rigor fixo (RGB ≥ 236, Sat < 12%).
   WHITE_SENSITIVITY = 0.70;
@@ -1251,6 +1250,22 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
         ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
                      Math.ceil(cell), Math.ceil(cell));
+
+        // V10: Tons claros coloridos (creme/bege/pele clara/amarelo claro/pastéis)
+        // que ficam sólidos recebem micro-retícula 2% (furo mínimo transparente)
+        // para nunca parecer 100% chapado. Branco real puro fica intocado.
+        const _mx = Math.max(r0,g0,b0), _mn = Math.min(r0,g0,b0);
+        const _sat = _mx === 0 ? 0 : (_mx - _mn) / _mx;
+        const _isLightColored = (sample.l >= 190) && (_sat >= 0.05) && !isRealWhiteSample(sample);
+        if (_isLightColored){
+          const microR = Math.max(0.5, cell * 0.14); // ~2% da área da célula
+          const prev = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.beginPath();
+          ctx.arc(ix, iy, microR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalCompositeOperation = prev;
+        }
         continue;
       }
 
