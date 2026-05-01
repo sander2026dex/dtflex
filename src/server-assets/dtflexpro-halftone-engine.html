@@ -806,27 +806,28 @@ function shouldKeepSolidCommercial(sample, zone, artType){
   const { h } = rgbToHsv(r, g, b);
   const isYellowEffect = h >= 32 && h <= 76 && sat > 0.24 && r > b * 1.35 && g > b * 1.25;
   const L = sample.l;
+  const realWhite = isRealWhiteSample(sample);
 
-  // Regra principal pedida: acima de 90% fica 100% limpo.
-  if (sample.allWhite || L >= CLEAN_LIGHT_THRESHOLD || sample.whiteRatio > 0.30 || sample.brightRatio > 0.55) return true;
+  // V6 BRANCO INTELIGENTE:
+  // Só fica chapado/sólido se for BRANCO REAL.
+  // Claro colorido (creme, bege, amarelo claro, pele clara) NÃO entra aqui —
+  // vai para halftone com micro-retícula no renderAMScreen (zone 'highlight').
+  if (sample.allWhite && realWhite) return true;
+  if (L >= CLEAN_LIGHT_THRESHOLD && realWhite) return true;
+  if (sample.whiteRatio > 0.45 && realWhite) return true;
 
-  // Pele/rosto iluminado: não reticular tudo. Só sombras reais passam.
-  if (zone === 'skin' && L >= SKIN_SOLID_LIGHT_THRESHOLD) return true;
+  // Cores SATURADAS chapadas (amarelo vivo de camisa, vermelho, azul forte):
+  // mantêm superfície lisa em tom médio-claro. Só sombra real reticula.
+  if (isYellowEffect && L >= YELLOW_EFFECT_SOLID_THRESHOLD && sat > 0.30) return true;
+  if (zone === 'flatColor' && L >= FLAT_COLOR_SOLID_LIGHT_THRESHOLD && sat > 0.35) return true;
+  if (zone === 'highSat' && L >= HIGH_SAT_SOLID_LIGHT_THRESHOLD && sat > 0.30) return true;
 
-  // Amarelo/fabric/anime/efeitos: preservar liso; retícula só na sombra profunda.
-  if (isYellowEffect && L >= YELLOW_EFFECT_SOLID_THRESHOLD) return true;
+  // Pele: só zonas realmente claras de pele permanecem sólidas; resto recebe micro-retícula.
+  if (zone === 'skin' && L >= SKIN_SOLID_LIGHT_THRESHOLD && sat > 0.18) return true;
 
-  // Cores chapadas/efeitos claros: preservar superfície premium lisa.
-  if (zone === 'flatColor' && L >= FLAT_COLOR_SOLID_LIGHT_THRESHOLD) return true;
-
-  // Cores fortes claras e cinzas claros ficam sólidos; retícula só em escuros.
-  if (zone === 'highSat' && L >= HIGH_SAT_SOLID_LIGHT_THRESHOLD) return true;
-  if (zone === 'neutral' && L >= COMMERCIAL_SOLID_LIGHT_THRESHOLD) return true;
-
-  // Em arte limpa, seja ainda mais conservador: não sujar superfícies já bonitas.
+  // Em arte limpa: superfícies neutras MUITO claras ficam sólidas só se forem branco real.
   if (artType === 'clean'){
-    if ((zone === 'flatColor' || zone === 'skin' || zone === 'highSat') && L >= 95) return true;
-    if (sat < 0.20 && L >= 150) return true;
+    if (sat < 0.08 && L >= 200 && realWhite) return true;
   }
 
   return false;
