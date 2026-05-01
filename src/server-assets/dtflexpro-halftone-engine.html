@@ -546,16 +546,19 @@ function isSkin(r, g, b){
   return false;
 }
 
-// Proteção absoluta: branco, cinza claro, off-white e bege claro ficam CHAPADOS.
-// Não entram no meio-tom, não recebem furos e não viram transparência.
+// V20: Proteção restrita APENAS a neutros verdadeiros (branco puro, cinza claro
+// quase neutro). Pastéis coloridos (rosa bebê, azul claro, verde menta, amarelo
+// manteiga, lavanda, pêssego, creme) NÃO entram aqui — vão receber retícula
+// leve via zone 'highlight'. Bege também recebe micro-retícula agora.
 function isProtectedFlatLightColor(r, g, b){
   const L = brightness(r, g, b);
   const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
   const sat = mx === 0 ? 0 : (mx - mn) / mx;
-  const { h } = rgbToHsv(r, g, b);
-  const isNeutralLight = L >= 155 && sat <= 0.22; // branco, cinza claro/médio-claro, off-white
-  const isBeigeLight = L >= 160 && sat <= 0.34 && h >= 24 && h <= 66 && r >= g && g >= b * 0.78;
-  return isNeutralLight || isBeigeLight;
+  // Apenas neutros bem dessaturados e MUITO claros são chapados absolutos.
+  // sat <= 0.06 garante que rosa bebê (sat ~0.10–0.20), azul claro, lavanda,
+  // verde menta etc. caiam em halftone leve em vez de virarem chapado.
+  const isPureNeutralLight = L >= 235 && sat <= 0.06;
+  return isPureNeutralLight;
 }
 
 function isProtectedFlatLightSample(sample){
@@ -1046,10 +1049,12 @@ function classifyZone(sample, isSkinCell){
   if (sat > 0.40) return 'highSat';
   // V6: claro colorido (creme, bege, amarelo claro, pele clara, cinza-quente)
   // recebe MICRO-RETÍCULA em vez de virar branco chapado.
-  // V19: cores claras CHAPADAS (não só quase-brancas) recebem micro-retícula.
-  // Faixa ampliada: L>=175 captura cremes, beges, amarelos claros, azuis claros,
-  // rosas claros, cinzas-quentes, etc. — tudo recebe pontinhos leves espaçados.
-  if (L >= 175 && sat >= 0.04 && sat <= 0.45) return 'highlight';
+  // V20: PASTÉIS — rosa bebê, azul claro, verde menta, amarelo manteiga,
+  // lavanda, pêssego, creme — TODOS recebem retícula leve (pontos pequenos
+  // espaçados). Faixa expandida: L>=160 captura pastéis um pouco mais saturados.
+  if (L >= 160 && sat >= 0.04 && sat <= 0.55) return 'highlight';
+  // Branco quase puro: ainda recebe retícula MUITO leve (não fica chapado total).
+  if (L >= 235 && sat < 0.04) return 'highlight';
   return 'neutral';
 }
 
@@ -1550,11 +1555,28 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
        if (isProtectedFlatLightSample(sample) || isProtectedHighlightCell(sample, data, W, H)){
-          // Branco, cinza claro e bege devem ficar chapados com a cor real.
-          // Pinta a célula completa para não sobrar transparência entre pontos.
+          // V20: Branco / neutro claro NÃO fica mais 100% chapado.
+          // Pinta a célula com a cor base e adiciona um micropontinho discreto
+          // (retícula ultra-leve) para dar a textura de retícula RIP no branco.
           const half = Math.ceil(cell / 2);
           ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
           ctx.fillRect(Math.round(ix - half), Math.round(iy - half), cell, cell);
+          // Micro-dot ultra-leve no branco: ~6% de cobertura, espaçado.
+          // Só aplica em células ímpares (xor) para gerar gap visível.
+          const cx = (ix / cell) | 0, cy = (iy / cell) | 0;
+          if (((cx + cy) & 1) === 0) {
+            const microR = Math.max(0.6, cell * 0.09);
+            // Tom levemente mais escuro que a base, para a retícula ser visível
+            // sem sujar o branco.
+            const dim = 18; // 7% mais escuro
+            const dr = Math.max(0, r0 - dim);
+            const dg = Math.max(0, g0 - dim);
+            const db = Math.max(0, b0 - dim);
+            ctx.fillStyle = `rgb(${dr},${dg},${db})`;
+            ctx.beginPath();
+            ctx.arc(ix, iy, microR, 0, Math.PI * 2);
+            ctx.fill();
+          }
           continue;
         }
 
