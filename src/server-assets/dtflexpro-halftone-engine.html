@@ -1222,26 +1222,19 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       if (sample.coverage < 0.18) continue; // mostly outside subject -> skip
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
-      if (isProtectedHighlightCell(sample, data, W, H)){
-        // V8: BRANCO REAL → micro-retícula QUADRADA fina, NUNCA chapado.
-        // Mantém cobertura visual (sem buraco) mas com padrão de retícula profissional.
-        // Claro colorido (creme, bege) preserva cor original chapada para não estourar.
-        const isRealW = isRealWhiteSample(sample);
-        if (isRealW){
-          // Micro-retícula quadrada fina centralizada na célula.
-          // Tamanho ~62% da célula → grid claramente visível, sem buraco.
-          const sq = Math.max(1, cell * 0.62);
-          ctx.fillStyle = 'rgb(255,255,255)';
-          ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2),
-                       Math.ceil(sq), Math.ceil(sq));
-        } else {
-          // Highlight colorido (amarelo claro, bege, pele clara): preserva tom original.
-          ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
-          ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
-                       Math.ceil(cell), Math.ceil(cell));
-        }
-        continue;
-      }
+       if (isProtectedHighlightCell(sample, data, W, H)){
+         // V9: TODO highlight protegido → micro-retícula QUADRADA fina, NUNCA chapado.
+         //   • Branco real (olhos, dentes, reflexos, letras brancas) → quadrado branco puro.
+         //   • Highlight colorido (creme, bege, pele clara, amarelo claro) → quadrado
+         //     com a COR ORIGINAL preservada (não vira branco, não fica chapado).
+         // Tamanho ~62% da célula → grid de retícula claramente visível, sem buracos.
+         const isRealW = isRealWhiteSample(sample);
+         const sq = Math.max(1, cell * 0.62);
+         ctx.fillStyle = isRealW ? 'rgb(255,255,255)' : `rgb(${r0},${g0},${b0})`;
+         ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2),
+                      Math.ceil(sq), Math.ceil(sq));
+         continue;
+       }
 
       // Skin detection on cell average color
       let isSkinCell = false;
