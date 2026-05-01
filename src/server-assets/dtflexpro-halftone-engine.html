@@ -1479,6 +1479,32 @@ function crc32(bytes){
    ============================================================ */
 
 async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, angleDeg, minDensity, protectSkin, artType, lightMode){
+  // V17 — RIP-style screen angles per dominant channel
+  // Padrão de gráfica: K=45°, C=15°, M=75°, Y=0°.
+  // O canal dominante de cada célula determina o ângulo local da malha,
+  // simulando a textura visível de impressão CMYK.
+  const ANGLES = {
+    K: 45 * Math.PI / 180,
+    C: 15 * Math.PI / 180,
+    M: 75 * Math.PI / 180,
+    Y:  0 * Math.PI / 180,
+  };
+  // Pré-calcula sin/cos por canal para jitter sub-pixel direcional
+  const CHAN_VEC = {
+    K: { dx: Math.cos(ANGLES.K), dy: Math.sin(ANGLES.K) },
+    C: { dx: Math.cos(ANGLES.C), dy: Math.sin(ANGLES.C) },
+    M: { dx: Math.cos(ANGLES.M), dy: Math.sin(ANGLES.M) },
+    Y: { dx: Math.cos(ANGLES.Y), dy: Math.sin(ANGLES.Y) },
+  };
+  function dominantChannel(r, g, b){
+    const luma = 0.2126*r + 0.7152*g + 0.0722*b;
+    if (luma < 60) return 'K';                        // sombra/preto → K 45°
+    // Aproximação CMY a partir de RGB
+    const c = 255 - r, m = 255 - g, y = 255 - b;
+    if (c >= m && c >= y) return 'C';
+    if (m >= c && m >= y) return 'M';
+    return 'Y';
+  }
   const rad = angleDeg * Math.PI / 180;
   const cosA = Math.cos(rad), sinA = Math.sin(rad);
   const cx = W / 2, cy = H / 2;
