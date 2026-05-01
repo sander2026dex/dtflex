@@ -1538,6 +1538,55 @@ async function applyKnockout(target, isBlackMode){
     protectMask = buildSmallDetailProtectMask(src, W, H, target, maxDist, isBlackMode);
   }
 
+  // === VAZADO MASK (modo preto) ===
+  // O usuário pediu: "Remover Preto" deve apagar SOMENTE o preto que está em
+  // áreas vazadas (transparentes). Sombras reticuladas em preto sobre cor
+  // sólida não são tocadas — assim evitamos sujeira nos buracos sem destruir
+  // sombras desenhadas. Lógica: flood-fill 4-vizinhos a partir de cada pixel
+  // de alpha 0; só pixels pretos alcançados por essa frente entram na máscara.
+  let vazadoMask = null;
+  if (isBlackMode) {
+    vazadoMask = new Uint8Array(W * H);
+    const visited = new Uint8Array(W * H);
+    const stack = [];
+    // Sementes: todo pixel transparente.
+    for (let p = 0; p < W * H; p++){
+      if (src[p*4+3] === 0) { visited[p] = 1; stack.push(p); }
+    }
+    // Tolerância local para "preto" (tom muito escuro). Independente do slider:
+    // o usuário quer só PRETO de verdade aqui.
+    const blackMax = 60; // R,G,B individualmente
+    while (stack.length){
+      const p = stack.pop();
+      const x = p % W;
+      const y = (p / W) | 0;
+      // Vizinhos 4-conexos
+      const neigh = [
+        x > 0      ? p - 1 : -1,
+        x < W - 1  ? p + 1 : -1,
+        y > 0      ? p - W : -1,
+        y < H - 1  ? p + W : -1,
+      ];
+      for (let k = 0; k < 4; k++){
+        const np = neigh[k];
+        if (np < 0 || visited[np]) continue;
+        const ni = np * 4;
+        const na = src[ni+3];
+        if (na === 0) {
+          visited[np] = 1;
+          stack.push(np);
+          continue;
+        }
+        // Pixel opaco: só propaga (e marca como vazado) se for PRETO.
+        if (src[ni] <= blackMax && src[ni+1] <= blackMax && src[ni+2] <= blackMax){
+          visited[np] = 1;
+          vazadoMask[np] = 1;
+          stack.push(np); // continua o flood através do preto vazado
+        }
+      }
+    }
+  }
+
   const tr = target.r, tg = target.g, tb = target.b;
   for (let i = 0; i < src.length; i += 4) {
     const a = src[i+3];
@@ -1551,6 +1600,10 @@ async function applyKnockout(target, isBlackMode){
 
     const px = (i >> 2);
     if (protectMask && protectMask[px]) continue;
+
+    // Modo preto: só remove se estiver no vazado (conectado a transparente).
+    // Isso preserva sombras reticuladas em preto sobre cor sólida.
+    if (isBlackMode && !(vazadoMask && vazadoMask[px])) continue;
 
     if (dist <= hardDist) {
       src[i+3] = 0;
