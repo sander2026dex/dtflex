@@ -1465,6 +1465,11 @@ async function applyKnockout(target, isBlackMode){
   const feather = $('koFeather').checked;
   const protect = $('koProtect').checked;
 
+  if (isProtectedFlatLightColor(target.r, target.g, target.b)) {
+    $('statusText').textContent = '⚠️ Branco, cinza claro e bege são preservados e não podem ser removidos.';
+    return;
+  }
+
   // Distância máxima em RGB (euclidiana). 0 = exato. 100 = ~441 (max).
   const maxDist = (tolUI / 100) * 441.6729559;
   const featherBand = feather ? Math.max(8, maxDist * 0.18) : 0;
@@ -1487,6 +1492,7 @@ async function applyKnockout(target, isBlackMode){
   for (let i = 0; i < src.length; i += 4) {
     const a = src[i+3];
     if (a === 0) continue; // já transparente
+    if (isProtectedFlatLightColor(src[i], src[i+1], src[i+2])) continue;
     const dr = src[i] - tr;
     const dg = src[i+1] - tg;
     const db = src[i+2] - tb;
