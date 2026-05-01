@@ -1470,16 +1470,20 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         // Highlight colorido / shadow / neutral médio -> halftone circular
       }
 
-      // ANTI-BURACO em sombras com EFEITO ESPELHADO:
-      // Se a célula é de sombra/escura mas contém pixel muito brilhante
-      // (highlight especular dentro do mesmo cell — característico de metal,
-      // verniz, brilho, reflexo), reforça o raio mínimo para nunca abrir
-      // buraco no detalhe. Mesma regra para detalhes finos pretos isolados.
+      // ANTI-BURACO / PRESERVAÇÃO DE DETALHE (V16):
+      // Qualquer célula com forte variação interna de luminância contém um
+      // detalhe (contorno, fio, olho, textura, brilho especular). Garantimos
+      // um raio mínimo para que o detalhe NUNCA seja apagado pelo halftone.
       let radius = dotRadius(sample.l, cell, minDensity, zone);
       const specularDelta = (sample.maxL - sample.l);
       const hasSpecularInside = (specularDelta > 70) || (sample.maxL > 230 && sample.l < 140);
+      const hasDetailInside = (sample.maxL - sample.minL) > 55; // borda/textura
       if ((zone === 'shadow' || sample.l < 90) && hasSpecularInside){
-        const minRadius = cell * 0.42; // coverage ≈ 55% — sombra "respira" mas não fura
+        const minRadius = cell * 0.44; // sombra com brilho — preserva ~60%
+        if (radius < minRadius) radius = minRadius;
+      } else if (hasDetailInside){
+        // Detalhe genérico (fio de cabelo, contorno, olho, textura): piso 28%.
+        const minRadius = cell * 0.30;
         if (radius < minRadius) radius = minRadius;
       }
       if (radius <= 0) continue;
