@@ -1828,6 +1828,45 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       ctx.beginPath();
       ctx.arc(ix + jx, iy + jy, radius, 0, Math.PI * 2);
       ctx.fill();
+
+      // V24 — BLACK CHANNEL HALFTONE OVERLAY (DTF K simulation):
+      // Apply a fine black dot screen ONLY on dark regions to simulate the
+      // professional K (preto) channel of a DTF RIP. Highlights are preserved
+      // because we gate by luminance (sample.l) and require the cell to be
+      // genuinely dark — not just colored. This adds shadow depth and kills
+      // the "flat plastic" feel without burning skin/highlights.
+      //
+      // Rules:
+      //   - Skip skin cells (don't dirty the face).
+      //   - Skip protected light samples (whites, pastels).
+      //   - Coverage scales with darkness: l<60 -> strong, l<100 -> medium,
+      //     l<140 -> very light dust, l>=140 -> none.
+      //   - Dot is much smaller than the color dot (fine screen).
+      if (!isSkinCell &&
+          !isProtectedFlatLightSample(sample) &&
+          sample.l < 140) {
+        let kCoverage;
+        if (sample.l < 60)       kCoverage = 0.55;
+        else if (sample.l < 90)  kCoverage = 0.38;
+        else if (sample.l < 115) kCoverage = 0.22;
+        else                     kCoverage = 0.10;
+
+        // Extra boost for true shadow zone (deep blacks / hair shadows).
+        if (zone === 'shadow' && sample.l < 80) kCoverage = Math.min(0.65, kCoverage + 0.08);
+
+        // Fine screen: black dot is 0.55x..0.85x of the color dot radius.
+        const kRadius = cell * Math.sqrt(kCoverage / Math.PI) * 0.95;
+        if (kRadius > 0.4) {
+          // Sub-pixel offset on opposite vector to avoid perfect overlap —
+          // creates the classic CMYK rosette feel.
+          const kx = ix - jx * 0.5;
+          const ky = iy - jy * 0.5;
+          ctx.fillStyle = 'rgb(0,0,0)';
+          ctx.beginPath();
+          ctx.arc(kx, ky, kRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     }
 
     rowIndex++;
