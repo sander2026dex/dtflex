@@ -1054,13 +1054,17 @@ function dotRadius(luma, cell, minDensity, zone){
   if (tone < 0) tone = 0;
 
   let curve, capCoverage, floor;
+  // V16 — PRESERVAÇÃO DE DETALHES: gamma mais suave + caps maiores +
+  // pisos mais altos para meios-tons. Detalhes finos (sombras, contornos,
+  // texturas, fios de cabelo, olhos, pontilhados internos) deixam de sumir
+  // porque cada zona agora carrega tinta suficiente para registrar o detalhe.
   switch (zone){
-    case 'skin':       curve = 2.45; capCoverage = 0.18; floor = 0.04; break;
-    case 'flatColor':  curve = 2.85; capCoverage = 0.16; floor = 0.03; break;
-    case 'highSat':    curve = 2.30; capCoverage = 0.28; floor = 0.04; break;
-    case 'highlight':  curve = 2.10; capCoverage = 0.22; floor = 0.05; break; // V6: claros coloridos
-    case 'shadow':     curve = 1.45; capCoverage = 0.70; floor = Math.max(minDensity, 0.16); break;
-    default:           curve = 1.75; capCoverage = 0.60; floor = luma < 130 ? Math.max(minDensity, 0.06) : 0.03;
+    case 'skin':       curve = 2.10; capCoverage = 0.24; floor = 0.06; break;
+    case 'flatColor':  curve = 2.45; capCoverage = 0.20; floor = 0.05; break;
+    case 'highSat':    curve = 1.95; capCoverage = 0.36; floor = 0.06; break;
+    case 'highlight':  curve = 1.80; capCoverage = 0.28; floor = 0.07; break;
+    case 'shadow':     curve = 1.20; capCoverage = 0.82; floor = Math.max(minDensity, 0.22); break;
+    default:           curve = 1.45; capCoverage = 0.72; floor = luma < 150 ? Math.max(minDensity, 0.10) : 0.05;
   }
 
   let t = Math.pow(tone, curve);
@@ -1070,11 +1074,11 @@ function dotRadius(luma, cell, minDensity, zone){
   if (t <= 0.005) return 0;
   const rMax = cell * Math.sqrt(capCoverage / Math.PI) * 1.38;
   const r = rMax * Math.sqrt(t / capCoverage);
-  // V6: cada zona com seu teto de ponto — shadow grande, highlight pequeno mas visível.
+  // V16: tetos por zona ampliados para preservar detalhe sem virar blob.
   let zoneMax;
-  if (zone === 'shadow') zoneMax = cell * 0.46;
-  else if (zone === 'highlight' || zone === 'skin' || zone === 'flatColor') zoneMax = Math.min(cell * 0.30, MICRO_MAX_DOT_PX);
-  else zoneMax = Math.min(cell * 0.40, MICRO_MAX_DOT_PX * 1.4);
+  if (zone === 'shadow') zoneMax = cell * 0.50;
+  else if (zone === 'highlight' || zone === 'skin' || zone === 'flatColor') zoneMax = Math.min(cell * 0.34, MICRO_MAX_DOT_PX * 1.15);
+  else zoneMax = Math.min(cell * 0.46, MICRO_MAX_DOT_PX * 1.55);
   return r < MICRO_MIN_DOT_PX ? 0 : Math.min(zoneMax, r);
 }
 
@@ -1466,16 +1470,20 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         // Highlight colorido / shadow / neutral médio -> halftone circular
       }
 
-      // ANTI-BURACO em sombras com EFEITO ESPELHADO:
-      // Se a célula é de sombra/escura mas contém pixel muito brilhante
-      // (highlight especular dentro do mesmo cell — característico de metal,
-      // verniz, brilho, reflexo), reforça o raio mínimo para nunca abrir
-      // buraco no detalhe. Mesma regra para detalhes finos pretos isolados.
+      // ANTI-BURACO / PRESERVAÇÃO DE DETALHE (V16):
+      // Qualquer célula com forte variação interna de luminância contém um
+      // detalhe (contorno, fio, olho, textura, brilho especular). Garantimos
+      // um raio mínimo para que o detalhe NUNCA seja apagado pelo halftone.
       let radius = dotRadius(sample.l, cell, minDensity, zone);
       const specularDelta = (sample.maxL - sample.l);
       const hasSpecularInside = (specularDelta > 70) || (sample.maxL > 230 && sample.l < 140);
+      const hasDetailInside = (sample.maxL - sample.minL) > 55; // borda/textura
       if ((zone === 'shadow' || sample.l < 90) && hasSpecularInside){
-        const minRadius = cell * 0.42; // coverage ≈ 55% — sombra "respira" mas não fura
+        const minRadius = cell * 0.44; // sombra com brilho — preserva ~60%
+        if (radius < minRadius) radius = minRadius;
+      } else if (hasDetailInside){
+        // Detalhe genérico (fio de cabelo, contorno, olho, textura): piso 28%.
+        const minRadius = cell * 0.30;
         if (radius < minRadius) radius = minRadius;
       }
       if (radius <= 0) continue;
@@ -1835,7 +1843,7 @@ function buildSmallDetailProtectMask(data, W, H, target, maxDist, isBlackMode){
   // Linhas finas, olhos, contornos, fios de cabelo, traços: até ~28000 px²
   // em modo preto (mais protetivo — detalhes finos NUNCA somem). Para outras
   // cores, mantém ~9000 px².
-  const SMALL_DETAIL_AREA = isBlackMode ? 28000 : 9000;
+  const SMALL_DETAIL_AREA = isBlackMode ? 36000 : 14000;
 
   const protectMask = new Uint8Array(N);
   const visited = new Uint8Array(N);
