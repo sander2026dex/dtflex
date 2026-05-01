@@ -1222,15 +1222,17 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
       const r0 = sample.r | 0, g0 = sample.g | 0, b0 = sample.b | 0;
 
        if (isProtectedHighlightCell(sample, data, W, H)){
-         // V11: NUNCA remover branco real nem cinza claro neutro.
-         //   • Branco real (olhos, dentes, reflexos, letras) → BLOCO SÓLIDO branco puro.
-         //   • Cinza claro neutro → BLOCO SÓLIDO com cor original preservada.
-         //   • Highlight colorido (creme, bege, pele clara, amarelo claro) → bloco sólido
-         //     com a COR ORIGINAL preservada (sem perfurar, sem virar transparente).
+         // V12: Highlights recebem MICRO-RETÍCULA quadrada fina (não bloco chapado).
+         //   • Branco real (olhos, dentes, reflexos, letras) → micro-quadrado branco puro
+         //     com gap visível, criando malha fina característica de RIP profissional.
+         //   • Highlight colorido (creme, bege, pele clara, cinza claro) → micro-quadrado
+         //     com a COR ORIGINAL preservada e gap visível.
+         //   Nada é removido — apenas estruturado em malha de impressão.
          const isRealW = isRealWhiteSample(sample);
+         // Quadrado a 70% da célula → deixa ~30% de gap em malha quadrada fina
+         const sq = Math.max(1, Math.round(cell * 0.70));
          ctx.fillStyle = isRealW ? 'rgb(255,255,255)' : `rgb(${r0},${g0},${b0})`;
-         ctx.fillRect(Math.round(ix - cell/2), Math.round(iy - cell/2),
-                      Math.ceil(cell), Math.ceil(cell));
+         ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
          continue;
        }
 
