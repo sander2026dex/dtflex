@@ -256,6 +256,13 @@
     </div>
 
     <div class="control-group">
+      <label>Branco Inteligente (rigor)</label>
+      <input type="range" id="whiteSensitivity" min="0" max="100" value="70" />
+      <div class="value" id="whiteSensitivityVal">70%</div>
+      <p class="info-text">Define o quanto o motor é rigoroso ao identificar branco real. Quanto maior, menos creme/amarelo claro/pele clara vira branco. Tons claros coloridos recebem micro-retícula em vez de virarem chapados.</p>
+    </div>
+
+    <div class="control-group">
       <label>Proteger Pele (tom de pele)</label>
       <input type="checkbox" id="protectSkin" checked style="accent-color:#f5b544;width:auto;" />
       <p class="info-text">Detecta tons de pele (anime ou foto) e aplica retícula em vez de tratar como branco de fundo.</p>
