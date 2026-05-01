@@ -1071,9 +1071,8 @@ $('processBtn').addEventListener('click', async () => {
   const angleDeg = parseFloat($('angle').value);
   const minDensity = parseInt($('minDensity').value, 10) / 100;
   const protectSkin = $('protectSkin').checked;
-  // V6: lê o slider Branco Inteligente e ajusta o rigor do branco real globalmente.
-  const wsEl = $('whiteSensitivity');
-  WHITE_SENSITIVITY = wsEl ? (parseInt(wsEl.value, 10) / 100) : 0.70;
+  // Branco Inteligente automático: rigor fixo (RGB ≥ 236, Sat < 12%).
+  WHITE_SENSITIVITY = 0.70;
   const cell = DPI / lpi; // grade AM real: espaçamento matemático exato em 300 DPI
 
   await renderAMScreen(octx, data, edgeMask, whiteSizeMap, OUT_W, OUT_H, cell, angleDeg, minDensity, protectSkin, artType);
