@@ -1345,9 +1345,32 @@ function isNearSubjectEdge(data, W, H, ix, iy, cell){
   return false;
 }
 
-/* ============================================================
-   MAIN PIPELINE
-   ============================================================ */
+// V23 — DETECTOR DE BURACOS:
+// Verifica se a célula está claramente DENTRO do corpo do sujeito (cercada
+// por pixels opacos e coloridos / não-brancos). Quando true, garantimos que
+// a célula NUNCA fique transparente — pintamos um fill base por baixo do
+// halftone, eliminando os "buracos" brancos no rosto, testa, nariz, cabelo
+// e traços finos. Probes em raio maior que isNearSubjectEdge.
+function isInsideSubjectBody(data, W, H, ix, iy, cell){
+  const r = Math.max(cell * 2, 10);
+  const probes = [
+    [ix - r, iy], [ix + r, iy], [ix, iy - r], [ix, iy + r],
+    [ix - r, iy - r], [ix + r, iy + r], [ix - r, iy + r], [ix + r, iy - r]
+  ];
+  let opaqueColored = 0;
+  for (const [px, py] of probes){
+    const xi = Math.round(px), yi = Math.round(py);
+    if (xi < 0 || yi < 0 || xi >= W || yi >= H) continue;
+    const idx = (yi * W + xi) * 4;
+    if (data[idx + 3] < ALPHA_CUTOFF) continue; // transparente, fora do sujeito
+    const rr = data[idx], gg = data[idx+1], bb = data[idx+2];
+    const mn = Math.min(rr,gg,bb);
+    // Pixel realmente "cor de sujeito" — não branco/quase-branco.
+    if (mn < 230) opaqueColored++;
+  }
+  // Se 5+ de 8 probes são corpo colorido, a célula está dentro do sujeito.
+  return opaqueColored >= 5;
+}
 
 $('processBtn').addEventListener('click', async () => {
   if (!sourceImage) return;
