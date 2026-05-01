@@ -1427,16 +1427,40 @@ async function renderAMScreen(ctx, data, edgeMask, whiteSizeMap, W, H, cell, ang
         const isFlatSkin = (zone === 'skin' && sat0 > 0.18);
         const isBrightNeutralReal = (zone === 'neutral' && sample.l > 200 && sat0 < 0.06 && !isProtectedFlatLightSample(sample));
         if (isFlatSaturated || isFlatSkin || isBrightNeutralReal || isLightModeFlatBlock){
-          // V13 + MODO LEVE: Brancos/neutros claros = 95% (quase sólido).
-          // Saturados em modo leve = 0.82 (gap mais visível, anti-plastificado).
-          // Saturados em modo normal = 0.70.
-          let ratio;
-          if (isBrightNeutralReal) ratio = 0.95;
-          else if (lightMode) ratio = 0.82;
-          else ratio = 0.70;
-          const sq = Math.max(1, Math.round(cell * ratio));
-          ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
-          ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
+          // V14 — CORES FORTES = 50% RETÍCULA AUTOMÁTICA (circular AM):
+          //   Vermelho, verde, azul, amarelo saturados ganham retícula circular
+          //   em coverage = 0.50 (cinquenta por cento), padrão profissional de
+          //   RIP DTF. Brancos/neutros claros continuam quase sólidos (95%).
+          //   Pele e saturação intermediária ficam em ~70% (modo normal) ou
+          //   65% (modo leve) com retícula circular para tirar o plástico
+          //   sem buraco em detalhes.
+          if (isBrightNeutralReal){
+            // Quase sólido — micro-gap só pra respirar.
+            const sq = Math.max(1, Math.round(cell * 0.95));
+            ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+            ctx.fillRect(Math.round(ix - sq/2), Math.round(iy - sq/2), sq, sq);
+          } else {
+            // Coverage automático conforme inteligência de zona/saturação.
+            // 50% para cores FORTES (sat alta + L médio-alto). Cores menos
+            // saturadas (skin/highSat moderado) sobem coverage pra preservar
+            // detalhe e evitar buraco.
+            let coverage50;
+            if (isFlatSaturated && sat0 >= 0.45){
+              coverage50 = 0.50; // ★ regra principal: cores fortes = 50%
+            } else if (isFlatSaturated){
+              coverage50 = 0.62; // saturação média
+            } else if (isFlatSkin){
+              coverage50 = lightMode ? 0.68 : 0.74; // pele: mais coberta
+            } else {
+              coverage50 = lightMode ? 0.60 : 0.70;
+            }
+            // Raio para retícula circular AM equivalente à coverage desejada.
+            const radius50 = cell * Math.sqrt(coverage50 / Math.PI) * 1.05;
+            ctx.fillStyle = `rgb(${r0},${g0},${b0})`;
+            ctx.beginPath();
+            ctx.arc(ix, iy, radius50, 0, Math.PI * 2);
+            ctx.fill();
+          }
           continue;
         }
         // Highlight colorido / shadow / neutral médio -> halftone circular
