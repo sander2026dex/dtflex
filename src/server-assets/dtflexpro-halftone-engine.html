@@ -1049,10 +1049,12 @@ function classifyZone(sample, isSkinCell){
   if (sat > 0.40) return 'highSat';
   // V6: claro colorido (creme, bege, amarelo claro, pele clara, cinza-quente)
   // recebe MICRO-RETÍCULA em vez de virar branco chapado.
-  // V19: cores claras CHAPADAS (não só quase-brancas) recebem micro-retícula.
-  // Faixa ampliada: L>=175 captura cremes, beges, amarelos claros, azuis claros,
-  // rosas claros, cinzas-quentes, etc. — tudo recebe pontinhos leves espaçados.
-  if (L >= 175 && sat >= 0.04 && sat <= 0.45) return 'highlight';
+  // V20: PASTÉIS — rosa bebê, azul claro, verde menta, amarelo manteiga,
+  // lavanda, pêssego, creme — TODOS recebem retícula leve (pontos pequenos
+  // espaçados). Faixa expandida: L>=160 captura pastéis um pouco mais saturados.
+  if (L >= 160 && sat >= 0.04 && sat <= 0.55) return 'highlight';
+  // Branco quase puro: ainda recebe retícula MUITO leve (não fica chapado total).
+  if (L >= 235 && sat < 0.04) return 'highlight';
   return 'neutral';
 }
 
