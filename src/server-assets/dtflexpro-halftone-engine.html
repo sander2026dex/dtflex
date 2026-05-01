@@ -266,11 +266,12 @@
     </div>
 
     <div class="control-group" style="border:1px solid #2a2a2a;border-radius:8px;padding:10px;background:#0d0d0d;">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="absoluteBlack" style="accent-color:#f5b544;width:auto;" />
-        <span>⬛ Preto Absoluto (#000000 / K100)</span>
+      <label style="display:flex;align-items:center;gap:8px;">
+        <span>⬛ Preto Absoluto (K100) — ao vivo</span>
       </label>
-      <p class="info-text">Antes do halftone, converte qualquer pixel escuro (R,G,B ≤ 38) em <b>preto puro #000000</b> — equivalente a <b>CMYK K100</b> na impressão. Garante preto 100% sólido sem matiz residual de azul/verde/marrom.</p>
+      <input type="range" id="blackThreshold" min="0" max="60" value="28" />
+      <div class="value" id="blackThresholdVal">RGB &lt; 28 → #000000</div>
+      <p class="info-text">Arraste e veja na hora: pixels com R,G,B abaixo do limite viram <b>preto puro #000000</b> (CMYK K100). Valor 0 = desligado. Padrão profissional: 28.</p>
     </div>
 
     <div class="control-group" style="border:1px solid #2a2a2a;border-radius:8px;padding:10px;background:#0d0d0d;">
