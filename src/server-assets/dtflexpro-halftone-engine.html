@@ -388,12 +388,13 @@ const $ = id => document.getElementById(id);
 const previewCanvas = $('previewCanvas');
 const pctx = previewCanvas.getContext('2d');
 
-['lpi','angle','contrast','minDensity'].forEach(id => {
+['lpi','angle','contrast','minDensity','whiteSensitivity'].forEach(id => {
   const el = $(id);
+  if (!el) return;
   el.addEventListener('input', () => {
     const suffix = id === 'lpi' ? ' LPI'
                  : id === 'angle' ? '°'
-                 : (id === 'contrast' || id === 'minDensity') ? '%' : '';
+                 : (id === 'contrast' || id === 'minDensity' || id === 'whiteSensitivity') ? '%' : '';
     $(id+'Val').textContent = el.value + suffix;
   });
 });
