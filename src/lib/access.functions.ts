@@ -1,12 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import {
+  deleteCookie,
+  getCookie,
   getRequestHeader,
   getRequestIP,
   getRequestUrl,
+  setCookie,
   clearSession,
   useSession,
 } from "@tanstack/react-start/server";
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
@@ -57,6 +60,13 @@ interface AccessSessionData {
   expiresAt: string;
 }
 
+const adminCookieName = "dtflexpro-admin-session";
+const adminSessionMaxAge = 60 * 60 * 8;
+
+interface SignedAdminSessionData extends AdminSessionData {
+  expiresAt: number;
+}
+
 function getDb() {
   return supabaseAdmin as any;
 }
@@ -95,6 +105,47 @@ function getAccessSessionConfig() {
       path: "/",
     },
   };
+}
+
+function signAdminPayload(payload: string) {
+  return createHmac("sha256", getSessionSecret()).update(payload).digest("base64url");
+}
+
+function readSignedAdminSession(): AdminSessionData | null {
+  const cookie = getCookie(adminCookieName);
+  if (!cookie) return null;
+
+  const [payload, signature] = cookie.split(".");
+  if (!payload || !signature || !safeEqual(signature, signAdminPayload(payload))) return null;
+
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as SignedAdminSessionData;
+    if (!data.authenticated || !data.loggedAt || Date.now() > data.expiresAt) return null;
+    return { authenticated: true, loggedAt: data.loggedAt };
+  } catch {
+    return null;
+  }
+}
+
+function writeSignedAdminSession() {
+  const loggedAt = new Date().toISOString();
+  const payload = Buffer.from(
+    JSON.stringify({
+      authenticated: true,
+      loggedAt,
+      expiresAt: Date.now() + adminSessionMaxAge * 1000,
+    } satisfies SignedAdminSessionData),
+  ).toString("base64url");
+
+  setCookie(adminCookieName, `${payload}.${signAdminPayload(payload)}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: adminSessionMaxAge,
+  });
+
+  return { authenticated: true, loggedAt };
 }
 
 function normalizeEmail(email: string) {
