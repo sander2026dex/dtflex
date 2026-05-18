@@ -231,11 +231,11 @@ async function logSecurity(eventType: string, success: boolean) {
 }
 
 async function requireAdminSession() {
-  const session = await useSession<AdminSessionData>(getAdminSessionConfig());
-  if (!session.data?.authenticated) {
+  const session = readSignedAdminSession();
+  if (!session?.authenticated) {
     throw new Error(genericAdminError);
   }
-  return session.data;
+  return session;
 }
 
 function planDurationDays(planCode: string) {
@@ -249,10 +249,10 @@ function planLabel(planCode: string) {
 }
 
 export const getAdminSession = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await useSession<AdminSessionData>(getAdminSessionConfig());
+  const session = readSignedAdminSession();
   return {
-    authenticated: Boolean(session.data?.authenticated),
-    loggedAt: session.data?.loggedAt ?? null,
+    authenticated: Boolean(session?.authenticated),
+    loggedAt: session?.loggedAt ?? null,
   };
 });
 
@@ -282,18 +282,14 @@ export const verifyAdminPassword = createServerFn({ method: "POST" })
       throw new Error(genericAdminError);
     }
 
-    const session = await useSession<AdminSessionData>(getAdminSessionConfig());
-    await session.update({
-      authenticated: true,
-      loggedAt: new Date().toISOString(),
-    });
+    writeSignedAdminSession();
 
     await logSecurity("admin_login_attempt", true);
     return { ok: true };
   });
 
 export const logoutAdminSession = createServerFn({ method: "POST" }).handler(async () => {
-  await clearSession(getAdminSessionConfig());
+  deleteCookie(adminCookieName, { path: "/" });
   return { ok: true };
 });
 
