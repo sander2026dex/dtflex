@@ -261,6 +261,14 @@ export const verifyAdminPassword = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const db = getDb();
     const ip = getRequestIP({ xForwardedFor: true }) ?? "unknown";
+    const expectedPassword = process.env.ADMIN_MASTER_PASSWORD;
+
+    if (expectedPassword && safeEqual(data.password, expectedPassword)) {
+      writeSignedAdminSession();
+      await logSecurity("admin_login_attempt", true);
+      return { ok: true };
+    }
+
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
     const { count } = await db
@@ -276,16 +284,8 @@ export const verifyAdminPassword = createServerFn({ method: "POST" })
       throw new Error(genericAdminError);
     }
 
-    const expectedPassword = process.env.ADMIN_MASTER_PASSWORD;
-    if (!expectedPassword || !safeEqual(data.password, expectedPassword)) {
-      await logSecurity("admin_login_attempt", false);
-      throw new Error(genericAdminError);
-    }
-
-    writeSignedAdminSession();
-
-    await logSecurity("admin_login_attempt", true);
-    return { ok: true };
+    await logSecurity("admin_login_attempt", false);
+    throw new Error(genericAdminError);
   });
 
 export const logoutAdminSession = createServerFn({ method: "POST" }).handler(async () => {
