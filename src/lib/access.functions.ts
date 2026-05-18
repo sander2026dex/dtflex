@@ -62,7 +62,7 @@ interface AccessSessionData {
 
 const adminCookieName = "dtflexpro-admin-session";
 const adminSessionMaxAge = 60 * 60 * 8;
-const adminPasswordHash = "c4f63e09e1fdb8f3f89071288d6f81949d23764d4f78d830415dc1ce33da7004";
+const adminPasswordHash = "e5fec85c58f5be85f01524741fa4a2d2df425a20b6243e8da1cbd83ebe9551a4";
 
 interface SignedAdminSessionData extends AdminSessionData {
   expiresAt: number;
