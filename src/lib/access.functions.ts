@@ -288,11 +288,11 @@ export const verifyAdminPassword = createServerFn({ method: "POST" })
 
     if ((count ?? 0) >= 5) {
       await logSecurity("admin_login_rate_limited", false);
-      throw new Error(genericAdminError);
+      return { ok: false };
     }
 
     await logSecurity("admin_login_attempt", false);
-    throw new Error(genericAdminError);
+    return { ok: false };
   });
 
 export const logoutAdminSession = createServerFn({ method: "POST" }).handler(async () => {
