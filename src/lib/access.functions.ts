@@ -140,8 +140,8 @@ function writeSignedAdminSession() {
 
   setCookie(adminCookieName, `${payload}.${signAdminPayload(payload)}`, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "none",
+    secure: true,
     path: "/",
     maxAge: adminSessionMaxAge,
   });
