@@ -33,7 +33,7 @@ export const Route = createFileRoute("/app")({
 function AppPage() {
   return (
     <iframe
-      src="/api/app-tool"
+      src="/dtflex-tool/index.html"
       title="DTFLEXPRO Halftone Engine"
       style={{
         position: "fixed",
