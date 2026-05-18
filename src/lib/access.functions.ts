@@ -270,9 +270,7 @@ export const verifyAdminPassword = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const db = getDb();
     const ip = getRequestIP({ xForwardedFor: true }) ?? "unknown";
-    const expectedPassword = process.env.ADMIN_MASTER_PASSWORD;
-
-    if (expectedPassword && safeEqual(data.password, expectedPassword)) {
+    if (isConfiguredAdminPassword(data.password)) {
       writeSignedAdminSession();
       await logSecurity("admin_login_attempt", true);
       return { ok: true };
