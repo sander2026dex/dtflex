@@ -101,8 +101,8 @@ function getAccessSessionConfig() {
     maxAge: 60 * 60 * 24 * 30,
     cookie: {
       httpOnly: true,
-      sameSite: "lax" as const,
-      secure: process.env.NODE_ENV === "production",
+      sameSite: "none" as const,
+      secure: true,
       path: "/",
     },
   };
@@ -140,8 +140,8 @@ function writeSignedAdminSession() {
 
   setCookie(adminCookieName, `${payload}.${signAdminPayload(payload)}`, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "none",
+    secure: true,
     path: "/",
     maxAge: adminSessionMaxAge,
   });
