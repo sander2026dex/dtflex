@@ -157,7 +157,11 @@ function AdminPage() {
               event.preventDefault();
               try {
                 setLoading(true);
-                await verifyPassword({ data: { password } });
+                const result = await verifyPassword({ data: { password } });
+                if (!result.ok) {
+                  toast.error("Credenciais inválidas");
+                  return;
+                }
                 setAuthenticated(true);
                 setPassword("");
                 await loadDashboard();
