@@ -659,3 +659,86 @@ export const generateManualAccessCode = createServerFn({ method: "POST" })
     await logSecurity("manual_access_generated", true);
     return { email, accessCode, expiresAt, planCode: data.planCode };
   });
+
+async function sendProvisionalEmail({
+  email,
+  provisionalPassword,
+  planLabel: planName,
+}: {
+  email: string;
+  provisionalPassword: string;
+  planLabel: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("missing_resend_key");
+
+  const html = `
+    <div style="background:#ffffff;padding:32px;font-family:Arial,sans-serif;color:#111827">
+      <div style="max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;padding:32px">
+        <p style="font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:#6b7280;margin:0 0 12px">DTFlexPRO · ${planName}</p>
+        <h1 style="font-size:24px;line-height:1.3;margin:0 0 16px">Bem-vindo(a) ao DTFlexPRO</h1>
+        <p style="font-size:15px;line-height:1.7;color:#374151;margin:0 0 14px">Olá,</p>
+        <p style="font-size:15px;line-height:1.7;color:#374151;margin:0 0 14px">Muito obrigado por adquirir o nosso Sistema de Geração de Halftone Automático <strong>DTFlexPRO</strong>.</p>
+        <p style="font-size:15px;line-height:1.7;color:#374151;margin:0 0 14px">Sua compra foi confirmada com sucesso e agora você tem acesso a uma solução avançada desenvolvida para automatizar a criação de efeitos halftone profissionais com máxima qualidade, precisão e velocidade para estampas DTF.</p>
+        <p style="font-size:15px;line-height:1.7;color:#374151;margin:0 0 14px">O DTFlexPRO foi criado para facilitar seu fluxo de trabalho e elevar o nível das suas artes, entregando resultados profissionais de forma automática e inteligente.</p>
+        <div style="margin:24px 0;padding:18px;border-radius:10px;background:#fef3c7;border:1px solid #fbbf24">
+          <p style="font-size:13px;margin:0 0 8px;color:#92400e;text-transform:uppercase;letter-spacing:.12em">Senha provisória de acesso</p>
+          <div style="font-family:monospace;font-size:26px;letter-spacing:.18em;color:#111827;text-align:center;margin:8px 0">${provisionalPassword}</div>
+          <p style="font-size:12px;color:#92400e;margin:8px 0 0">Use esta senha junto com o e-mail da compra para entrar. Em seguida, nossa equipe enviará a sua senha definitiva conforme o plano contratado.</p>
+        </div>
+        <p style="font-size:14px;line-height:1.7;color:#4b5563;margin:0 0 14px"><strong>Importante:</strong> seu plano permite o uso em <strong>1 dispositivo</strong>. Acessos em outros dispositivos serão bloqueados automaticamente.</p>
+        <p style="font-size:15px;line-height:1.7;color:#374151;margin:0 0 14px">Caso tenha qualquer dúvida, suporte técnico ou precise de ajuda durante o uso do sistema, nossa equipe estará pronta para ajudar você.</p>
+        <p style="font-size:15px;line-height:1.7;color:#374151;margin:0 0 14px">Agradecemos pela confiança no DTFlexPRO e desejamos muito sucesso nas suas criações.</p>
+        <p style="font-size:15px;line-height:1.7;color:#374151;margin:24px 0 0">Atenciosamente,<br/><strong>Equipe DTFlexPRO</strong></p>
+      </div>
+    </div>
+  `;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "DTFlexPRO <onboarding@resend.dev>",
+      to: [email],
+      subject: "Bem-vindo(a) ao DTFlexPRO — Senha provisória de acesso",
+      html,
+    }),
+  });
+}
+
+export const registerProvisionalAccess = createServerFn({ method: "POST" })
+  .inputValidator(provisionalAccessSchema)
+  .handler(async ({ data }) => {
+    await requireAdminSession();
+    const db = getDb();
+    const email = normalizeEmail(data.email);
+    const provisionalPassword = generateAccessCode();
+    // senha provisória curta — 7 dias — só vale até o admin liberar a definitiva
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { error } = await db.from("user_access").insert({
+      email,
+      access_code: provisionalPassword,
+      status: "pending",
+      expires_at: expiresAt,
+      plan_code: data.planCode,
+      device_limit: 1,
+    });
+
+    if (error) {
+      throw new Error("Não foi possível registrar a compra");
+    }
+
+    try {
+      await sendProvisionalEmail({
+        email,
+        provisionalPassword,
+        planLabel: planLabel(data.planCode),
+      });
+    } catch {
+      await logSecurity("provisional_access_email_error", false);
+    }
+
+    await logSecurity("provisional_access_generated", true);
+    return { email, provisionalPassword, expiresAt, planCode: data.planCode };
+  });
