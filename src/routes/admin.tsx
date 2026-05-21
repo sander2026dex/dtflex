@@ -55,6 +55,13 @@ interface DashboardPayload {
     success: boolean;
     created_at: string;
   }>;
+  deviceAttempts: Array<{
+    id: string;
+    email: string;
+    ip: string;
+    user_agent: string;
+    created_at: string;
+  }>;
   metrics: {
     totalCodes: number;
     activeCodes: number;
@@ -67,6 +74,7 @@ const EMPTY: DashboardPayload = {
   codes: [],
   payments: [],
   logs: [],
+  deviceAttempts: [],
   metrics: { totalCodes: 0, activeCodes: 0, uniqueClients: 0, monthly: [] },
 };
 
