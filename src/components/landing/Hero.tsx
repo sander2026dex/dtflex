@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUpRight, CheckCircle2, Trophy, Zap, Cpu } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
-import heroImage from "@/assets/copa-balls.jpg";
+import heroImage from "@/assets/shark-hero.png";
 import { Button } from "@/components/ui/button";
 
 const heroBullets = [
