@@ -98,7 +98,9 @@ function getAccessSessionConfig() {
   return {
     password: getSessionSecret(),
     name: "dtflexpro-access-session",
-    maxAge: 60 * 60 * 24 * 30,
+    // "Lembrar pra sempre nesse navegador" — sessão dura ~10 anos
+    // (efetivamente até a pessoa limpar cookies / sair manualmente).
+    maxAge: 60 * 60 * 24 * 365 * 10,
     cookie: {
       httpOnly: true,
       sameSite: "none" as const,
