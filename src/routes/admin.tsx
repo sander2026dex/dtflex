@@ -55,6 +55,13 @@ interface DashboardPayload {
     success: boolean;
     created_at: string;
   }>;
+  deviceAttempts: Array<{
+    id: string;
+    email: string;
+    ip: string;
+    user_agent: string;
+    created_at: string;
+  }>;
   metrics: {
     totalCodes: number;
     activeCodes: number;
@@ -67,6 +74,7 @@ const EMPTY: DashboardPayload = {
   codes: [],
   payments: [],
   logs: [],
+  deviceAttempts: [],
   metrics: { totalCodes: 0, activeCodes: 0, uniqueClients: 0, monthly: [] },
 };
 
@@ -422,6 +430,35 @@ function AdminPage() {
               </TableBody>
             </Table>
           </div>
+        </DataCard>
+
+        <DataCard title="Tentativas de acesso em outro dispositivo (bloqueadas)">
+          {dashboard.deviceAttempts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma tentativa registrada.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>E-mail da conta</TableHead>
+                    <TableHead>IP</TableHead>
+                    <TableHead>Dispositivo</TableHead>
+                    <TableHead>Quando</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboard.deviceAttempts.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="max-w-[200px] truncate">{a.email}</TableCell>
+                      <TableCell className="font-mono text-xs">{a.ip}</TableCell>
+                      <TableCell className="max-w-[280px] truncate text-xs">{a.user_agent}</TableCell>
+                      <TableCell>{formatDate(a.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </DataCard>
 
         <DataCard title="Últimos 50 registros de segurança">

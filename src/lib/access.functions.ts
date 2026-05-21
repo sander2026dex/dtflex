@@ -98,7 +98,9 @@ function getAccessSessionConfig() {
   return {
     password: getSessionSecret(),
     name: "dtflexpro-access-session",
-    maxAge: 60 * 60 * 24 * 30,
+    // "Lembrar pra sempre nesse navegador" — sessão dura ~10 anos
+    // (efetivamente até a pessoa limpar cookies / sair manualmente).
+    maxAge: 60 * 60 * 24 * 365 * 10,
     cookie: {
       httpOnly: true,
       sameSite: "none" as const,
@@ -239,6 +241,53 @@ async function logSecurity(eventType: string, success: boolean) {
   });
 }
 
+async function logDeviceConflict(email: string, accessId: string) {
+  const db = getDb();
+  const ip = getRequestIP({ xForwardedFor: true }) ?? "unknown";
+  const userAgent = getRequestHeader("user-agent") ?? "unknown";
+  await db.from("audit_logs").insert({
+    event_type: "access_device_conflict",
+    ip_address: ip,
+    user_agent: userAgent,
+    metadata: { email, access_id: accessId, attempted_at: new Date().toISOString() },
+  });
+}
+
+async function notifyOwnerOfConflict(email: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+  const ip = getRequestIP({ xForwardedFor: true }) ?? "desconhecido";
+  const userAgent = getRequestHeader("user-agent") ?? "desconhecido";
+  const when = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date());
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "DTFLEXPRO <onboarding@resend.dev>",
+        to: [email],
+        subject: "⚠️ Tentativa de acesso em outro dispositivo",
+        html: `
+          <div style="background:#fff;padding:32px;font-family:Arial,sans-serif;color:#111827">
+            <div style="max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;padding:32px">
+              <h1 style="font-size:22px;margin:0 0 12px">Alguém tentou usar seu acesso em outro dispositivo</h1>
+              <p style="font-size:14px;color:#4b5563;line-height:1.7">O acesso foi <strong>bloqueado</strong> automaticamente porque seu plano permite apenas 1 dispositivo.</p>
+              <ul style="font-size:13px;color:#4b5563;line-height:1.8;padding-left:18px">
+                <li>Quando: ${when}</li>
+                <li>IP: ${ip}</li>
+                <li>Dispositivo: ${userAgent}</li>
+              </ul>
+              <p style="font-size:13px;color:#6b7280;margin-top:16px">Se foi você, ignore este e-mail. Se não foi, fale com a DTFLEXPRO no WhatsApp.</p>
+            </div>
+          </div>
+        `,
+      }),
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
 async function requireAdminSession() {
   const session = readSignedAdminSession();
   if (!session?.authenticated) {
@@ -334,6 +383,9 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       const sessionMaxAgeMs = 30 * 24 * 60 * 60 * 1000;
       if (Date.now() - startedAt < sessionMaxAgeMs) {
         await logSecurity("access_device_conflict", false);
+        await logDeviceConflict(email, accessRow.id);
+        // notifica o dono da conta (best-effort, não bloqueia o erro)
+        notifyOwnerOfConflict(email).catch(() => {});
         throw new Error(deviceConflictError);
       }
     }
@@ -429,7 +481,7 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
   await requireAdminSession();
   const db = getDb();
 
-  const [{ data: codes }, { data: payments }, { data: logs }] = await Promise.all([
+  const [{ data: codes }, { data: payments }, { data: logs }, { data: attempts }] = await Promise.all([
     db
       .from("user_access")
       .select(
@@ -445,6 +497,12 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
     db
       .from("security_logs")
       .select("id, event_type, ip, user_agent, success, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50),
+    db
+      .from("audit_logs")
+      .select("id, event_type, ip_address, user_agent, metadata, created_at")
+      .eq("event_type", "access_device_conflict")
       .order("created_at", { ascending: false })
       .limit(50),
   ]);
@@ -473,6 +531,13 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
     codes: allCodes,
     payments: payments ?? [],
     logs: logs ?? [],
+    deviceAttempts: (attempts ?? []).map((a: any) => ({
+      id: a.id,
+      email: a.metadata?.email ?? "-",
+      ip: a.ip_address ?? "-",
+      user_agent: a.user_agent ?? "-",
+      created_at: a.created_at,
+    })),
     metrics: {
       totalCodes: allCodes.length,
       activeCodes: allCodes.filter((c: any) => c.status === "active").length,
