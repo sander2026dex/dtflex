@@ -241,6 +241,53 @@ async function logSecurity(eventType: string, success: boolean) {
   });
 }
 
+async function logDeviceConflict(email: string, accessId: string) {
+  const db = getDb();
+  const ip = getRequestIP({ xForwardedFor: true }) ?? "unknown";
+  const userAgent = getRequestHeader("user-agent") ?? "unknown";
+  await db.from("audit_logs").insert({
+    event_type: "access_device_conflict",
+    ip_address: ip,
+    user_agent: userAgent,
+    metadata: { email, access_id: accessId, attempted_at: new Date().toISOString() },
+  });
+}
+
+async function notifyOwnerOfConflict(email: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+  const ip = getRequestIP({ xForwardedFor: true }) ?? "desconhecido";
+  const userAgent = getRequestHeader("user-agent") ?? "desconhecido";
+  const when = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date());
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "DTFLEXPRO <onboarding@resend.dev>",
+        to: [email],
+        subject: "⚠️ Tentativa de acesso em outro dispositivo",
+        html: `
+          <div style="background:#fff;padding:32px;font-family:Arial,sans-serif;color:#111827">
+            <div style="max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;padding:32px">
+              <h1 style="font-size:22px;margin:0 0 12px">Alguém tentou usar seu acesso em outro dispositivo</h1>
+              <p style="font-size:14px;color:#4b5563;line-height:1.7">O acesso foi <strong>bloqueado</strong> automaticamente porque seu plano permite apenas 1 dispositivo.</p>
+              <ul style="font-size:13px;color:#4b5563;line-height:1.8;padding-left:18px">
+                <li>Quando: ${when}</li>
+                <li>IP: ${ip}</li>
+                <li>Dispositivo: ${userAgent}</li>
+              </ul>
+              <p style="font-size:13px;color:#6b7280;margin-top:16px">Se foi você, ignore este e-mail. Se não foi, fale com a DTFLEXPRO no WhatsApp.</p>
+            </div>
+          </div>
+        `,
+      }),
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
 async function requireAdminSession() {
   const session = readSignedAdminSession();
   if (!session?.authenticated) {
