@@ -481,7 +481,7 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
   await requireAdminSession();
   const db = getDb();
 
-  const [{ data: codes }, { data: payments }, { data: logs }] = await Promise.all([
+  const [{ data: codes }, { data: payments }, { data: logs }, { data: attempts }] = await Promise.all([
     db
       .from("user_access")
       .select(
@@ -497,6 +497,12 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
     db
       .from("security_logs")
       .select("id, event_type, ip, user_agent, success, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50),
+    db
+      .from("audit_logs")
+      .select("id, event_type, ip_address, user_agent, metadata, created_at")
+      .eq("event_type", "access_device_conflict")
       .order("created_at", { ascending: false })
       .limit(50),
   ]);
@@ -525,6 +531,13 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
     codes: allCodes,
     payments: payments ?? [],
     logs: logs ?? [],
+    deviceAttempts: (attempts ?? []).map((a: any) => ({
+      id: a.id,
+      email: a.metadata?.email ?? "-",
+      ip: a.ip_address ?? "-",
+      user_agent: a.user_agent ?? "-",
+      created_at: a.created_at,
+    })),
     metrics: {
       totalCodes: allCodes.length,
       activeCodes: allCodes.filter((c: any) => c.status === "active").length,
