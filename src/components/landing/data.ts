@@ -5,8 +5,8 @@ export const proofBadge = "⭐ 4.9/5 · Usado por +1.200 criativos e estúdios";
 export const featureItems: FeatureItem[] = [
   {
     icon: "zap",
-    title: "Processamento Instantâneo",
-    description: "Renderização otimizada para gerar a prévia e fechar o arquivo final em cerca de 10 segundos.",
+    title: "Processamento em 288 ms",
+    description: "Velocidade de placar de Copa: cada arte é renderizada em apenas 288 milissegundos, sem espera.",
   },
   {
     icon: "sliders",
@@ -15,13 +15,13 @@ export const featureItems: FeatureItem[] = [
   },
   {
     icon: "package",
-    title: "Exportação Profissional",
-    description: "Saída em PNG de alta resolução, pronta para produção gráfica com nitidez e consistência.",
+    title: "Crie Seus Próprios Pacotes",
+    description: "Monte pacotes de estampas em série e venda como quiser, sem depender de bancos de imagens.",
   },
   {
     icon: "shield",
-    title: "100% Local",
-    description: "O processamento acontece no navegador para preservar privacidade e reduzir etapas operacionais.",
+    title: "Zero Software Pesado",
+    description: "Chega de travar o PC com programas que comem memória. Roda 100% no navegador, leve e seguro.",
   },
   {
     icon: "save",
@@ -30,8 +30,8 @@ export const featureItems: FeatureItem[] = [
   },
   {
     icon: "printer",
-    title: "Pronto para Print",
-    description: "Calibração pensada para dtf print halftone, com leitura visual forte e produção previsível.",
+    title: "Pronto para Print DTF",
+    description: "Calibração pensada para DTF print halftone, com leitura visual forte e produção previsível.",
   },
 ];
 
