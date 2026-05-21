@@ -264,7 +264,58 @@ function AdminPage() {
           </p>
         </DataCard>
 
-        <DataCard title="Gerar código manual após pagamento">
+        <DataCard title="Registrar compra (envia senha provisória ao cliente)">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Use ao receber o comprovante do InfinitePay no WhatsApp. O cliente recebe um e-mail de boas-vindas com uma senha provisória (válida por 7 dias e ligada a 1 dispositivo). Depois que ele acessar, libere a senha definitiva no formulário abaixo.
+          </p>
+          <form
+            className="grid gap-3 md:grid-cols-[1.4fr_1fr_auto] md:items-end"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              try {
+                setProvLoading(true);
+                const result = await registerProvisional({
+                  data: { email: provEmail, planCode: provPlan },
+                });
+                toast.success(`Senha provisória ${result.provisionalPassword} enviada para ${result.email}.`);
+                setProvEmail("");
+                await loadDashboard();
+              } catch {
+                toast.error("Não foi possível registrar a compra.");
+              } finally {
+                setProvLoading(false);
+              }
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="prov-email">E-mail do cliente</Label>
+              <Input
+                id="prov-email"
+                type="email"
+                value={provEmail}
+                onChange={(e) => setProvEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prov-plan">Plano comprado</Label>
+              <select
+                id="prov-plan"
+                value={provPlan}
+                onChange={(e) => setProvPlan(e.target.value as "mensal" | "anual")}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="mensal">Mensal (R$ 47)</option>
+                <option value="anual">Anual (R$ 147)</option>
+              </select>
+            </div>
+            <Button type="submit" disabled={provLoading}>
+              {provLoading ? "Enviando..." : "Enviar senha provisória"}
+            </Button>
+          </form>
+        </DataCard>
+
+        <DataCard title="Liberar senha definitiva (conforme o plano)">
           <form
             className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.8fr_auto] md:items-end"
             onSubmit={async (event) => {
