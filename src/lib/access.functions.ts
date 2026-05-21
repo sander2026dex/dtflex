@@ -383,6 +383,9 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       const sessionMaxAgeMs = 30 * 24 * 60 * 60 * 1000;
       if (Date.now() - startedAt < sessionMaxAgeMs) {
         await logSecurity("access_device_conflict", false);
+        await logDeviceConflict(email, accessRow.id);
+        // notifica o dono da conta (best-effort, não bloqueia o erro)
+        notifyOwnerOfConflict(email).catch(() => {});
         throw new Error(deviceConflictError);
       }
     }
