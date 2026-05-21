@@ -46,6 +46,11 @@ const manualAccessSchema = z.object({
   durationDays: z.number().int().min(1).max(3650).optional(),
 });
 
+const provisionalAccessSchema = z.object({
+  email: z.string().trim().email().max(255),
+  planCode: z.enum(["mensal", "anual"]),
+});
+
 interface AdminSessionData {
   authenticated: boolean;
   loggedAt: string;
