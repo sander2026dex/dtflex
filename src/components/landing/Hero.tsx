@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUpRight, CheckCircle2, Trophy, Zap, Cpu } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
-import beforeImage from "@/assets/tubarrao-demo.png";
+import heroImage from "@/assets/copa-balls.jpg";
 import { Button } from "@/components/ui/button";
 
 const heroBullets = [
@@ -94,10 +94,10 @@ export function Hero() {
           <div className="absolute inset-0 -z-10 bg-[var(--gradient-hero)] blur-3xl" />
           <div className="rounded-lg border border-secondary/50 bg-card/70 p-4 shadow-[var(--shadow-panel)] backdrop-blur-xl">
             <ShowcaseCard
-              title="Antes"
-              subtitle="Imagem original enviada"
-              src={beforeImage}
-              alt="Arte original antes do processamento halftone"
+              title="Edição Copa"
+              subtitle="Energia do Mundial em cada estampa"
+              src={heroImage}
+              alt="Composição de bolas de futebol Copa do Mundo sobre fundo preto"
             />
           </div>
         </div>
