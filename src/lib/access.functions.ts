@@ -447,7 +447,7 @@ export const getAccessSession = createServerFn({ method: "GET" }).handler(async 
 
   const stillActive =
     row &&
-    row.status === "active" &&
+    (row.status === "active" || row.status === "pending") &&
     new Date(row.expires_at).getTime() > Date.now() &&
     row.active_session_token === sessionToken;
 
