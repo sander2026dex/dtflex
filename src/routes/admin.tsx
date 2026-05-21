@@ -13,6 +13,7 @@ import {
   getAdminDashboardData,
   getAdminSession,
   logoutAdminSession,
+  registerProvisionalAccess,
   resetActiveSession,
   revokeAccess,
   updateDeviceLimit,
@@ -97,12 +98,16 @@ function AdminPage() {
   const setDevices = useServerFn(updateDeviceLimit);
   const resetSession = useServerFn(resetActiveSession);
   const generateManualCode = useServerFn(generateManualAccessCode);
+  const registerProvisional = useServerFn(registerProvisionalAccess);
   const logout = useServerFn(logoutAdminSession);
 
   const [password, setPassword] = useState("");
   const [manualEmail, setManualEmail] = useState("");
   const [manualPlan, setManualPlan] = useState<"mensal" | "anual">("mensal");
   const [manualDays, setManualDays] = useState<string>("");
+  const [provEmail, setProvEmail] = useState("");
+  const [provPlan, setProvPlan] = useState<"mensal" | "anual">("mensal");
+  const [provLoading, setProvLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
