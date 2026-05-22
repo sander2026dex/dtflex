@@ -81,7 +81,7 @@ export const pricingOptions: PricingOption[] = [
     price: "R$ 47",
     cadence: "/mês",
     summary: "Ideal para começar a produzir com qualidade profissional e acesso completo à ferramenta de halftone.",
-    checkoutHref: "https://checkout.infinitepay.io/alexsander-63468735-b77/IClXypCBQ6",
+    checkoutHref: "https://checkout.infinitepay.io/alexsander-63468735-b77/0pSavbkf8O",
     benefits: [
       "Acesso completo à geração de halftone profissional",
       "Exportação em PNG 300 DPI pronto para DTF",
@@ -96,7 +96,7 @@ export const pricingOptions: PricingOption[] = [
     cadence: "/ano",
     badge: "Melhor custo anual",
     summary: "A melhor escolha para estúdios e produção contínua durante todo o ano, com economia significativa.",
-    checkoutHref: "https://checkout.infinitepay.io/alexsander-63468735-b77/tonSGNTukf",
+    checkoutHref: "https://checkout.infinitepay.io/alexsander-63468735-b77/nGf1d3Y7up",
     benefits: [
       "Tudo do plano mensal com economia anual",
       "Acesso contínuo durante 12 meses",
