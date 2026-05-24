@@ -39,8 +39,13 @@ function LoginPage() {
           code,
         },
       });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
       window.location.href = result.redirectTo;
-    } catch {
+    } catch (error) {
+      console.error(error);
       toast.error("Código inválido ou expirado");
     } finally {
       setLoading(false);
