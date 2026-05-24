@@ -14,6 +14,10 @@ export const Route = createFileRoute("/validate-access-code")({
             },
           });
 
+          if (!result.ok) {
+            return Response.json({ message: result.error }, { status: 400 });
+          }
+
           return Response.json(result);
         } catch {
           return Response.json({ message: "Código inválido ou expirado" }, { status: 400 });
