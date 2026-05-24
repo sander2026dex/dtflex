@@ -375,7 +375,7 @@ export const validateAccessCode = createServerFn({ method: "POST" })
 
     if (!accessRow) {
       await logSecurity("access_code_validation", false);
-      throw new Error(genericAccessError);
+      return { ok: false, error: genericAccessError };
     }
 
     // Controle de sessão única por dispositivo
@@ -391,7 +391,7 @@ export const validateAccessCode = createServerFn({ method: "POST" })
         await logDeviceConflict(email, accessRow.id);
         // notifica o dono da conta (best-effort, não bloqueia o erro)
         notifyOwnerOfConflict(email).catch(() => {});
-        throw new Error(deviceConflictError);
+        return { ok: false, error: deviceConflictError };
       }
     }
 
@@ -406,7 +406,7 @@ export const validateAccessCode = createServerFn({ method: "POST" })
 
     if (updateError) {
       await logSecurity("access_code_validation", false);
-      throw new Error(genericAccessError);
+      return { ok: false, error: genericAccessError };
     }
 
     const session = await useSession<AccessSessionData>(getAccessSessionConfig());
@@ -420,7 +420,7 @@ export const validateAccessCode = createServerFn({ method: "POST" })
     });
 
     await logSecurity("access_code_validation", true);
-    return { redirectTo: "/app" };
+    return { ok: true, redirectTo: "/app" };
   });
 
 export const getAccessSession = createServerFn({ method: "GET" }).handler(async () => {
