@@ -31,13 +31,20 @@ function LoginPage() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const trimmedEmail = email.trim();
+    const trimmedCode = code.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      toast.error("Informe um e-mail válido");
+      return;
+    }
+    if (trimmedCode.length < 6) {
+      toast.error("O código de acesso precisa ter ao menos 6 caracteres");
+      return;
+    }
     try {
       setLoading(true);
       const result = await validateCode({
-        data: {
-          email,
-          code,
-        },
+        data: { email: trimmedEmail, code: trimmedCode },
       });
       if (!result.ok) {
         toast.error(result.error);
