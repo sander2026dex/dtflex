@@ -42,14 +42,15 @@ const deviceLimitSchema = z.object({
 
 const manualAccessSchema = z.object({
   email: z.string().trim().email().max(255),
-  planCode: z.enum(["mensal", "anual"]),
-  durationDays: z.number().int().min(1).max(3650).optional(),
+  planCode: z.enum(["mensal", "anual", "vitalicia"]),
+  durationDays: z.number().int().min(1).max(36500).optional(),
 });
 
 const provisionalAccessSchema = z.object({
   email: z.string().trim().email().max(255),
-  planCode: z.enum(["mensal", "anual"]),
+  planCode: z.enum(["mensal", "anual", "vitalicia"]),
 });
+
 
 interface AdminSessionData {
   authenticated: boolean;
@@ -303,13 +304,16 @@ async function requireAdminSession() {
 
 function planDurationDays(planCode: string) {
   if (planCode === "anual") return 365;
+  if (planCode === "vitalicia") return 36500; // ~100 anos = vitalícia
   return 30;
 }
 
 function planLabel(planCode: string) {
   if (planCode === "anual") return "Plano Anual";
+  if (planCode === "vitalicia") return "Plano Vitalício";
   return "Plano Mensal";
 }
+
 
 export const getAdminSession = createServerFn({ method: "GET" }).handler(async () => {
   const session = readSignedAdminSession();
