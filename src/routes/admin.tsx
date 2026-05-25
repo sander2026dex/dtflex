@@ -438,6 +438,21 @@ function AdminPage() {
                       <div className="flex flex-wrap justify-end gap-1">
                         <Button
                           size="sm"
+                          variant="secondary"
+                          onClick={async () => {
+                            const msg = buildClientMessage(item);
+                            try {
+                              await navigator.clipboard.writeText(msg);
+                              toast.success("Mensagem copiada! Cole no WhatsApp do cliente.");
+                            } catch {
+                              window.prompt("Copie a mensagem abaixo:", msg);
+                            }
+                          }}
+                        >
+                          Copiar msg
+                        </Button>
+                        <Button
+                          size="sm"
                           variant="outline"
                           disabled={!item.active_session_token}
                           onClick={async () => {
@@ -452,6 +467,7 @@ function AdminPage() {
                         >
                           Liberar sessão
                         </Button>
+
                         <Button
                           size="sm"
                           variant="outline"
@@ -577,3 +593,41 @@ function formatDate(value: string) {
     timeStyle: "short",
   }).format(new Date(value));
 }
+
+function buildClientMessage(item: {
+  email: string;
+  access_code: string;
+  expires_at: string;
+  plan_code: string | null;
+}) {
+  const plano =
+    item.plan_code === "anual"
+      ? "Plano Anual"
+      : item.plan_code === "vitalicia"
+        ? "Plano Vitalício (nunca expira)"
+        : "Plano Mensal";
+  const isLifetime = item.plan_code === "vitalicia";
+  const validade = isLifetime
+    ? "Vitalício — acesso permanente"
+    : `Válido até: ${formatDate(item.expires_at)}`;
+  const loginUrl = `https://dtflexpro.com/login?email=${encodeURIComponent(
+    item.email,
+  )}&code=${encodeURIComponent(item.access_code)}`;
+
+  return [
+    "🚀 *Seu acesso ao DTFlexPRO está liberado!*",
+    "",
+    `📦 ${plano}`,
+    `📧 E-mail: ${item.email}`,
+    `🔑 Código de acesso: *${item.access_code}*`,
+    `⏰ ${validade}`,
+    "",
+    "👉 Entre direto pelo link (já vem com seu código preenchido):",
+    loginUrl,
+    "",
+    "⚠️ Importante: o acesso é vinculado a *1 dispositivo*. Se precisar trocar, fale com a gente por aqui.",
+    "",
+    "Equipe DTFlexPRO 💛",
+  ].join("\n");
+}
+
