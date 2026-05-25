@@ -11,17 +11,33 @@ import { WhatsAppFloat } from "@/components/landing/WhatsAppFloat";
 
 export function LandingPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <Header />
-      <Hero />
-      <MarketingPitch />
-      <Features />
-      <SocialProof />
-      <HowItWorks />
-      <Pricing />
-      <FAQ />
-      <Footer />
-      <WhatsAppFloat />
+    <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
+      {/* Halftone dot pattern overlay */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-0 halftone-dots opacity-60"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 right-0 h-[28rem] w-[28rem] halftone-dots-dense halftone-fade-l opacity-70"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute top-[60%] -left-20 h-[24rem] w-[24rem] halftone-dots-dense halftone-fade-r opacity-60"
+      />
+      <div className="relative z-10">
+        <Header />
+        <Hero />
+        <MarketingPitch />
+        <Features />
+        <SocialProof />
+        <HowItWorks />
+        <Pricing />
+        <FAQ />
+        <Footer />
+        <WhatsAppFloat />
+      </div>
     </main>
   );
 }
+

@@ -165,3 +165,23 @@
     scroll-behavior: smooth;
   }
 }
+
+@layer utilities {
+  .halftone-dots {
+    background-image: radial-gradient(circle, oklch(0.98 0.02 230 / 0.10) 1px, transparent 1.5px);
+    background-size: 14px 14px;
+  }
+  .halftone-dots-dense {
+    background-image: radial-gradient(circle, oklch(0.98 0.02 230 / 0.14) 1.2px, transparent 1.8px);
+    background-size: 10px 10px;
+  }
+  .halftone-fade-r {
+    -webkit-mask-image: linear-gradient(to right, black 0%, black 60%, transparent 100%);
+            mask-image: linear-gradient(to right, black 0%, black 60%, transparent 100%);
+  }
+  .halftone-fade-l {
+    -webkit-mask-image: linear-gradient(to left, black 0%, black 60%, transparent 100%);
+            mask-image: linear-gradient(to left, black 0%, black 60%, transparent 100%);
+  }
+}
+
