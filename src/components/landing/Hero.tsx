@@ -92,14 +92,15 @@ export function Hero() {
 
         <div className="relative animate-enter">
           <div className="absolute inset-0 -z-10 bg-[var(--gradient-hero)] blur-3xl" />
-          <div className="rounded-lg border border-secondary/50 bg-card/70 p-4 shadow-[var(--shadow-panel)] backdrop-blur-xl">
+          <div className="rounded-lg border border-primary/50 bg-card/70 p-4 shadow-[var(--shadow-panel)] backdrop-blur-xl">
             <ShowcaseCard
-              title="Edição Copa"
-              subtitle="Energia do Mundial em cada estampa"
+              title="Exemplo Halftone"
+              subtitle="Detalhe e contraste prontos para DTF"
               src={heroImage}
-              alt="Composição de bolas de futebol Copa do Mundo sobre fundo preto"
+              alt="Exemplo de arte com efeito halftone profissional"
             />
           </div>
+
         </div>
       </div>
     </section>
