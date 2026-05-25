@@ -103,10 +103,11 @@ function AdminPage() {
 
   const [password, setPassword] = useState("");
   const [manualEmail, setManualEmail] = useState("");
-  const [manualPlan, setManualPlan] = useState<"mensal" | "anual">("mensal");
+  const [manualPlan, setManualPlan] = useState<"mensal" | "anual" | "vitalicia">("mensal");
   const [manualDays, setManualDays] = useState<string>("");
   const [provEmail, setProvEmail] = useState("");
-  const [provPlan, setProvPlan] = useState<"mensal" | "anual">("mensal");
+  const [provPlan, setProvPlan] = useState<"mensal" | "anual" | "vitalicia">("mensal");
+
   const [provLoading, setProvLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -302,12 +303,14 @@ function AdminPage() {
               <select
                 id="prov-plan"
                 value={provPlan}
-                onChange={(e) => setProvPlan(e.target.value as "mensal" | "anual")}
+                onChange={(e) => setProvPlan(e.target.value as "mensal" | "anual" | "vitalicia")}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="mensal">Mensal (R$ 47)</option>
                 <option value="anual">Anual (R$ 147)</option>
+                <option value="vitalicia">Vitalícia (master, nunca expira)</option>
               </select>
+
             </div>
             <Button type="submit" disabled={provLoading}>
               {provLoading ? "Enviando..." : "Enviar senha provisória"}
@@ -355,12 +358,14 @@ function AdminPage() {
               <select
                 id="manual-plan"
                 value={manualPlan}
-                onChange={(e) => setManualPlan(e.target.value as "mensal" | "anual")}
+                onChange={(e) => setManualPlan(e.target.value as "mensal" | "anual" | "vitalicia")}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="mensal">Mensal (R$ 47 · 30 dias)</option>
                 <option value="anual">Anual (R$ 147 · 365 dias)</option>
+                <option value="vitalicia">Vitalícia (master · nunca expira)</option>
               </select>
+
             </div>
             <div className="space-y-2">
               <Label htmlFor="manual-days">Dias (opcional)</Label>
