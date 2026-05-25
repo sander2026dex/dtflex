@@ -66,33 +66,33 @@
 
 :root {
   --radius: 0.5rem;
-  --background: oklch(0.04 0 0);
-  --foreground: oklch(0.98 0.02 110);
-  --card: oklch(0.10 0.02 25);
-  --card-foreground: oklch(0.98 0.02 25);
-  --popover: oklch(0.10 0.02 25);
-  --popover-foreground: oklch(0.98 0.02 25);
-  --primary: oklch(0.62 0.27 27);
+  --background: oklch(0.05 0.02 250);
+  --foreground: oklch(0.98 0.02 230);
+  --card: oklch(0.10 0.04 250);
+  --card-foreground: oklch(0.98 0.02 230);
+  --popover: oklch(0.10 0.04 250);
+  --popover-foreground: oklch(0.98 0.02 230);
+  --primary: oklch(0.62 0.22 250);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.70 0.25 30);
+  --secondary: oklch(0.72 0.18 220);
   --secondary-foreground: oklch(0.06 0 0);
-  --muted: oklch(0.14 0.02 25);
-  --muted-foreground: oklch(0.78 0.04 25);
-  --accent: oklch(0.70 0.25 30);
+  --muted: oklch(0.14 0.03 250);
+  --muted-foreground: oklch(0.78 0.04 230);
+  --accent: oklch(0.72 0.20 215);
   --accent-foreground: oklch(0.06 0 0);
-  --brand: oklch(0.62 0.27 27);
+  --brand: oklch(0.62 0.22 250);
   --brand-foreground: oklch(0.99 0 0);
-  --brand-muted: oklch(0.62 0.27 27 / 0.20);
+  --brand-muted: oklch(0.62 0.22 250 / 0.20);
   --destructive: oklch(0.62 0.24 25);
   --destructive-foreground: oklch(0.98 0.02 25);
-  --border: oklch(0.30 0.10 25 / 0.55);
-  --input: oklch(0.14 0.02 25);
-  --ring: oklch(0.62 0.27 27);
-  --gradient-glow: radial-gradient(ellipse at top, oklch(0.62 0.27 27 / 0.22), transparent 60%);
-  --gradient-hero: radial-gradient(circle at top right, oklch(0.62 0.27 27 / 0.45), transparent 45%),
-    radial-gradient(circle at 15% 25%, oklch(0.70 0.25 30 / 0.30), transparent 40%),
-    radial-gradient(circle at 50% 100%, oklch(0.45 0.22 25 / 0.22), transparent 55%);
-  --shadow-glow: 0 0 50px oklch(0.62 0.27 27 / 0.55);
+  --border: oklch(0.40 0.12 245 / 0.45);
+  --input: oklch(0.14 0.03 250);
+  --ring: oklch(0.62 0.22 250);
+  --gradient-glow: radial-gradient(ellipse at top, oklch(0.62 0.22 250 / 0.28), transparent 60%);
+  --gradient-hero: radial-gradient(circle at top right, oklch(0.62 0.22 250 / 0.50), transparent 45%),
+    radial-gradient(circle at 15% 25%, oklch(0.72 0.20 215 / 0.32), transparent 40%),
+    radial-gradient(circle at 50% 100%, oklch(0.45 0.18 260 / 0.25), transparent 55%);
+  --shadow-glow: 0 0 50px oklch(0.62 0.22 250 / 0.60);
   --shadow-panel: 0 20px 60px -20px oklch(0 0 0 / 0.8);
 
   --chart-1: oklch(0.646 0.222 41.116);
