@@ -14,16 +14,10 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-border/60">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[var(--gradient-hero)] opacity-90" />
-      {/* Decorative red stripes */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-2 flex">
-        <div className="flex-1 bg-[oklch(0.62_0.27_27)]" />
-        <div className="flex-1 bg-[oklch(0.55_0.25_25)]" />
-        <div className="flex-1 bg-[oklch(0.70_0.25_30)]" />
-        <div className="flex-1 bg-[oklch(0.45_0.22_25)]" />
-      </div>
       {/* Decorative accents */}
       <div className="pointer-events-none absolute -top-10 -right-10 h-64 w-64 rounded-full border-[6px] border-secondary/30 opacity-30 blur-sm" />
       <div className="pointer-events-none absolute bottom-10 -left-16 h-48 w-48 rounded-full border-[4px] border-primary/30 opacity-40" />
+
 
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24">
         <div className="relative space-y-6 sm:space-y-8 animate-fade-in">

@@ -44,9 +44,9 @@ export function Pricing() {
               key={option}
               type="button"
               onClick={() => setBilling(option)}
-              className={`rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+              className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                 billing === option
-                  ? "bg-brand text-brand-foreground shadow-[var(--shadow-glow)]"
+                  ? "bg-[oklch(0.58_0.25_27)] text-white shadow-[0_0_18px_oklch(0.58_0.25_27/0.55)]"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -54,6 +54,7 @@ export function Pricing() {
             </button>
           ))}
         </div>
+
 
         <Card className="max-w-3xl rounded-lg border-border/70 bg-card/60 p-8 shadow-[var(--shadow-panel)] backdrop-blur-xl">
           <div className="flex flex-col gap-4 border-b border-border/70 pb-6 md:flex-row md:items-start md:justify-between">
@@ -69,9 +70,10 @@ export function Pricing() {
               <p className="max-w-xl text-sm leading-7 text-muted-foreground">{selectedPlan.summary}</p>
             </div>
             <div className="shrink-0">
-              <div className="text-4xl font-semibold tracking-tight">{selectedPlan.price}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{selectedPlan.cadence}</div>
+              <div className="text-4xl font-semibold tracking-tight text-[oklch(0.86_0.18_92)]">{selectedPlan.price}</div>
+              <div className="mt-1 text-sm text-[oklch(0.86_0.18_92)]/80">{selectedPlan.cadence}</div>
             </div>
+
           </div>
 
           <div className="grid gap-3 py-6">
@@ -85,19 +87,23 @@ export function Pricing() {
 
           <div className="flex flex-col gap-3 border-t border-border/70 pt-6">
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" className="w-full sm:w-auto" onClick={handleCheckout}>
+              <Button
+                size="lg"
+                className="w-full sm:w-auto bg-[oklch(0.58_0.25_27)] text-white hover:bg-[oklch(0.52_0.25_27)] shadow-[0_0_24px_oklch(0.58_0.25_27/0.45)]"
+                onClick={handleCheckout}
+              >
                 Pagar com InfinitePay ({selectedPlan.price})
               </Button>
               <Button
                 size="lg"
-                variant="outline"
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto bg-[oklch(0.58_0.25_27)] text-white hover:bg-[oklch(0.52_0.25_27)]"
                 onClick={handleSendReceipt}
               >
                 <MessageCircle className="h-4 w-4" />
                 Enviar comprovante no WhatsApp
               </Button>
             </div>
+
             <p className="text-sm text-muted-foreground">
               Após o pagamento, envie o comprovante pelo WhatsApp e libere seu acesso em minutos.
               Acesso vinculado a 1 dispositivo por conta.
