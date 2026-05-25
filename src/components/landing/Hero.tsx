@@ -14,37 +14,37 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-border/60">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[var(--gradient-hero)] opacity-90" />
-      {/* World Cup decorative stripes */}
+      {/* Decorative red stripes */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-2 flex">
-        <div className="flex-1 bg-[oklch(0.62_0.22_150)]" />
-        <div className="flex-1 bg-[oklch(0.85_0.20_95)]" />
-        <div className="flex-1 bg-[oklch(0.55_0.20_260)]" />
-        <div className="flex-1 bg-[oklch(0.98_0.02_110)]" />
+        <div className="flex-1 bg-[oklch(0.62_0.27_27)]" />
+        <div className="flex-1 bg-[oklch(0.55_0.25_25)]" />
+        <div className="flex-1 bg-[oklch(0.70_0.25_30)]" />
+        <div className="flex-1 bg-[oklch(0.45_0.22_25)]" />
       </div>
-      {/* Soccer ball pattern accent */}
+      {/* Decorative accents */}
       <div className="pointer-events-none absolute -top-10 -right-10 h-64 w-64 rounded-full border-[6px] border-secondary/30 opacity-30 blur-sm" />
       <div className="pointer-events-none absolute bottom-10 -left-16 h-48 w-48 rounded-full border-[4px] border-primary/30 opacity-40" />
 
-      <div className="mx-auto grid max-w-7xl gap-14 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24">
-        <div className="relative space-y-8 animate-fade-in">
-          <div className="inline-flex items-center gap-2 rounded-full border border-secondary/60 bg-secondary/15 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-secondary shadow-[var(--shadow-glow)]">
-            <Trophy className="h-4 w-4" />
-            Edição Copa do Mundo • Halftone em 288ms
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24">
+        <div className="relative space-y-6 sm:space-y-8 animate-fade-in">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/60 bg-primary/15 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-primary shadow-[var(--shadow-glow)]">
+            <Zap className="h-4 w-4" />
+            Halftone profissional em 288ms
           </div>
 
           <div className="space-y-5">
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance md:text-6xl">
+            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl md:text-6xl">
               Transforme qualquer imagem em arte Halftone profissional em{" "}
-              <span className="bg-gradient-to-r from-[oklch(0.85_0.20_95)] via-[oklch(0.72_0.22_145)] to-[oklch(0.85_0.20_95)] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[oklch(0.70_0.27_27)] via-[oklch(0.62_0.27_27)] to-[oklch(0.70_0.27_27)] bg-clip-text text-transparent">
                 288 milissegundos
               </span>
             </h1>
-            <p className="max-w-2xl text-base leading-8 text-muted-foreground md:text-lg">
+            <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:leading-8 md:text-lg">
               Chega de gastar memória com software pesado. Crie seus próprios pacotes de estampas DTF
-              direto no navegador, com a velocidade que a temporada da Copa exige. Precisão de estúdio,
-              leveza de um clique.
+              direto no navegador, com precisão de estúdio e leveza de um clique.
             </p>
           </div>
+
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg" className="shadow-[var(--shadow-glow)] font-semibold">
@@ -92,14 +92,15 @@ export function Hero() {
 
         <div className="relative animate-enter">
           <div className="absolute inset-0 -z-10 bg-[var(--gradient-hero)] blur-3xl" />
-          <div className="rounded-lg border border-secondary/50 bg-card/70 p-4 shadow-[var(--shadow-panel)] backdrop-blur-xl">
+          <div className="rounded-lg border border-primary/50 bg-card/70 p-4 shadow-[var(--shadow-panel)] backdrop-blur-xl">
             <ShowcaseCard
-              title="Edição Copa"
-              subtitle="Energia do Mundial em cada estampa"
+              title="Exemplo Halftone"
+              subtitle="Detalhe e contraste prontos para DTF"
               src={heroImage}
-              alt="Composição de bolas de futebol Copa do Mundo sobre fundo preto"
+              alt="Exemplo de arte com efeito halftone profissional"
             />
           </div>
+
         </div>
       </div>
     </section>

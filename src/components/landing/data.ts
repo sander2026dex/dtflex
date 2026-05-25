@@ -6,7 +6,7 @@ export const featureItems: FeatureItem[] = [
   {
     icon: "zap",
     title: "Processamento em 288 ms",
-    description: "Velocidade de placar de Copa: cada arte é renderizada em apenas 288 milissegundos, sem espera.",
+    description: "Velocidade de placar: cada arte é renderizada em apenas 288 milissegundos, sem espera.",
   },
   {
     icon: "sliders",
