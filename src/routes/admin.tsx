@@ -39,6 +39,7 @@ interface DashboardPayload {
     device_limit: number | null;
     active_session_token: string | null;
     active_session_started_at: string | null;
+    last_activity_at: string | null;
   }>;
   payments: Array<{
     id: string;
