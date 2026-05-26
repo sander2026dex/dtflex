@@ -273,13 +273,17 @@ function AdminPage() {
             Use ao receber o comprovante do InfinitePay no WhatsApp. O cliente recebe um e-mail de boas-vindas com uma senha provisória (válida por 7 dias e ligada a 1 dispositivo). Depois que ele acessar, libere a senha definitiva no formulário abaixo.
           </p>
           <form
-            className="grid gap-3 md:grid-cols-[1.4fr_1fr_auto] md:items-end"
+            className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.8fr_auto] md:items-end"
             onSubmit={async (event) => {
               event.preventDefault();
               try {
                 setProvLoading(true);
                 const result = await registerProvisional({
-                  data: { email: provEmail, planCode: provPlan },
+                  data: {
+                    email: provEmail,
+                    planCode: provPlan,
+                    deviceLimit: Number(provDevices) || 1,
+                  },
                 });
                 toast.success(`Senha provisória ${result.provisionalPassword} enviada para ${result.email}.`);
                 setProvEmail("");
@@ -314,6 +318,17 @@ function AdminPage() {
                 <option value="vitalicia">Vitalícia (master, nunca expira)</option>
               </select>
 
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prov-devices">Dispositivos</Label>
+              <Input
+                id="prov-devices"
+                type="number"
+                min={1}
+                max={20}
+                value={provDevices}
+                onChange={(e) => setProvDevices(e.target.value)}
+              />
             </div>
             <Button type="submit" disabled={provLoading}>
               {provLoading ? "Enviando..." : "Enviar senha provisória"}
