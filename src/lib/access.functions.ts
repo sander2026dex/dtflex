@@ -44,11 +44,13 @@ const manualAccessSchema = z.object({
   email: z.string().trim().email().max(255),
   planCode: z.enum(["mensal", "anual", "vitalicia"]),
   durationDays: z.number().int().min(1).max(36500).optional(),
+  deviceLimit: z.number().int().min(1).max(20).optional(),
 });
 
 const provisionalAccessSchema = z.object({
   email: z.string().trim().email().max(255),
   planCode: z.enum(["mensal", "anual", "vitalicia"]),
+  deviceLimit: z.number().int().min(1).max(20).optional(),
 });
 
 
