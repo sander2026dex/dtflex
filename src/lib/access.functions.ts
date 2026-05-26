@@ -644,7 +644,7 @@ export const generateManualAccessCode = createServerFn({ method: "POST" })
       status: "active",
       expires_at: expiresAt,
       plan_code: data.planCode,
-      device_limit: 1,
+      device_limit: data.deviceLimit ?? 1,
     });
 
     if (error) {
