@@ -425,6 +425,7 @@ function AdminPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Expira</TableHead>
                   <TableHead>Disp.</TableHead>
+                  <TableHead>Online</TableHead>
                   <TableHead>Sessão</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
