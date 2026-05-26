@@ -748,3 +748,17 @@ export const registerProvisionalAccess = createServerFn({ method: "POST" })
     await logSecurity("provisional_access_generated", true);
     return { email, provisionalPassword, expiresAt, planCode: data.planCode };
   });
+
+export const pingAccessSession = createServerFn({ method: "POST" }).handler(async () => {
+  const session = await useSession<AccessSessionData>(getAccessSessionConfig());
+  const accessId = session.data?.accessId;
+  const sessionToken = session.data?.sessionToken;
+  if (!accessId || !sessionToken) return { ok: false };
+  const db = getDb();
+  await db
+    .from("user_access")
+    .update({ last_activity_at: new Date().toISOString() })
+    .eq("id", accessId)
+    .eq("active_session_token", sessionToken);
+  return { ok: true };
+});
