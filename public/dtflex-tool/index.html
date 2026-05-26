@@ -1,9 +1,39 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <title>DTFLEXPRO Halftone Engine</title>
+    <style>
+      @media print {
+        html, body { display: none !important; visibility: hidden !important; background: #000 !important; }
+      }
+      html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    </style>
+    <script>
+      // Proteção anti-print dentro do iframe da ferramenta
+      (function () {
+        document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+        document.addEventListener('keydown', function (e) {
+          var k = e.key;
+          if (k === 'PrintScreen') {
+            try { navigator.clipboard.writeText(''); } catch (_) {}
+            e.preventDefault();
+            alert('Captura de tela bloqueada nesta ferramenta.');
+            return;
+          }
+          if ((e.ctrlKey || e.metaKey) && (k === 'p' || k === 'P' || k === 's' || k === 'S')) {
+            e.preventDefault();
+            return;
+          }
+          if (k === 'F12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i','I','j','J','c','C'].indexOf(k) !== -1)) {
+            e.preventDefault();
+          }
+        }, true);
+        window.addEventListener('beforeprint', function () { document.body.style.visibility = 'hidden'; });
+        window.addEventListener('afterprint', function () { document.body.style.visibility = ''; });
+      })();
+    </script>
     <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
@@ -11,4 +41,3 @@
     <div id="root"></div>
   </body>
 </html>
-
