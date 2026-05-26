@@ -459,6 +459,23 @@ function AdminPage() {
                       />
                     </TableCell>
                     <TableCell>
+                      {(() => {
+                        const last = item.last_activity_at ? new Date(item.last_activity_at).getTime() : 0;
+                        const online = last > 0 && Date.now() - last < 90_000;
+                        return online ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            online
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+                            offline
+                          </span>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell>
                       {item.active_session_token ? (
                         <span className="text-xs text-amber-500">em uso</span>
                       ) : (
