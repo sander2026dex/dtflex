@@ -131,18 +131,25 @@ function AdminPage() {
 
   useEffect(() => {
     let active = true;
+    let interval: ReturnType<typeof setInterval> | null = null;
     (async () => {
       try {
         const session = await readSession();
         if (!active) return;
         setAuthenticated(Boolean(session.authenticated));
-        if (session.authenticated) await loadDashboard();
+        if (session.authenticated) {
+          await loadDashboard();
+          interval = setInterval(() => {
+            loadDashboard();
+          }, 30_000);
+        }
       } finally {
         if (active) setChecking(false);
       }
     })();
     return () => {
       active = false;
+      if (interval) clearInterval(interval);
     };
   }, []);
 
