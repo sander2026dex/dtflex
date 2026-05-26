@@ -106,8 +106,10 @@ function AdminPage() {
   const [manualEmail, setManualEmail] = useState("");
   const [manualPlan, setManualPlan] = useState<"mensal" | "anual" | "vitalicia">("mensal");
   const [manualDays, setManualDays] = useState<string>("");
+  const [manualDevices, setManualDevices] = useState<string>("1");
   const [provEmail, setProvEmail] = useState("");
   const [provPlan, setProvPlan] = useState<"mensal" | "anual" | "vitalicia">("mensal");
+  const [provDevices, setProvDevices] = useState<string>("1");
 
   const [provLoading, setProvLoading] = useState(false);
   const [checking, setChecking] = useState(true);
