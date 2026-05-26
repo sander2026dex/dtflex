@@ -338,7 +338,7 @@ function AdminPage() {
 
         <DataCard title="Liberar senha definitiva (conforme o plano)">
           <form
-            className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.8fr_auto] md:items-end"
+            className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.8fr_0.8fr_auto] md:items-end"
             onSubmit={async (event) => {
               event.preventDefault();
               try {
@@ -348,6 +348,7 @@ function AdminPage() {
                     email: manualEmail,
                     planCode: manualPlan,
                     durationDays: manualDays ? Number(manualDays) : undefined,
+                    deviceLimit: Number(manualDevices) || 1,
                   },
                 });
                 toast.success(`Código ${result.accessCode} enviado para ${result.email}.`);
@@ -394,6 +395,17 @@ function AdminPage() {
                 placeholder="Auto"
                 value={manualDays}
                 onChange={(event) => setManualDays(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-devices">Dispositivos</Label>
+              <Input
+                id="manual-devices"
+                type="number"
+                min={1}
+                max={20}
+                value={manualDevices}
+                onChange={(event) => setManualDevices(event.target.value)}
               />
             </div>
             <Button type="submit" disabled={manualLoading}>
