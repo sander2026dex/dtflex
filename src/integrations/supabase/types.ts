@@ -425,6 +425,7 @@ export type Database = {
           email: string
           expires_at: string
           id: string
+          last_activity_at: string | null
           plan_code: string | null
           status: string
         }
@@ -437,6 +438,7 @@ export type Database = {
           email: string
           expires_at: string
           id?: string
+          last_activity_at?: string | null
           plan_code?: string | null
           status?: string
         }
@@ -449,6 +451,7 @@ export type Database = {
           email?: string
           expires_at?: string
           id?: string
+          last_activity_at?: string | null
           plan_code?: string | null
           status?: string
         }

@@ -44,11 +44,13 @@ const manualAccessSchema = z.object({
   email: z.string().trim().email().max(255),
   planCode: z.enum(["mensal", "anual", "vitalicia"]),
   durationDays: z.number().int().min(1).max(36500).optional(),
+  deviceLimit: z.number().int().min(1).max(20).optional(),
 });
 
 const provisionalAccessSchema = z.object({
   email: z.string().trim().email().max(255),
   planCode: z.enum(["mensal", "anual", "vitalicia"]),
+  deviceLimit: z.number().int().min(1).max(20).optional(),
 });
 
 
@@ -494,7 +496,7 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
     db
       .from("user_access")
       .select(
-        "id, email, access_code, status, expires_at, created_at, plan_code, device_limit, active_session_token, active_session_started_at",
+        "id, email, access_code, status, expires_at, created_at, plan_code, device_limit, active_session_token, active_session_started_at, last_activity_at",
       )
       .order("created_at", { ascending: false })
       .limit(200),
@@ -642,7 +644,7 @@ export const generateManualAccessCode = createServerFn({ method: "POST" })
       status: "active",
       expires_at: expiresAt,
       plan_code: data.planCode,
-      device_limit: 1,
+      device_limit: data.deviceLimit ?? 1,
     });
 
     if (error) {
@@ -726,7 +728,7 @@ export const registerProvisionalAccess = createServerFn({ method: "POST" })
       status: "pending",
       expires_at: expiresAt,
       plan_code: data.planCode,
-      device_limit: 1,
+      device_limit: data.deviceLimit ?? 1,
     });
 
     if (error) {
@@ -746,3 +748,17 @@ export const registerProvisionalAccess = createServerFn({ method: "POST" })
     await logSecurity("provisional_access_generated", true);
     return { email, provisionalPassword, expiresAt, planCode: data.planCode };
   });
+
+export const pingAccessSession = createServerFn({ method: "POST" }).handler(async () => {
+  const session = await useSession<AccessSessionData>(getAccessSessionConfig());
+  const accessId = session.data?.accessId;
+  const sessionToken = session.data?.sessionToken;
+  if (!accessId || !sessionToken) return { ok: false };
+  const db = getDb();
+  await db
+    .from("user_access")
+    .update({ last_activity_at: new Date().toISOString() })
+    .eq("id", accessId)
+    .eq("active_session_token", sessionToken);
+  return { ok: true };
+});

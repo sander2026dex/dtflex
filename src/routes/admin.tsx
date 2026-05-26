@@ -39,6 +39,7 @@ interface DashboardPayload {
     device_limit: number | null;
     active_session_token: string | null;
     active_session_started_at: string | null;
+    last_activity_at: string | null;
   }>;
   payments: Array<{
     id: string;
@@ -105,8 +106,10 @@ function AdminPage() {
   const [manualEmail, setManualEmail] = useState("");
   const [manualPlan, setManualPlan] = useState<"mensal" | "anual" | "vitalicia">("mensal");
   const [manualDays, setManualDays] = useState<string>("");
+  const [manualDevices, setManualDevices] = useState<string>("1");
   const [provEmail, setProvEmail] = useState("");
   const [provPlan, setProvPlan] = useState<"mensal" | "anual" | "vitalicia">("mensal");
+  const [provDevices, setProvDevices] = useState<string>("1");
 
   const [provLoading, setProvLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -128,18 +131,25 @@ function AdminPage() {
 
   useEffect(() => {
     let active = true;
+    let interval: ReturnType<typeof setInterval> | null = null;
     (async () => {
       try {
         const session = await readSession();
         if (!active) return;
         setAuthenticated(Boolean(session.authenticated));
-        if (session.authenticated) await loadDashboard();
+        if (session.authenticated) {
+          await loadDashboard();
+          interval = setInterval(() => {
+            loadDashboard();
+          }, 30_000);
+        }
       } finally {
         if (active) setChecking(false);
       }
     })();
     return () => {
       active = false;
+      if (interval) clearInterval(interval);
     };
   }, []);
 
@@ -270,13 +280,17 @@ function AdminPage() {
             Use ao receber o comprovante do InfinitePay no WhatsApp. O cliente recebe um e-mail de boas-vindas com uma senha provisória (válida por 7 dias e ligada a 1 dispositivo). Depois que ele acessar, libere a senha definitiva no formulário abaixo.
           </p>
           <form
-            className="grid gap-3 md:grid-cols-[1.4fr_1fr_auto] md:items-end"
+            className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.8fr_auto] md:items-end"
             onSubmit={async (event) => {
               event.preventDefault();
               try {
                 setProvLoading(true);
                 const result = await registerProvisional({
-                  data: { email: provEmail, planCode: provPlan },
+                  data: {
+                    email: provEmail,
+                    planCode: provPlan,
+                    deviceLimit: Number(provDevices) || 1,
+                  },
                 });
                 toast.success(`Senha provisória ${result.provisionalPassword} enviada para ${result.email}.`);
                 setProvEmail("");
@@ -312,6 +326,17 @@ function AdminPage() {
               </select>
 
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="prov-devices">Dispositivos</Label>
+              <Input
+                id="prov-devices"
+                type="number"
+                min={1}
+                max={20}
+                value={provDevices}
+                onChange={(e) => setProvDevices(e.target.value)}
+              />
+            </div>
             <Button type="submit" disabled={provLoading}>
               {provLoading ? "Enviando..." : "Enviar senha provisória"}
             </Button>
@@ -320,7 +345,7 @@ function AdminPage() {
 
         <DataCard title="Liberar senha definitiva (conforme o plano)">
           <form
-            className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.8fr_auto] md:items-end"
+            className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.8fr_0.8fr_auto] md:items-end"
             onSubmit={async (event) => {
               event.preventDefault();
               try {
@@ -330,6 +355,7 @@ function AdminPage() {
                     email: manualEmail,
                     planCode: manualPlan,
                     durationDays: manualDays ? Number(manualDays) : undefined,
+                    deviceLimit: Number(manualDevices) || 1,
                   },
                 });
                 toast.success(`Código ${result.accessCode} enviado para ${result.email}.`);
@@ -378,6 +404,17 @@ function AdminPage() {
                 onChange={(event) => setManualDays(event.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-devices">Dispositivos</Label>
+              <Input
+                id="manual-devices"
+                type="number"
+                min={1}
+                max={20}
+                value={manualDevices}
+                onChange={(event) => setManualDevices(event.target.value)}
+              />
+            </div>
             <Button type="submit" disabled={manualLoading}>
               {manualLoading ? "Gerando..." : "Gerar e enviar"}
             </Button>
@@ -395,6 +432,7 @@ function AdminPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Expira</TableHead>
                   <TableHead>Disp.</TableHead>
+                  <TableHead>Online</TableHead>
                   <TableHead>Sessão</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -426,6 +464,23 @@ function AdminPage() {
                           }
                         }}
                       />
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const last = item.last_activity_at ? new Date(item.last_activity_at).getTime() : 0;
+                        const online = last > 0 && Date.now() - last < 90_000;
+                        return online ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            online
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+                            offline
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {item.active_session_token ? (
