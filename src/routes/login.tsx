@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { Eye, EyeOff, ShieldAlert } from "lucide-react";
 import { validateAccessCode } from "@/lib/access.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -28,9 +29,12 @@ function LoginPage() {
   const [email, setEmail] = useState(search.email);
   const [code, setCode] = useState(search.code);
   const [loading, setLoading] = useState(false);
+  const [showCode, setShowCode] = useState(false);
+  const [conflict, setConflict] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setConflict(null);
     const trimmedEmail = email.trim();
     const trimmedCode = code.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
@@ -47,7 +51,13 @@ function LoginPage() {
         data: { email: trimmedEmail, code: trimmedCode },
       });
       if (!result.ok) {
-        toast.error(result.error);
+        // Mostra alerta inline quando é conflito de dispositivo
+        if (result.error && /dispositivo/i.test(result.error)) {
+          setConflict(result.error);
+          toast.error(result.error, { duration: 10000 });
+        } else {
+          toast.error(result.error);
+        }
         return;
       }
       window.location.href = result.redirectTo;
@@ -70,20 +80,62 @@ function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {conflict && (
+          <div className="mb-4 flex gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-semibold">Acesso já em uso em outro dispositivo</p>
+              <p className="mt-1 text-red-200/80">{conflict}</p>
+            </div>
+          </div>
+        )}
+
+        <form
+          onSubmit={handleSubmit}
+          method="post"
+          action="/login"
+          className="space-y-4"
+          autoComplete="on"
+        >
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              autoComplete="username"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="code">Código de Acesso</Label>
-            <Input
-              id="code"
-              value={code}
-              onChange={(event) => setCode(event.target.value.toUpperCase())}
-              required
-              autoComplete="one-time-code"
-            />
+            <div className="relative">
+              <Input
+                id="code"
+                name="password"
+                type={showCode ? "text" : "password"}
+                value={code}
+                onChange={(event) => setCode(event.target.value.toUpperCase())}
+                required
+                autoComplete="current-password"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCode((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showCode ? "Ocultar código" : "Mostrar código"}
+                tabIndex={-1}
+              >
+                {showCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              💾 Seu navegador pode salvar o código com segurança. Você permanecerá conectado
+              mesmo após reiniciar o computador.
+            </p>
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Validando..." : "Entrar na plataforma"}
