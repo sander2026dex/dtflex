@@ -185,3 +185,13 @@
   }
 }
 
+
+@keyframes shark-drag {
+  0%   { transform: translate(0, -50%) rotate(-4deg); }
+  50%  { transform: translate(-18px, -52%) rotate(-9deg); }
+  100% { transform: translate(0, -50%) rotate(-4deg); }
+}
+.animate-shark-drag {
+  animation: shark-drag 4.5s ease-in-out infinite;
+  transform-origin: center;
+}
