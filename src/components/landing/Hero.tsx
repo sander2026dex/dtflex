@@ -100,10 +100,8 @@ export function Hero() {
               </div>
             </article>
           </div>
-
-            </article>
-          </div>
         </div>
+
 
       </div>
     </section>
