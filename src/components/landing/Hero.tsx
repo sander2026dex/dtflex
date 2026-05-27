@@ -86,13 +86,6 @@ export function Hero() {
         </div>
 
         <div className="relative animate-enter">
-          <div className="absolute inset-0 -z-10 bg-[var(--gradient-hero)] blur-3xl" />
-          <img
-            src={heroImage}
-            alt="Mascote tubarão DTFlex"
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-12 sm:-left-20 top-1/2 -translate-y-1/2 h-36 sm:h-52 md:h-64 w-auto object-contain drop-shadow-2xl animate-shark-drag z-20"
-          />
           <div className="rounded-lg border border-primary/50 bg-card/70 p-4 shadow-[var(--shadow-panel)] backdrop-blur-xl">
             <article className="rounded-md border border-border/70 bg-background/80 p-3">
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -103,11 +96,12 @@ export function Hero() {
                 <span className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">Vídeo real</span>
               </div>
               <div className="aspect-[4/5] overflow-hidden rounded-md border border-border/60 bg-card">
-                <video src={heroVideo} autoPlay loop muted playsInline className="h-full w-full object-cover object-center" />
+                <video src={heroVideo} autoPlay loop playsInline controls className="h-full w-full object-cover object-center" />
               </div>
             </article>
           </div>
         </div>
+
 
       </div>
     </section>
