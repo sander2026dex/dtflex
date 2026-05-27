@@ -114,29 +114,3 @@ export function Hero() {
   );
 }
 
-function ShowcaseCard({
-  title,
-  subtitle,
-  src,
-  alt,
-}: {
-  title: string;
-  subtitle: string;
-  src: string;
-  alt: string;
-}) {
-  return (
-    <article className="rounded-md border border-border/70 bg-background/80 p-3">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{title}</p>
-          <p className="text-sm text-foreground">{subtitle}</p>
-        </div>
-        <span className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">Exemplo real</span>
-      </div>
-      <div className="aspect-[4/5] overflow-hidden rounded-md border border-border/60 bg-card">
-        <img src={src} alt={alt} className="h-full w-full object-cover object-center" loading="eager" />
-      </div>
-    </article>
-  );
-}
