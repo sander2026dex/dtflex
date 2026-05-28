@@ -96,7 +96,15 @@ export function Hero() {
                 <span className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">Vídeo real</span>
               </div>
               <div className="aspect-[4/5] overflow-hidden rounded-md border border-border/60 bg-card">
-                <video src={heroVideo} autoPlay loop playsInline controls className="h-full w-full object-cover object-center" />
+                <video
+                  src={heroVideo}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="auto"
+                  className="h-full w-full object-cover object-center"
+                />
               </div>
             </article>
           </div>

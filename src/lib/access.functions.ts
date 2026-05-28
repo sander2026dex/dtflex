@@ -725,7 +725,7 @@ export const registerProvisionalAccess = createServerFn({ method: "POST" })
     const { error } = await db.from("user_access").insert({
       email,
       access_code: provisionalPassword,
-      status: "pending",
+      status: "active",
       expires_at: expiresAt,
       plan_code: data.planCode,
       device_limit: data.deviceLimit ?? 1,
