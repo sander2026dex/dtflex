@@ -100,10 +100,31 @@ export function Hero() {
                   src={heroVideo}
                   autoPlay
                   loop
-                  muted
+                  controls
                   playsInline
                   preload="auto"
                   className="h-full w-full object-cover object-center"
+                  ref={(el) => {
+                    if (!el) return;
+                    el.muted = false;
+                    el.volume = 1;
+                    const tryPlay = () => el.play().catch(() => {});
+                    tryPlay();
+                    const unmuteOnInteract = () => {
+                      el.muted = false;
+                      tryPlay();
+                      window.removeEventListener("click", unmuteOnInteract);
+                      window.removeEventListener("touchstart", unmuteOnInteract);
+                      window.removeEventListener("scroll", unmuteOnInteract);
+                    };
+                    el.play().catch(() => {
+                      el.muted = true;
+                      tryPlay();
+                      window.addEventListener("click", unmuteOnInteract, { once: true });
+                      window.addEventListener("touchstart", unmuteOnInteract, { once: true });
+                      window.addEventListener("scroll", unmuteOnInteract, { once: true });
+                    });
+                  }}
                 />
               </div>
             </article>
