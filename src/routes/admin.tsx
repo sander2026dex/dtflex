@@ -680,6 +680,8 @@ function buildClientMessage(item: {
     "👉 Entre direto pelo link (já vem com seu código preenchido):",
     loginUrl,
     "",
+    "💡 *Você não precisa clicar sempre no link.* Basta abrir o site *dtflexpro.com* e entrar na *Área do Cliente* — seu acesso fica salvo neste navegador.",
+    "",
     "⚠️ Importante: o acesso é vinculado a *1 dispositivo*. Se precisar trocar, fale com a gente por aqui.",
     "",
     "Equipe DTFlexPRO 💛",

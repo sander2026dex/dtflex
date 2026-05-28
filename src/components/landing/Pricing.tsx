@@ -89,14 +89,14 @@ export function Pricing() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
                 size="lg"
-                className="w-full sm:w-auto bg-[oklch(0.58_0.25_27)] text-white hover:bg-[oklch(0.52_0.25_27)] shadow-[0_0_24px_oklch(0.58_0.25_27/0.45)]"
+                className="w-full sm:w-auto bg-[oklch(0.86_0.18_92)] text-black hover:bg-[oklch(0.80_0.18_92)] shadow-[0_0_24px_oklch(0.86_0.18_92/0.45)]"
                 onClick={handleCheckout}
               >
                 Pagar com InfinitePay ({selectedPlan.price})
               </Button>
               <Button
                 size="lg"
-                className="w-full sm:w-auto bg-[oklch(0.58_0.25_27)] text-white hover:bg-[oklch(0.52_0.25_27)]"
+                className="w-full sm:w-auto bg-[oklch(0.62_0.19_150)] text-white hover:bg-[oklch(0.56_0.19_150)] shadow-[0_0_24px_oklch(0.62_0.19_150/0.45)]"
                 onClick={handleSendReceipt}
               >
                 <MessageCircle className="h-4 w-4" />
