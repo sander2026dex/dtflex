@@ -123,18 +123,42 @@ function AppPage() {
     };
   }, []);
 
+  const exp = expiry ? formatExpiry(expiry.expiresAt) : null;
+  const toneBg =
+    exp?.tone === "danger"
+      ? "bg-red-600/95 text-white"
+      : exp?.tone === "warn"
+        ? "bg-amber-500/95 text-black"
+        : "bg-emerald-600/95 text-white";
+
   return (
-    <iframe
-      src="/dtflex-tool/index.html"
-      title="DTFLEXPRO Halftone Engine"
-      style={{
-        position: "fixed",
-        inset: 0,
-        width: "100vw",
-        height: "100vh",
-        border: "none",
-        background: "#0a0c10",
-      }}
-    />
+    <>
+      {exp && (
+        <div
+          className={`fixed left-0 right-0 top-0 z-50 flex items-center justify-center gap-3 px-4 py-1.5 text-xs font-medium shadow ${toneBg}`}
+        >
+          <span className="truncate">
+            {expiry?.email ? `${expiry.email} · ` : ""}
+            {exp.label}
+          </span>
+        </div>
+      )}
+      <iframe
+        src="/dtflex-tool/index.html"
+        title="DTFLEXPRO Halftone Engine"
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          top: exp ? 28 : 0,
+          width: "100vw",
+          height: exp ? "calc(100vh - 28px)" : "100vh",
+          border: "none",
+          background: "#0a0c10",
+        }}
+      />
+    </>
   );
 }
+
