@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { getAccessSession, pingAccessSession } from "@/lib/access.functions";
@@ -32,8 +32,23 @@ export const Route = createFileRoute("/app")({
   component: AppPage,
 });
 
+function formatExpiry(iso: string | null): { label: string; tone: "ok" | "warn" | "danger" } {
+  if (!iso) return { label: "Acesso vitalício", tone: "ok" };
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return { label: "Acesso expirado", tone: "danger" };
+  const days = Math.floor(ms / 86_400_000);
+  // Vitalício = expira muito longe (>10 anos)
+  if (days > 3650) return { label: "Acesso vitalício", tone: "ok" };
+  const date = new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const tone: "ok" | "warn" | "danger" = days <= 3 ? "danger" : days <= 7 ? "warn" : "ok";
+  const restante = days === 0 ? "expira hoje" : days === 1 ? "1 dia restante" : `${days} dias restantes`;
+  return { label: `Expira em ${date} · ${restante}`, tone };
+}
+
 function AppPage() {
   const ping = useServerFn(pingAccessSession);
+  const readSession = useServerFn(getAccessSession);
+  const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
 
   // Heartbeat — marca o usuário como online no painel admin
   useEffect(() => {
@@ -43,6 +58,14 @@ function AppPage() {
     }, 30_000);
     return () => clearInterval(id);
   }, [ping]);
+
+  // Buscar dados da sessão (e-mail + expiração) para mostrar no topo
+  useEffect(() => {
+    readSession()
+      .then((s) => setExpiry({ email: s.email ?? null, expiresAt: s.expiresAt ?? null }))
+      .catch(() => {});
+  }, [readSession]);
+
 
   // Proteção anti-print: bloqueia PrintScreen, contexto, atalhos de captura
   // e esconde a tela quando o usuário tenta imprimir.
