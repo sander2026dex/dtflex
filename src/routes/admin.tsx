@@ -332,10 +332,12 @@ function AdminPage() {
                 id="prov-devices"
                 type="number"
                 min={1}
-                max={20}
+                max={1000}
                 value={provDevices}
                 onChange={(e) => setProvDevices(e.target.value)}
               />
+
+
             </div>
             <Button type="submit" disabled={provLoading}>
               {provLoading ? "Enviando..." : "Enviar senha provisória"}
@@ -410,10 +412,11 @@ function AdminPage() {
                 id="manual-devices"
                 type="number"
                 min={1}
-                max={20}
+                max={1000}
                 value={manualDevices}
                 onChange={(event) => setManualDevices(event.target.value)}
               />
+
             </div>
             <Button type="submit" disabled={manualLoading}>
               {manualLoading ? "Gerando..." : "Gerar e enviar"}
@@ -449,9 +452,10 @@ function AdminPage() {
                       <Input
                         type="number"
                         min={1}
-                        max={20}
+                        max={1000}
                         defaultValue={item.device_limit ?? 1}
-                        className="h-8 w-16"
+                        className="h-8 w-20"
+
                         onBlur={async (e) => {
                           const v = Number(e.target.value);
                           if (!v || v === (item.device_limit ?? 1)) return;
