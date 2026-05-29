@@ -330,14 +330,13 @@ function AdminPage() {
               <Label htmlFor="prov-devices">Dispositivos</Label>
               <Input
                 id="prov-devices"
-              <Input
-                id="prov-devices"
                 type="number"
                 min={1}
                 max={1000}
                 value={provDevices}
                 onChange={(e) => setProvDevices(e.target.value)}
               />
+
 
             </div>
             <Button type="submit" disabled={provLoading}>
