@@ -143,6 +143,19 @@ function AppPage() {
           </span>
         </div>
       )}
+      {/* Aviso sobre preto absoluto */}
+      <div
+        className="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-semibold shadow"
+        style={{
+          top: exp ? 28 : 0,
+          background: "#facc15",
+          color: "#0f0f0f",
+        }}
+      >
+        <span className="truncate">
+          Camisas pretas: o preto precisa ser preto absoluto (RGB 0,0,0) — remova a cor de fundo para não ter sujeira na estampa.
+        </span>
+      </div>
       <iframe
         src="/dtflex-tool/index.html"
         title="DTFLEXPRO Halftone Engine"
@@ -151,9 +164,9 @@ function AppPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          top: exp ? 28 : 0,
+          top: exp ? 56 : 28,
           width: "100vw",
-          height: exp ? "calc(100vh - 28px)" : "100vh",
+          height: exp ? "calc(100vh - 56px)" : "calc(100vh - 28px)",
           border: "none",
           background: "#0a0c10",
         }}
