@@ -418,8 +418,10 @@ export type Database = {
       user_access: {
         Row: {
           access_code: string
+          active_session_ip: string | null
           active_session_started_at: string | null
           active_session_token: string | null
+          active_session_user_agent: string | null
           created_at: string
           device_limit: number
           email: string
@@ -431,8 +433,10 @@ export type Database = {
         }
         Insert: {
           access_code: string
+          active_session_ip?: string | null
           active_session_started_at?: string | null
           active_session_token?: string | null
+          active_session_user_agent?: string | null
           created_at?: string
           device_limit?: number
           email: string
@@ -444,8 +448,10 @@ export type Database = {
         }
         Update: {
           access_code?: string
+          active_session_ip?: string | null
           active_session_started_at?: string | null
           active_session_token?: string | null
+          active_session_user_agent?: string | null
           created_at?: string
           device_limit?: number
           email?: string
