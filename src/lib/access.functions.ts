@@ -370,7 +370,7 @@ export const validateAccessCode = createServerFn({ method: "POST" })
 
     const { data: accessRow } = await db
       .from("user_access")
-      .select("id, email, access_code, expires_at, status, device_limit, active_session_token, active_session_started_at")
+      .select("id, email, access_code, expires_at, status, device_limit, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent")
       .eq("email", email)
       .eq("access_code", code)
       .in("status", ["active", "pending"])
@@ -385,17 +385,23 @@ export const validateAccessCode = createServerFn({ method: "POST" })
     }
 
     // Controle de sessão única por dispositivo
+    // Regra: abrir várias abas / re-logar no MESMO navegador (mesmo IP) NÃO é outro dispositivo.
+    // Só bloqueia quando o IP de origem é diferente do IP da sessão ativa.
+    const currentIp = getRequestIP({ xForwardedFor: true }) ?? "unknown";
+    const currentUa = getRequestHeader("user-agent") ?? "unknown";
     const deviceLimit = accessRow.device_limit ?? 1;
     if (deviceLimit <= 1 && accessRow.active_session_token) {
-      // Se a sessão ativa tem menos de 30 dias, bloqueia
       const startedAt = accessRow.active_session_started_at
         ? new Date(accessRow.active_session_started_at).getTime()
         : 0;
       const sessionMaxAgeMs = 30 * 24 * 60 * 60 * 1000;
-      if (Date.now() - startedAt < sessionMaxAgeMs) {
+      const sessionStillFresh = Date.now() - startedAt < sessionMaxAgeMs;
+      const sameIp = accessRow.active_session_ip && accessRow.active_session_ip === currentIp;
+      // Só bloqueia se a sessão é recente E o IP é diferente do registrado.
+      // Sem IP registrado (sessões antigas) ou mesmo IP → libera (várias abas / re-login no mesmo navegador).
+      if (sessionStillFresh && accessRow.active_session_ip && !sameIp) {
         await logSecurity("access_device_conflict", false);
         await logDeviceConflict(email, accessRow.id);
-        // notifica o dono da conta (best-effort, não bloqueia o erro)
         notifyOwnerOfConflict(email).catch(() => {});
         return { ok: false, error: deviceConflictError };
       }
@@ -407,6 +413,8 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       .update({
         active_session_token: sessionToken,
         active_session_started_at: new Date().toISOString(),
+        active_session_ip: currentIp,
+        active_session_user_agent: currentUa,
       })
       .eq("id", accessRow.id);
 
