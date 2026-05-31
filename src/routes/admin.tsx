@@ -512,19 +512,20 @@ function AdminPage() {
                         </Button>
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="destructive"
+                          className="font-semibold"
                           disabled={!item.active_session_token}
                           onClick={async () => {
                             try {
                               await resetSession({ data: { accessId: item.id } });
-                              toast.success("Sessão liberada.");
+                              toast.success("Sessão liberada — cliente pode entrar em outro computador.");
                               await loadDashboard();
                             } catch {
                               toast.error("Falha ao liberar sessão.");
                             }
                           }}
                         >
-                          Liberar sessão
+                          Liberar p/ outro computador
                         </Button>
 
                         <Button
