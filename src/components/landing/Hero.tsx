@@ -1,10 +1,9 @@
-import { ArrowDown, ArrowUpRight, CheckCircle2, Trophy, Zap, Cpu, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUpRight, CheckCircle2, Trophy, Zap, Cpu } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import heroImage from "@/assets/shark-hero.jpg";
 import heroVideo from "@/assets/hero-video.mp4";
 import { Button } from "@/components/ui/button";
-import { BackgroundRemoverDialog } from "@/components/landing/BackgroundRemoverDialog";
 
 const heroBullets = [
   "Tempo de processamento: apenas 288 ms por arte",
@@ -55,14 +54,6 @@ export function Hero() {
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
             </Button>
-            <BackgroundRemoverDialog
-              trigger={
-                <Button size="lg" variant="secondary" className="font-semibold">
-                  <Sparkles className="h-4 w-4" />
-                  Preparar Imagem de Graça
-                </Button>
-              }
-            />
           </div>
 
           {/* Quick stats — World Cup scoreboard style */}
