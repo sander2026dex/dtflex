@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { Sparkles } from "lucide-react";
 import { getAccessSession, pingAccessSession } from "@/lib/access.functions";
+import { BackgroundRemoverDialog } from "@/components/BackgroundRemoverDialog";
+import { Button } from "@/components/ui/button";
 
 function AppError() {
   return (
@@ -170,6 +173,18 @@ function AppPage() {
           border: "none",
           background: "#0a0c10",
         }}
+      />
+      {/* Botão flutuante: Preparar Arte para Halftone (camisa preta) */}
+      <BackgroundRemoverDialog
+        trigger={
+          <Button
+            size="sm"
+            className="fixed bottom-4 right-4 z-50 shadow-[var(--shadow-glow)] font-semibold"
+          >
+            <Sparkles className="h-4 w-4" />
+            Preparar Arte (Camisa Preta)
+          </Button>
+        }
       />
     </>
   );
