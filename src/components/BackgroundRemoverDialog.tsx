@@ -140,9 +140,8 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
       tryPush(sx, sy, data[si], data[si + 1], data[si + 2]);
     }
     while (stack.length) {
-      const packed = stack.pop()!;
+      const idx = stack.pop()!;
       const sr = seedR.pop()!; const sg = seedG.pop()!; const sb = seedB.pop()!;
-      const idx = packed & 0x00ffffff;
       const x = idx % w, y = (idx / w) | 0;
       tryPush(x + 1, y, sr, sg, sb);
       tryPush(x - 1, y, sr, sg, sb);
