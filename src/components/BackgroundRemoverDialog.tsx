@@ -129,7 +129,7 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
       const dr = data[i] - sr, dg = data[i + 1] - sg, db = data[i + 2] - sb;
       if (dr * dr + dg * dg + db * db <= tolSq) {
         visited[idx] = 1;
-        stack.push(idx | ((sr & 0xff) << 24)); // empacotar não vale a pena — usa array paralelo
+        stack.push(idx);
         seedR.push(sr); seedG.push(sg); seedB.push(sb);
       }
     };
