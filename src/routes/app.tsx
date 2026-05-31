@@ -174,15 +174,14 @@ function AppPage() {
           background: "#0a0c10",
         }}
       />
-      {/* Botão flutuante: Preparar Arte para Halftone (camisa preta) */}
+      {/* Botão flutuante: Preparar Arte para Halftone */}
       <BackgroundRemoverDialog
         trigger={
           <Button
-            size="sm"
-            className="fixed bottom-4 right-4 z-50 shadow-[var(--shadow-glow)] font-semibold"
+            className="fixed bottom-4 right-4 z-50 h-11 px-5 text-sm shadow-[var(--shadow-glow)] font-semibold"
           >
-            <Sparkles className="h-4 w-4" />
-            Preparar Arte (Camisa Preta)
+            <Sparkles className="h-5 w-5" />
+            Preparar Arte para Halftone
           </Button>
         }
       />
