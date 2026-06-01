@@ -231,28 +231,27 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
                 </Button>
               </div>
 
-              <TabsContent value="remove" className="m-0 space-y-4 rounded-lg border border-border bg-card/40 p-4">
-                <p className="text-sm font-semibold">Remoção inteligente</p>
+              <TabsContent value="remove" className="m-0 space-y-3 rounded-lg border border-border bg-card/40 p-4">
+                <p className="text-sm font-semibold">Remoção com IA (profissional)</p>
                 <p className="text-[11px] text-muted-foreground">
-                  Recorta apenas o fundo conectado às bordas — preserva detalhes dentro de letras e furos da arte.
+                  Modelo treinado preserva cabelos, fios soltos, dedos, óculos, alças, transparências e bordas em subpixel.
+                  Nenhum halo, sem suavização excessiva, sem alteração de cor.
                 </p>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span>Tolerância</span>
-                    <span className="text-muted-foreground">{tolerance}</span>
+                <ul className="ml-4 list-disc space-y-0.5 text-[11px] text-muted-foreground">
+                  <li>Recorte manual por designer — qualidade equivalente</li>
+                  <li>Funciona 100% no navegador (privacidade total)</li>
+                  <li>Primeira execução baixa o modelo (~40MB)</li>
+                </ul>
+                {processing && progress > 0 && (
+                  <div className="space-y-1">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Processando... {progress}%</p>
                   </div>
-                  <Slider value={[tolerance]} min={5} max={120} step={1} onValueChange={(v) => setTolerance(v[0])} />
-                </div>
-                <label className="flex items-start gap-2 text-xs">
-                  <Checkbox checked={cleanEdges} onCheckedChange={(v) => setCleanEdges(Boolean(v))} className="mt-0.5" />
-                  <span>
-                    <span className="font-semibold">Limpar rebarbas das bordas</span>
-                    <span className="block text-muted-foreground">
-                      Remove anti-aliasing e pixels semi-transparentes — sem sujeira no halftone.
-                    </span>
-                  </span>
-                </label>
+                )}
               </TabsContent>
+
 
               <TabsContent value="black" className="m-0 space-y-4 rounded-lg border border-border bg-card/40 p-4">
                 <p className="text-sm font-semibold">Fundo preto absoluto</p>
