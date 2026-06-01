@@ -16,9 +16,9 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("remove");
 
-  // Remoção de fundo
-  const [tolerance, setTolerance] = useState(32);
-  const [cleanEdges, setCleanEdges] = useState(true);
+  // Remoção de fundo (IA)
+  const [progress, setProgress] = useState(0);
+
 
   // Fundo preto absoluto
   const [blackThresh, setBlackThresh] = useState(22);
