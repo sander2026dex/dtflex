@@ -380,7 +380,7 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
 function renderPreview(
   originalUrl: string | null,
   resultUrl: string | null,
-  imgRef: React.RefObject<HTMLImageElement>,
+  imgRef: React.RefObject<HTMLImageElement | null>,
   blackBg: boolean,
 ) {
   if (!originalUrl) {
