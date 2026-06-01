@@ -99,90 +99,29 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     }
   };
 
-  // ============ 1) REMOVER FUNDO (inteligente, contorna letras) ============
+  // ============ 1) REMOVER FUNDO (IA — preserva cabelo, dedos, transparências) ============
   const removeBackground = useCallback(async () => {
-    const ref = getCanvasFromImg();
-    if (!ref) return;
+    if (!originalUrl) return;
     setProcessing(true);
-    await new Promise((r) => setTimeout(r, 20));
-    const { canvas, ctx, w, h } = ref;
-    const imgData = ctx.getImageData(0, 0, w, h);
-    const data = imgData.data;
-
-    // Múltiplas amostras de borda — captura fundos não uniformes (gradiente leve)
-    const sampleSeeds: Array<[number, number]> = [];
-    const step = Math.max(4, Math.floor(Math.min(w, h) / 40));
-    for (let x = 0; x < w; x += step) { sampleSeeds.push([x, 0]); sampleSeeds.push([x, h - 1]); }
-    for (let y = 0; y < h; y += step) { sampleSeeds.push([0, y]); sampleSeeds.push([w - 1, y]); }
-
-    const tolSq = tolerance * tolerance * 3;
-    const visited = new Uint8Array(w * h);
-    const stack: number[] = [];
-
-    // Cada seed vira referência local — flood fill considera distância à cor do PRÓPRIO seed.
-    // Isso recorta certinho ao redor de letras: pixels da letra (cor diferente) não são conectados ao fundo.
-    const tryPush = (x: number, y: number, sr: number, sg: number, sb: number) => {
-      if (x < 0 || y < 0 || x >= w || y >= h) return;
-      const idx = y * w + x;
-      if (visited[idx]) return;
-      const i = idx * 4;
-      const dr = data[i] - sr, dg = data[i + 1] - sg, db = data[i + 2] - sb;
-      if (dr * dr + dg * dg + db * db <= tolSq) {
-        visited[idx] = 1;
-        stack.push(idx);
-        seedR.push(sr); seedG.push(sg); seedB.push(sb);
-      }
-    };
-    const seedR: number[] = []; const seedG: number[] = []; const seedB: number[] = [];
-
-    for (const [sx, sy] of sampleSeeds) {
-      const si = (sy * w + sx) * 4;
-      tryPush(sx, sy, data[si], data[si + 1], data[si + 2]);
+    setProgress(0);
+    try {
+      const blob = await imglyRemoveBackground(originalUrl, {
+        output: { format: "image/png", quality: 1 },
+        progress: (_key, current, total) => {
+          setProgress(Math.round((current / total) * 100));
+        },
+      });
+      setResultBlob(blob);
+      setResultUrl(URL.createObjectURL(blob));
+      toast.success("Fundo removido com preservação total dos detalhes.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Falha ao remover fundo.");
+    } finally {
+      setProcessing(false);
     }
-    while (stack.length) {
-      const idx = stack.pop()!;
-      const sr = seedR.pop()!; const sg = seedG.pop()!; const sb = seedB.pop()!;
-      const x = idx % w, y = (idx / w) | 0;
-      tryPush(x + 1, y, sr, sg, sb);
-      tryPush(x - 1, y, sr, sg, sb);
-      tryPush(x, y + 1, sr, sg, sb);
-      tryPush(x, y - 1, sr, sg, sb);
-    }
+  }, [originalUrl]);
 
-    for (let idx = 0; idx < w * h; idx++) {
-      if (visited[idx]) data[idx * 4 + 3] = 0;
-    }
-
-    if (cleanEdges) {
-      // Erosão 1px só em pixels que ficaram semi-transparentes — mata rebarbas sem comer a arte
-      const alphaCopy = new Uint8Array(w * h);
-      for (let i = 0; i < w * h; i++) alphaCopy[i] = data[i * 4 + 3];
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const idx = y * w + x;
-          if (alphaCopy[idx] === 0) continue;
-          const up = y > 0 ? alphaCopy[idx - w] : 0;
-          const dn = y < h - 1 ? alphaCopy[idx + w] : 0;
-          const lf = x > 0 ? alphaCopy[idx - 1] : 0;
-          const rt = x < w - 1 ? alphaCopy[idx + 1] : 0;
-          if (up === 0 || dn === 0 || lf === 0 || rt === 0) {
-            const a = data[idx * 4 + 3];
-            if (a < 255) data[idx * 4 + 3] = 0;
-          }
-        }
-      }
-      // Anti-sujeira: zera qualquer semi-transparente residual
-      for (let i = 3; i < data.length; i += 4) {
-        const a = data[i];
-        if (a > 0 && a < 250) data[i] = 0;
-        else if (a >= 250) data[i] = 255;
-      }
-    }
-
-    ctx.putImageData(imgData, 0, 0);
-    await finalize(canvas);
-    setProcessing(false);
-  }, [tolerance, cleanEdges]);
 
   // ============ 2) FUNDO PRETO ABSOLUTO (camisa preta) ============
   const makeBlackBackground = useCallback(async () => {
