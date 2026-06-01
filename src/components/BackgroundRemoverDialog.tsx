@@ -3,10 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Upload, Wand2, Download, Sparkles, Copy, ClipboardPaste, Shirt } from "lucide-react";
 import { toast } from "sonner";
+import { removeBackground as imglyRemoveBackground } from "@imgly/background-removal";
 
 type Props = { trigger: React.ReactNode };
 
