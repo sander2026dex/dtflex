@@ -130,7 +130,7 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     try {
       const blob = await imglyRemoveBackground(originalUrl, {
         model: "isnet_quint8",
-        output: { format: "image/png", quality: 0.85, size: { limit: "1080x1080", mode: "crop" } },
+        output: { format: "image/png", quality: 0.85 },
         progress: (_k, c, t) => setProgress(Math.round((c / t) * 100)),
       });
       setResultBlob(blob);
