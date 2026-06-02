@@ -5,14 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Upload, Wand2, Download, Sparkles, Copy, ClipboardPaste, Shirt, Image as ImageIcon } from "lucide-react";
+import { Upload, Wand2, Download, Sparkles, Copy, ClipboardPaste, Shirt, Image as ImageIcon, Sparkle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { removeBackground as imglyRemoveBackground } from "@imgly/background-removal";
 import { useServerFn } from "@tanstack/react-start";
 import { generateShirtMockups } from "@/lib/mockups.functions";
+import { generateImageFromPrompt } from "@/lib/imagegen.functions";
 
 type Props = { trigger: React.ReactNode };
-type Mode = "remove" | "black" | "mockup";
+type Mode = "remove" | "black" | "mockup" | "ai";
 
 const SHIRT_COLORS = [
   "#000000", "#808080", "#1e3a8a", "#0f766e", "#dc2626",
