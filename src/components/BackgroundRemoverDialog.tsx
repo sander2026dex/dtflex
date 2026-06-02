@@ -116,6 +116,12 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
       setResultUrl(URL.createObjectURL(blob));
     }
   };
+  // Pré-carrega o modelo de IA quando o diálogo abre, deixando a 1ª execução quase instantânea.
+  useEffect(() => {
+    if (!open) return;
+    imglyPreload({ model: "isnet_quint8" }).catch(() => {});
+  }, [open]);
+
 
   const removeBackground = useCallback(async () => {
     if (!originalUrl) return;
