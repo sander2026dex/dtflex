@@ -37,10 +37,16 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
   const [shirtColor, setShirtColor] = useState("#000000");
   const [mockups, setMockups] = useState<{ frontal: string; modelo: string; dobrado: string } | null>(null);
 
+  // AI image gen state
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiImage, setAiImage] = useState<string | null>(null);
+  const [aiBlob, setAiBlob] = useState<Blob | null>(null);
+
   const imgRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const genMockups = useServerFn(generateShirtMockups);
+  const genAiImage = useServerFn(generateImageFromPrompt);
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith("image/")) {
