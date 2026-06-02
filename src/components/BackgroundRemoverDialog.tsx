@@ -5,14 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Upload, Wand2, Download, Sparkles, Copy, ClipboardPaste, Shirt, Image as ImageIcon } from "lucide-react";
+import { Upload, Wand2, Download, Sparkles, Copy, ClipboardPaste, Shirt, Image as ImageIcon, Sparkle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { removeBackground as imglyRemoveBackground } from "@imgly/background-removal";
+import { removeBackground as imglyRemoveBackground, preload as imglyPreload } from "@imgly/background-removal";
 import { useServerFn } from "@tanstack/react-start";
 import { generateShirtMockups } from "@/lib/mockups.functions";
+import { generateImageFromPrompt } from "@/lib/imagegen.functions";
 
 type Props = { trigger: React.ReactNode };
-type Mode = "remove" | "black" | "mockup";
+type Mode = "remove" | "black" | "mockup" | "ai";
 
 const SHIRT_COLORS = [
   "#000000", "#808080", "#1e3a8a", "#0f766e", "#dc2626",
@@ -35,10 +37,16 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
   const [shirtColor, setShirtColor] = useState("#000000");
   const [mockups, setMockups] = useState<{ frontal: string; modelo: string; dobrado: string } | null>(null);
 
+  // AI image gen state
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiImage, setAiImage] = useState<string | null>(null);
+  const [aiBlob, setAiBlob] = useState<Blob | null>(null);
+
   const imgRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const genMockups = useServerFn(generateShirtMockups);
+  const genAiImage = useServerFn(generateImageFromPrompt);
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -108,6 +116,12 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
       setResultUrl(URL.createObjectURL(blob));
     }
   };
+  // Pré-carrega o modelo de IA quando o diálogo abre, deixando a 1ª execução quase instantânea.
+  useEffect(() => {
+    if (!open) return;
+    imglyPreload({ model: "isnet_quint8" }).catch(() => {});
+  }, [open]);
+
 
   const removeBackground = useCallback(async () => {
     if (!originalUrl) return;
@@ -179,6 +193,47 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     }
   }, [originalFile, shirtColor, genMockups]);
 
+  const runAiImage = useCallback(async () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Descreva a imagem.");
+      return;
+    }
+    setProcessing(true);
+    setAiImage(null);
+    setAiBlob(null);
+    try {
+      const res = await genAiImage({ data: { prompt: aiPrompt.trim() } });
+      setAiImage(res.dataUrl);
+      // converte para blob para copiar
+      const blob = await (await fetch(res.dataUrl)).blob();
+      setAiBlob(blob);
+      toast.success("Imagem gerada!");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message ?? "Falha ao gerar imagem.");
+    } finally {
+      setProcessing(false);
+    }
+  }, [aiPrompt, genAiImage]);
+
+  const useAiAsInput = () => {
+    if (!aiBlob) return;
+    const file = new File([aiBlob], "ia-gerada.png", { type: "image/png" });
+    handleFile(file);
+    setMode("remove");
+    toast.success("Imagem carregada. Agora remova o fundo.");
+  };
+
+  const copyAi = async () => {
+    if (!aiBlob) return;
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": aiBlob })]);
+      toast.success("Copiado! Cole no halftone com Ctrl+V.");
+    } catch {
+      toast.error("Não foi possível copiar.");
+    }
+  };
+
   const save = () => {
     if (!resultUrl) return;
     const a = document.createElement("a");
@@ -213,7 +268,7 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); setResultUrl(null); setResultBlob(null); }}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="remove" className="gap-2">
               <Wand2 className="h-4 w-4" /> Remover Fundo
             </TabsTrigger>
@@ -222,6 +277,9 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
             </TabsTrigger>
             <TabsTrigger value="mockup" className="gap-2">
               <ImageIcon className="h-4 w-4" /> Gerar Mockup
+            </TabsTrigger>
+            <TabsTrigger value="ai" className="gap-2">
+              <Sparkle className="h-4 w-4" /> Gerar por IA
             </TabsTrigger>
           </TabsList>
 
@@ -368,6 +426,49 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
                     </Button>
                   </div>
                 ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* === GERAR POR IA === */}
+          <TabsContent value="ai" className="mt-4 space-y-4">
+            <div className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
+              <p className="text-sm font-semibold">Gerar imagem por prompt (ilimitado)</p>
+              <p className="text-[11px] text-muted-foreground">
+                Descreva a arte que quer criar. A IA gera uma imagem em ~5-10s. Depois você pode remover o fundo, aplicar fundo preto ou enviar direto para o halftone.
+              </p>
+              <Textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder='Ex: "caveira mexicana com flores, estilo tatuagem, traços pretos sólidos, fundo branco"'
+                rows={3}
+              />
+            </div>
+            <Button
+              onClick={runAiImage}
+              disabled={processing || !aiPrompt.trim()}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
+            >
+              <Sparkle className="h-4 w-4" />
+              {processing ? "Gerando imagem..." : "Gerar Imagem"}
+            </Button>
+
+            {aiImage && (
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-md border border-border bg-[conic-gradient(#e5e5e5_0_25%,#fff_0_50%,#e5e5e5_0_75%,#fff_0)] bg-[length:16px_16px]">
+                  <img src={aiImage} alt="IA" className="h-72 w-full object-contain" />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button onClick={() => downloadUrl(aiImage, "ia-gerada.png")} variant="outline">
+                    <Download className="h-4 w-4" /> Salvar
+                  </Button>
+                  <Button onClick={copyAi} variant="outline" disabled={!aiBlob}>
+                    <Copy className="h-4 w-4" /> Copiar p/ Halftone
+                  </Button>
+                  <Button onClick={useAiAsInput} variant="outline" disabled={!aiBlob}>
+                    <Wand2 className="h-4 w-4" /> Remover Fundo
+                  </Button>
+                </div>
               </div>
             )}
           </TabsContent>
