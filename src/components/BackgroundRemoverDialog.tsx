@@ -318,9 +318,9 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
           {/* === REMOVER FUNDO === */}
           <TabsContent value="remove" className="mt-4 space-y-4">
             <div className="rounded-lg border border-border bg-card/40 p-4 space-y-2">
-              <p className="text-sm font-semibold">Remoção rápida com IA (~3-5s)</p>
+              <p className="text-sm font-semibold text-red-600">Removedor de fundo básico</p>
               <p className="text-[11px] text-muted-foreground">
-                Modelo otimizado preserva cabelo, dedos, transparências e bordas. Primeira execução baixa o modelo (~25MB).
+                Modelo otimizado para velocidade máxima. Preserva cabelo, dedos e bordas. Primeira execução baixa o modelo (~25MB).
               </p>
               {processing && progress > 0 && (
                 <div className="space-y-1">
