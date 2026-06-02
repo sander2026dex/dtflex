@@ -268,20 +268,27 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); setResultUrl(null); setResultBlob(null); }}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="remove" className="gap-2">
               <Wand2 className="h-4 w-4" /> Remover Fundo
             </TabsTrigger>
             <TabsTrigger value="black" className="gap-2">
               <Shirt className="h-4 w-4" /> Fundo Preto
             </TabsTrigger>
-            <TabsTrigger value="mockup" className="gap-2">
-              <ImageIcon className="h-4 w-4" /> Gerar Mockup
-            </TabsTrigger>
-            <TabsTrigger value="ai" className="gap-2">
-              <Sparkle className="h-4 w-4" /> Gerar por IA
-            </TabsTrigger>
           </TabsList>
+
+          <div className="mt-2 flex gap-2">
+            <div className="flex-1 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+              <ImageIcon className="h-3 w-3" />
+              <span className="line-through opacity-50">Gerar Mockup</span>
+              <span className="text-[10px] bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">Em manutenção</span>
+            </div>
+            <div className="flex-1 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+              <Sparkle className="h-3 w-3" />
+              <span className="line-through opacity-50">Gerar por IA</span>
+              <span className="text-[10px] bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">Em manutenção</span>
+            </div>
+          </div>
 
           {/* Upload comum */}
           <div className="mt-4 flex gap-2">
