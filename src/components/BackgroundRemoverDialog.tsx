@@ -262,7 +262,7 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); setResultUrl(null); setResultBlob(null); }}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="remove" className="gap-2">
               <Wand2 className="h-4 w-4" /> Remover Fundo
             </TabsTrigger>
@@ -271,6 +271,9 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
             </TabsTrigger>
             <TabsTrigger value="mockup" className="gap-2">
               <ImageIcon className="h-4 w-4" /> Gerar Mockup
+            </TabsTrigger>
+            <TabsTrigger value="ai" className="gap-2">
+              <Sparkle className="h-4 w-4" /> Gerar por IA
             </TabsTrigger>
           </TabsList>
 
