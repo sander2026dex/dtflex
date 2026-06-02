@@ -423,6 +423,49 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
               </div>
             )}
           </TabsContent>
+
+          {/* === GERAR POR IA === */}
+          <TabsContent value="ai" className="mt-4 space-y-4">
+            <div className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
+              <p className="text-sm font-semibold">Gerar imagem por prompt (ilimitado)</p>
+              <p className="text-[11px] text-muted-foreground">
+                Descreva a arte que quer criar. A IA gera uma imagem em ~5-10s. Depois você pode remover o fundo, aplicar fundo preto ou enviar direto para o halftone.
+              </p>
+              <Textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder='Ex: "caveira mexicana com flores, estilo tatuagem, traços pretos sólidos, fundo branco"'
+                rows={3}
+              />
+            </div>
+            <Button
+              onClick={runAiImage}
+              disabled={processing || !aiPrompt.trim()}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
+            >
+              <Sparkle className="h-4 w-4" />
+              {processing ? "Gerando imagem..." : "Gerar Imagem"}
+            </Button>
+
+            {aiImage && (
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-md border border-border bg-[conic-gradient(#e5e5e5_0_25%,#fff_0_50%,#e5e5e5_0_75%,#fff_0)] bg-[length:16px_16px]">
+                  <img src={aiImage} alt="IA" className="h-72 w-full object-contain" />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button onClick={() => downloadUrl(aiImage, "ia-gerada.png")} variant="outline">
+                    <Download className="h-4 w-4" /> Salvar
+                  </Button>
+                  <Button onClick={copyAi} variant="outline" disabled={!aiBlob}>
+                    <Copy className="h-4 w-4" /> Copiar p/ Halftone
+                  </Button>
+                  <Button onClick={useAiAsInput} variant="outline" disabled={!aiBlob}>
+                    <Wand2 className="h-4 w-4" /> Remover Fundo
+                  </Button>
+                </div>
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
