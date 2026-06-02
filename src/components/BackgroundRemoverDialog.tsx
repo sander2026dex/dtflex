@@ -187,6 +187,47 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     }
   }, [originalFile, shirtColor, genMockups]);
 
+  const runAiImage = useCallback(async () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Descreva a imagem.");
+      return;
+    }
+    setProcessing(true);
+    setAiImage(null);
+    setAiBlob(null);
+    try {
+      const res = await genAiImage({ data: { prompt: aiPrompt.trim() } });
+      setAiImage(res.dataUrl);
+      // converte para blob para copiar
+      const blob = await (await fetch(res.dataUrl)).blob();
+      setAiBlob(blob);
+      toast.success("Imagem gerada!");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message ?? "Falha ao gerar imagem.");
+    } finally {
+      setProcessing(false);
+    }
+  }, [aiPrompt, genAiImage]);
+
+  const useAiAsInput = () => {
+    if (!aiBlob) return;
+    const file = new File([aiBlob], "ia-gerada.png", { type: "image/png" });
+    handleFile(file);
+    setMode("remove");
+    toast.success("Imagem carregada. Agora remova o fundo.");
+  };
+
+  const copyAi = async () => {
+    if (!aiBlob) return;
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": aiBlob })]);
+      toast.success("Copiado! Cole no halftone com Ctrl+V.");
+    } catch {
+      toast.error("Não foi possível copiar.");
+    }
+  };
+
   const save = () => {
     if (!resultUrl) return;
     const a = document.createElement("a");
