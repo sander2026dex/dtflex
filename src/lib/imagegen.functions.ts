@@ -27,9 +27,9 @@ export const generateImageFromPrompt = createServerFn({ method: "POST" })
 
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
-      if (res.status === 429) throw new Error("Muitas solicitações. Tente novamente em instantes.");
-      if (res.status === 402) throw new Error("Créditos esgotados.");
-      throw new Error(`Falha na geração (${res.status}): ${txt.slice(0, 200)}`);
+      if (res.status === 429) throw new Error("Servidor ocupado. Tente novamente em alguns segundos.");
+      if (res.status === 402) throw new Error("Servidor temporariamente indisponível. Tente novamente em instantes.");
+      throw new Error(`Falha na geração. Tente novamente. (${res.status}) ${txt.slice(0, 120)}`);
     }
 
     const json: any = await res.json();
