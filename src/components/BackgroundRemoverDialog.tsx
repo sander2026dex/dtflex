@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Upload, Wand2, Download, Sparkles, Copy, ClipboardPaste, Shirt, Image as ImageIcon, Sparkle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { removeBackground as imglyRemoveBackground } from "@imgly/background-removal";
+import { removeBackground as imglyRemoveBackground, preload as imglyPreload } from "@imgly/background-removal";
 import { useServerFn } from "@tanstack/react-start";
 import { generateShirtMockups } from "@/lib/mockups.functions";
 import { generateImageFromPrompt } from "@/lib/imagegen.functions";
