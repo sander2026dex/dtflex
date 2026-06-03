@@ -51,7 +51,15 @@ function formatExpiry(iso: string | null): { label: string; tone: "ok" | "warn" 
 function AppPage() {
   const ping = useServerFn(pingAccessSession);
   const readSession = useServerFn(getAccessSession);
+  const logout = useServerFn(logoutAccessSession);
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {}
+    window.location.href = "/login";
+  }
 
   // Heartbeat — marca o usuário como online no painel admin
   useEffect(() => {
