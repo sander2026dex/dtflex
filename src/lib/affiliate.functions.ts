@@ -386,9 +386,10 @@ export const activateAffiliateSale = createServerFn({ method: "POST" })
     await db()
       .from("affiliate_sales")
       .update({
-        status: "activated",
+        status: "paid",
         user_access_id: access.id,
         activated_at: new Date().toISOString(),
+        paid_at: new Date().toISOString(),
       })
       .eq("id", sale.id);
 
