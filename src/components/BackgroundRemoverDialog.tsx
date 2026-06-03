@@ -319,12 +319,15 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); setResultUrl(null); setResultBlob(null); }}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="remove" className="gap-2">
               <Wand2 className="h-4 w-4" /> Remover Fundo
             </TabsTrigger>
             <TabsTrigger value="black" className="gap-2">
               <Shirt className="h-4 w-4" /> Fundo Preto
+            </TabsTrigger>
+            <TabsTrigger value="fix" className="gap-2">
+              <Sparkles className="h-4 w-4" /> Corrigir PNG
             </TabsTrigger>
           </TabsList>
 
