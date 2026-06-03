@@ -113,12 +113,16 @@ function LoginPage() {
     }
     try {
       setLoading(true);
+      setConflict(null);
+      setRevoked(null);
       const result = await validateCode({
         data: { email: trimmedEmail, code: trimmedCode },
       });
       if (!result.ok) {
-        // Mostra alerta inline quando é conflito de dispositivo
-        if (result.error && /dispositivo/i.test(result.error)) {
+        if ((result as any).revoked) {
+          setRevoked(result.error ?? "Seu acesso foi revogado.");
+          toast.error(result.error, { duration: 10000 });
+        } else if (result.error && /dispositivo/i.test(result.error)) {
           setConflict(result.error);
           toast.error(result.error, { duration: 10000 });
         } else {
