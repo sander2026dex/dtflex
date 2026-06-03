@@ -688,6 +688,8 @@ function AdminPage() {
             </Table>
           </div>
         </DataCard>
+        </>
+        )}
       </div>
     </main>
   );
