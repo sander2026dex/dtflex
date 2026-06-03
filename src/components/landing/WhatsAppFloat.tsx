@@ -2,15 +2,25 @@ import { MessageCircleMore } from "lucide-react";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const whatsappHref = "https://wa.me/5511943152441?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20sobre%20a%20plataforma";
+const DEFAULT_PHONE = "5511943152441";
 
-export function WhatsAppFloat() {
+function sanitizePhone(input?: string | null): string | null {
+  if (!input) return null;
+  const digits = input.replace(/\D/g, "");
+  if (!digits) return null;
+  // Brazilian numbers without country code -> prefix 55
+  return digits.length <= 11 ? `55${digits}` : digits;
+}
+
+export function WhatsAppFloat({ phone }: { phone?: string | null } = {}) {
+  const number = sanitizePhone(phone) ?? DEFAULT_PHONE;
+  const href = `https://wa.me/${number}?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20sobre%20a%20plataforma`;
   return (
     <TooltipProvider delayDuration={120}>
       <Tooltip>
         <TooltipTrigger asChild>
           <a
-            href={whatsappHref}
+            href={href}
             target="_blank"
             rel="noreferrer"
             aria-label="Fale com o suporte pelo WhatsApp"
