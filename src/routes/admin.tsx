@@ -25,6 +25,8 @@ import {
   getAffiliateAdminData,
   markAffiliateSalePaid,
 } from "@/lib/affiliate.functions";
+import logo from "@/assets/dtflexpro-logo.png.asset.json";
+import { ChevronDown, ChevronRight, Users } from "lucide-react";
 
 interface MonthlyMetric {
   month: string;
@@ -237,10 +239,13 @@ function AdminPage() {
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Painel do proprietário</p>
-            <h1 className="text-3xl font-semibold tracking-tight">Administração DTFLEXPRO</h1>
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <img src={logo.url} alt="DTFlexPRO" className="h-16 w-auto md:h-20" />
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Painel do proprietário</p>
+              <h1 className="text-3xl font-semibold tracking-tight">Administração DTFLEXPRO</h1>
+            </div>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => loadDashboard()}>
