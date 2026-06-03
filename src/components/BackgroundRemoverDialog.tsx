@@ -14,7 +14,7 @@ import { generateShirtMockups } from "@/lib/mockups.functions";
 import { generateImageFromPrompt } from "@/lib/imagegen.functions";
 
 type Props = { trigger: React.ReactNode };
-type Mode = "remove" | "black" | "mockup" | "ai";
+type Mode = "remove" | "black" | "fix" | "mockup" | "ai";
 
 const SHIRT_COLORS = [
   "#000000", "#808080", "#1e3a8a", "#0f766e", "#dc2626",
