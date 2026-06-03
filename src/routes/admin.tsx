@@ -25,6 +25,8 @@ import {
   getAffiliateAdminData,
   markAffiliateSalePaid,
 } from "@/lib/affiliate.functions";
+import logo from "@/assets/dtflexpro-logo.png.asset.json";
+import { ChevronDown, ChevronRight, Users } from "lucide-react";
 
 interface MonthlyMetric {
   month: string;
@@ -237,10 +239,13 @@ function AdminPage() {
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Painel do proprietário</p>
-            <h1 className="text-3xl font-semibold tracking-tight">Administração DTFLEXPRO</h1>
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <img src={logo.url} alt="DTFlexPRO" className="h-16 w-auto md:h-20" />
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Painel do proprietário</p>
+              <h1 className="text-3xl font-semibold tracking-tight">Administração DTFLEXPRO</h1>
+            </div>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => loadDashboard()}>
@@ -749,12 +754,56 @@ function AffiliateAdminSection() {
   }
   useEffect(() => { load(); }, []);
 
+  const [open, setOpen] = useState(false);
+
   if (!data) return null;
   const pendingSales = data.sales.filter((s) => s.status === "pending");
   const activatedSales = data.sales.filter((s) => s.status === "activated" || s.status === "paid");
+  const paidSales = data.sales.filter((s) => s.status === "paid");
+  const awaitingPay = data.sales.filter((s) => s.status === "activated");
+  const totalAwaitingCents = awaitingPay.reduce((sum, s) => sum + (s.commission_cents ?? 0), 0);
+  const totalPaidCents = paidSales.reduce((sum, s) => sum + (s.commission_cents ?? 0), 0);
+  const totalSalesValueCents = activatedSales.length * 14700; // anual R$ 147
 
   return (
-    <>
+    <Card className="rounded-lg border-2 border-amber-500/30 bg-gradient-to-br from-amber-950/20 to-card/50 p-0 shadow-[0_0_30px_-5px_rgba(245,158,11,0.15)] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 hover:bg-amber-500/5 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          {open ? <ChevronDown className="h-5 w-5 text-amber-300" /> : <ChevronRight className="h-5 w-5 text-amber-300" />}
+          <Users className="h-5 w-5 text-amber-300" />
+          <span className="text-lg font-semibold text-amber-300">Afiliados</span>
+          <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+            {data.affiliates.length} cadastrados
+          </span>
+        </div>
+        <div className="hidden md:flex items-center gap-4 text-xs">
+          <div className="text-right">
+            <div className="text-muted-foreground">Vendido (ativadas)</div>
+            <div className="font-mono font-bold text-amber-200">{(totalSalesValueCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-muted-foreground">A pagar PIX</div>
+            <div className="font-mono font-bold text-sky-300">{(totalAwaitingCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-muted-foreground">Já pago</div>
+            <div className="font-mono font-bold text-emerald-300">{(totalPaidCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
+          </div>
+          {pendingSales.length > 0 && (
+            <span className="rounded-full bg-red-500/20 px-2.5 py-1 text-[11px] font-bold text-red-300 animate-pulse">
+              {pendingSales.length} aguardando ativação
+            </span>
+          )}
+        </div>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-amber-500/20 bg-background/40 p-4">
+
       <AffiliateDataCard title={`Vendas de afiliados — pendentes de ativação (${pendingSales.length})`}>
         {pendingSales.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma venda pendente.</p>
@@ -938,7 +987,9 @@ function AffiliateAdminSection() {
           </div>
         )}
       </AffiliateDataCard>
-    </>
+        </div>
+      )}
+    </Card>
   );
 }
 
