@@ -146,12 +146,20 @@ function AppPage() {
     <>
       {exp && (
         <div
-          className={`fixed left-0 right-0 top-0 z-50 flex items-center justify-center gap-3 px-4 py-1.5 text-xs font-medium shadow ${toneBg}`}
+          className={`fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 text-xs font-medium shadow ${toneBg}`}
         >
           <span className="truncate">
             {expiry?.email ? `${expiry.email} · ` : ""}
             {exp.label}
           </span>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex shrink-0 items-center gap-1 rounded-md bg-black/30 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide hover:bg-black/50"
+          >
+            <LogOut className="h-3 w-3" />
+            Sair
+          </button>
         </div>
       )}
       {/* Aviso sobre preto absoluto */}
