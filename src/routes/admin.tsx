@@ -46,6 +46,14 @@ interface DashboardPayload {
     active_session_token: string | null;
     active_session_started_at: string | null;
     last_activity_at: string | null;
+    affiliate_sale?: {
+      id: string;
+      affiliate_id: string;
+      customer_email: string;
+      status: string;
+      commission_cents: number;
+      affiliates?: { full_name: string; slug: string } | null;
+    } | null;
   }>;
   payments: Array<{
     id: string;
@@ -445,6 +453,7 @@ function AdminPage() {
                   <TableHead>Disp.</TableHead>
                   <TableHead>Online</TableHead>
                   <TableHead>Sessão</TableHead>
+                  <TableHead>Origem</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -499,6 +508,16 @@ function AdminPage() {
                         <span className="text-xs text-amber-500">em uso</span>
                       ) : (
                         <span className="text-xs text-muted-foreground">livre</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.affiliate_sale ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                          Afiliado: {item.affiliate_sale.affiliates?.full_name || item.affiliate_sale.customer_email}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Direta</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -655,6 +674,18 @@ function DataCard({ title, children }: { title: string; children: React.ReactNod
   );
 }
 
+function AffiliateDataCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card className="rounded-lg border-2 border-amber-500/30 bg-gradient-to-br from-amber-950/20 to-card/50 p-5 shadow-[0_0_30px_-5px_rgba(245,158,11,0.15)]">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
+        <h2 className="text-lg font-semibold text-amber-300">{title}</h2>
+      </div>
+      {children}
+    </Card>
+  );
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
@@ -724,28 +755,31 @@ function AffiliateAdminSection() {
 
   return (
     <>
-      <DataCard title={`Vendas de afiliados — pendentes de ativação (${pendingSales.length})`}>
+      <AffiliateDataCard title={`Vendas de afiliados — pendentes de ativação (${pendingSales.length})`}>
         {pendingSales.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma venda pendente.</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Afiliado</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>WhatsApp</TableHead>
-                  <TableHead>PIX (obs)</TableHead>
-                  <TableHead>Registrada</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                <TableRow className="border-amber-500/20 hover:bg-transparent">
+                  <TableHead className="text-amber-200">Afiliado</TableHead>
+                  <TableHead className="text-amber-200">Cliente</TableHead>
+                  <TableHead className="text-amber-200">E-mail</TableHead>
+                  <TableHead className="text-amber-200">WhatsApp</TableHead>
+                  <TableHead className="text-amber-200">PIX (obs)</TableHead>
+                  <TableHead className="text-amber-200">Registrada</TableHead>
+                  <TableHead className="text-right text-amber-200">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pendingSales.map((s) => (
-                  <TableRow key={s.id}>
+                  <TableRow key={s.id} className="bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/10">
                     <TableCell className="text-xs">
-                      <div className="font-semibold">{s.affiliates?.full_name}</div>
+                      <div className="inline-flex items-center gap-2">
+                        <span className="font-bold text-amber-300">{s.affiliates?.full_name}</span>
+                        <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">AFILIADO</span>
+                      </div>
                       <div className="text-muted-foreground">@{s.affiliates?.slug}</div>
                     </TableCell>
                     <TableCell>{s.customer_name || "-"}</TableCell>
@@ -757,6 +791,7 @@ function AffiliateAdminSection() {
                       <div className="flex flex-wrap justify-end gap-1">
                         <Button
                           size="sm"
+                          className="bg-amber-600 hover:bg-amber-500 text-white"
                           onClick={async () => {
                             try {
                               const r: any = await activate({ data: { saleId: s.id } });
@@ -797,29 +832,32 @@ function AffiliateAdminSection() {
             </Table>
           </div>
         )}
-      </DataCard>
+      </AffiliateDataCard>
 
-      <DataCard title={`Vendas de afiliados — ativadas / pagas (${activatedSales.length})`}>
+      <AffiliateDataCard title={`Vendas de afiliados — ativadas / pagas (${activatedSales.length})`}>
         {activatedSales.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nada ainda.</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Afiliado</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Comissão</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ativada</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                <TableRow className="border-amber-500/20 hover:bg-transparent">
+                  <TableHead className="text-amber-200">Afiliado</TableHead>
+                  <TableHead className="text-amber-200">Cliente</TableHead>
+                  <TableHead className="text-amber-200">Comissão</TableHead>
+                  <TableHead className="text-amber-200">Status</TableHead>
+                  <TableHead className="text-amber-200">Ativada</TableHead>
+                  <TableHead className="text-right text-amber-200">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {activatedSales.map((s) => (
-                  <TableRow key={s.id}>
+                  <TableRow key={s.id} className="bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/10">
                     <TableCell className="text-xs">
-                      <div className="font-semibold">{s.affiliates?.full_name}</div>
+                      <div className="inline-flex items-center gap-2">
+                        <span className="font-bold text-amber-300">{s.affiliates?.full_name}</span>
+                        <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">AFILIADO</span>
+                      </div>
                       <div className="text-muted-foreground">PIX: {s.affiliates?.pix_key || "não informado"}</div>
                     </TableCell>
                     <TableCell className="text-xs">
@@ -830,7 +868,7 @@ function AffiliateAdminSection() {
                       {((s.commission_cents ?? 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </TableCell>
                     <TableCell>
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${s.status === "paid" ? "bg-sky-500/15 text-sky-300" : "bg-emerald-500/15 text-emerald-300"}`}>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${s.status === "paid" ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300"}`}>
                         {s.status === "paid" ? "PAGA" : "Aguardando pagar PIX"}
                       </span>
                     </TableCell>
@@ -840,6 +878,7 @@ function AffiliateAdminSection() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20"
                           onClick={async () => {
                             try {
                               await markPaid({ data: { saleId: s.id } });
@@ -860,31 +899,31 @@ function AffiliateAdminSection() {
             </Table>
           </div>
         )}
-      </DataCard>
+      </AffiliateDataCard>
 
-      <DataCard title={`Afiliados cadastrados (${data.affiliates.length})`}>
+      <AffiliateDataCard title={`Afiliados cadastrados (${data.affiliates.length})`}>
         {data.affiliates.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum afiliado ainda.</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Link</TableHead>
-                  <TableHead>WhatsApp</TableHead>
-                  <TableHead>PIX</TableHead>
-                  <TableHead>Cadastrado</TableHead>
+                <TableRow className="border-amber-500/20 hover:bg-transparent">
+                  <TableHead className="text-amber-200">Nome</TableHead>
+                  <TableHead className="text-amber-200">E-mail</TableHead>
+                  <TableHead className="text-amber-200">Link</TableHead>
+                  <TableHead className="text-amber-200">WhatsApp</TableHead>
+                  <TableHead className="text-amber-200">PIX</TableHead>
+                  <TableHead className="text-amber-200">Cadastrado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.affiliates.map((a) => (
-                  <TableRow key={a.id}>
+                  <TableRow key={a.id} className="bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/10">
                     <TableCell>
                       <span className="inline-flex items-center gap-2">
-                        {a.full_name}
-                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">AFILIADO</span>
+                        <span className="font-bold text-amber-300">{a.full_name}</span>
+                        <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">AFILIADO</span>
                       </span>
                     </TableCell>
                     <TableCell className="text-xs">{a.email}</TableCell>
@@ -898,7 +937,7 @@ function AffiliateAdminSection() {
             </Table>
           </div>
         )}
-      </DataCard>
+      </AffiliateDataCard>
     </>
   );
 }

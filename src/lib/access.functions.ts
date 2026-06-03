@@ -500,7 +500,7 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
   await requireAdminSession();
   const db = getDb();
 
-  const [{ data: codes }, { data: payments }, { data: logs }, { data: attempts }] = await Promise.all([
+  const [{ data: codes }, { data: payments }, { data: logs }, { data: attempts }, { data: affiliateSales }] = await Promise.all([
     db
       .from("user_access")
       .select(
@@ -524,6 +524,11 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
       .eq("event_type", "access_device_conflict")
       .order("created_at", { ascending: false })
       .limit(50),
+    db
+      .from("affiliate_sales")
+      .select("id, affiliate_id, user_access_id, customer_email, status, commission_cents, affiliates(full_name, slug)")
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
 
   // Métricas: total de clientes únicos e vendas por mês (últimos 12 meses)
@@ -546,8 +551,16 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
     }
   }
 
+  const affiliateSalesMap: Record<string, any> = {};
+  for (const s of (affiliateSales ?? []) as any[]) {
+    if (s.user_access_id) affiliateSalesMap[s.user_access_id] = s;
+  }
+
   return {
-    codes: allCodes,
+    codes: allCodes.map((c: any) => ({
+      ...c,
+      affiliate_sale: affiliateSalesMap[c.id] || null,
+    })),
     payments: payments ?? [],
     logs: logs ?? [],
     deviceAttempts: (attempts ?? []).map((a: any) => ({
