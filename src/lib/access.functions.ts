@@ -9,7 +9,7 @@ import {
   clearSession,
   useSession,
 } from "@tanstack/react-start/server";
-import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
@@ -70,7 +70,7 @@ interface AccessSessionData {
 
 const adminCookieName = "dtflexpro-admin-session";
 const adminSessionMaxAge = 60 * 60 * 8;
-const adminPasswordHash = "e5fec85c58f5be85f01524741fa4a2d2df425a20b6243e8da1cbd83ebe9551a4";
+
 
 interface SignedAdminSessionData extends AdminSessionData {
   expiresAt: number;
@@ -176,10 +176,10 @@ function safeEqual(input: string, expected: string) {
 
 function isConfiguredAdminPassword(input: string) {
   const expectedPassword = process.env.ADMIN_MASTER_PASSWORD;
-  if (expectedPassword && safeEqual(input, expectedPassword)) return true;
-
-  const inputHash = createHash("sha256").update(input).digest("hex");
-  return safeEqual(inputHash, adminPasswordHash);
+  if (!expectedPassword) {
+    throw new Error("ADMIN_MASTER_PASSWORD não configurado");
+  }
+  return safeEqual(input, expectedPassword);
 }
 
 function generateAccessCode() {
