@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles } from "lucide-react";
-import { getAccessSession, pingAccessSession } from "@/lib/access.functions";
+import { Sparkles, LogOut } from "lucide-react";
+import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { BackgroundRemoverDialog } from "@/components/BackgroundRemoverDialog";
 import { Button } from "@/components/ui/button";
 
@@ -51,7 +51,15 @@ function formatExpiry(iso: string | null): { label: string; tone: "ok" | "warn" 
 function AppPage() {
   const ping = useServerFn(pingAccessSession);
   const readSession = useServerFn(getAccessSession);
+  const logout = useServerFn(logoutAccessSession);
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {}
+    window.location.href = "/login";
+  }
 
   // Heartbeat — marca o usuário como online no painel admin
   useEffect(() => {
@@ -138,12 +146,20 @@ function AppPage() {
     <>
       {exp && (
         <div
-          className={`fixed left-0 right-0 top-0 z-50 flex items-center justify-center gap-3 px-4 py-1.5 text-xs font-medium shadow ${toneBg}`}
+          className={`fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 text-xs font-medium shadow ${toneBg}`}
         >
           <span className="truncate">
             {expiry?.email ? `${expiry.email} · ` : ""}
             {exp.label}
           </span>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex shrink-0 items-center gap-1 rounded-md bg-black/30 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide hover:bg-black/50"
+          >
+            <LogOut className="h-3 w-3" />
+            Sair
+          </button>
         </div>
       )}
       {/* Aviso sobre preto absoluto */}

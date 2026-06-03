@@ -770,6 +770,38 @@ export const registerProvisionalAccess = createServerFn({ method: "POST" })
     return { email, provisionalPassword, expiresAt, planCode: data.planCode };
   });
 
+export const releaseOwnDeviceSession = createServerFn({ method: "POST" })
+  .inputValidator(accessCodeSchema)
+  .handler(async ({ data }) => {
+    const db = getDb();
+    const email = normalizeEmail(data.email);
+    const code = normalizeCode(data.code);
+    const nowIso = new Date().toISOString();
+
+    const { data: accessRow } = await db
+      .from("user_access")
+      .select("id, device_limit")
+      .eq("email", email)
+      .eq("access_code", code)
+      .in("status", ["active", "pending"])
+      .gt("expires_at", nowIso)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!accessRow) {
+      return { ok: false, error: genericAccessError };
+    }
+
+    await db
+      .from("user_access")
+      .update({ active_session_token: null, active_session_started_at: null, active_session_ip: null, active_session_user_agent: null })
+      .eq("id", accessRow.id);
+
+    await logSecurity("access_self_release", true);
+    return { ok: true };
+  });
+
 export const pingAccessSession = createServerFn({ method: "POST" }).handler(async () => {
   const session = await useSession<AccessSessionData>(getAccessSessionConfig());
   const accessId = session.data?.accessId;

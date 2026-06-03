@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Eye, EyeOff, ShieldAlert } from "lucide-react";
-import { validateAccessCode } from "@/lib/access.functions";
+import { validateAccessCode, releaseOwnDeviceSession } from "@/lib/access.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,11 +26,43 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const search = Route.useSearch();
   const validateCode = useServerFn(validateAccessCode);
+  const releaseDevice = useServerFn(releaseOwnDeviceSession);
   const [email, setEmail] = useState(search.email);
   const [code, setCode] = useState(search.code);
   const [loading, setLoading] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
+
+  async function handleRelease() {
+    const trimmedEmail = email.trim();
+    const trimmedCode = code.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail) || trimmedCode.length < 6) {
+      toast.error("Preencha e-mail e código antes de liberar o acesso");
+      return;
+    }
+    try {
+      setReleasing(true);
+      const result = await releaseDevice({ data: { email: trimmedEmail, code: trimmedCode } });
+      if (!result.ok) {
+        toast.error(result.error ?? "Não foi possível liberar o acesso");
+        return;
+      }
+      toast.success("Acesso liberado. Entrando neste dispositivo...");
+      setConflict(null);
+      const login = await validateCode({ data: { email: trimmedEmail, code: trimmedCode } });
+      if (!login.ok) {
+        toast.error(login.error ?? "Falha ao entrar após liberar");
+        return;
+      }
+      window.location.href = login.redirectTo;
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao liberar acesso");
+    } finally {
+      setReleasing(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,12 +113,26 @@ function LoginPage() {
         </div>
 
         {conflict && (
-          <div className="mb-4 flex gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
-            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <p className="font-semibold">Acesso já em uso em outro dispositivo</p>
-              <p className="mt-1 text-red-200/80">{conflict}</p>
+          <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+            <div className="flex gap-2">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">Acesso já em uso em outro dispositivo</p>
+                <p className="mt-1 text-red-200/80">{conflict}</p>
+                <p className="mt-2 text-xs text-red-200/70">
+                  Se este dispositivo é seu, libere o acesso para entrar aqui (respeitando o limite do seu plano).
+                </p>
+              </div>
             </div>
+            <Button
+              type="button"
+              onClick={handleRelease}
+              disabled={releasing || loading}
+              className="mt-3 w-full"
+              variant="destructive"
+            >
+              {releasing ? "Liberando..." : "Liberar acesso neste dispositivo"}
+            </Button>
           </div>
         )}
 
