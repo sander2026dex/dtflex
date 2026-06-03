@@ -551,8 +551,16 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
     }
   }
 
+  const affiliateSalesMap: Record<string, any> = {};
+  for (const s of (affiliateSales ?? []) as any[]) {
+    if (s.user_access_id) affiliateSalesMap[s.user_access_id] = s;
+  }
+
   return {
-    codes: allCodes,
+    codes: allCodes.map((c: any) => ({
+      ...c,
+      affiliate_sale: affiliateSalesMap[c.id] || null,
+    })),
     payments: payments ?? [],
     logs: logs ?? [],
     deviceAttempts: (attempts ?? []).map((a: any) => ({
