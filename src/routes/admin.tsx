@@ -987,7 +987,9 @@ function AffiliateAdminSection() {
           </div>
         )}
       </AffiliateDataCard>
-    </>
+        </div>
+      )}
+    </Card>
   );
 }
 
