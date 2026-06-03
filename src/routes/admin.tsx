@@ -993,30 +993,65 @@ function AffiliateAdminSection({ forceOpen = false }: { forceOpen?: boolean }) {
             <Table>
               <TableHeader>
                 <TableRow className="border-amber-500/20 hover:bg-transparent">
-                  <TableHead className="text-amber-200">Nome</TableHead>
-                  <TableHead className="text-amber-200">E-mail</TableHead>
-                  <TableHead className="text-amber-200">Link</TableHead>
-                  <TableHead className="text-amber-200">WhatsApp</TableHead>
+                  <TableHead className="text-amber-200">Afiliado</TableHead>
+                  <TableHead className="text-amber-200">Contato</TableHead>
                   <TableHead className="text-amber-200">PIX</TableHead>
-                  <TableHead className="text-amber-200">Cadastrado</TableHead>
+                  <TableHead className="text-amber-200 text-right">Vendas ativadas</TableHead>
+                  <TableHead className="text-amber-200 text-right">Em aberto</TableHead>
+                  <TableHead className="text-amber-200 text-right">Já pago</TableHead>
+                  <TableHead className="text-amber-200 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.affiliates.map((a) => (
+                {data.affiliates.map((a) => {
+                  const mySales = data.sales.filter((s) => s.affiliate_id === a.id);
+                  const myOpen = mySales.filter((s) => s.status === "activated");
+                  const myPaid = mySales.filter((s) => s.status === "paid");
+                  const myActivated = mySales.filter((s) => s.status === "activated" || s.status === "paid");
+                  const openCents = myOpen.reduce((sum, s) => sum + (s.commission_cents ?? 0), 0);
+                  const paidCents = myPaid.reduce((sum, s) => sum + (s.commission_cents ?? 0), 0);
+                  return (
                   <TableRow key={a.id} className="bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/10">
                     <TableCell>
-                      <span className="inline-flex items-center gap-2">
-                        <span className="font-bold text-amber-300">{a.full_name}</span>
-                        <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">AFILIADO</span>
+                      <div className="font-bold text-amber-300">{a.full_name}</div>
+                      <div className="font-mono text-xs text-muted-foreground">/{a.slug}</div>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <div>{a.email}</div>
+                      <div className="text-muted-foreground">{a.whatsapp || "-"}</div>
+                    </TableCell>
+                    <TableCell className="text-xs">{a.pix_key || "—"}</TableCell>
+                    <TableCell className="text-right font-mono text-amber-200">{myActivated.length}</TableCell>
+                    <TableCell className="text-right">
+                      <span className={`font-mono font-bold ${openCents > 0 ? "text-sky-300" : "text-muted-foreground"}`}>
+                        {(openCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs">{a.email}</TableCell>
-                    <TableCell className="font-mono text-xs">/{a.slug}</TableCell>
-                    <TableCell className="text-xs">{a.whatsapp || "-"}</TableCell>
-                    <TableCell className="text-xs">{a.pix_key || "-"}</TableCell>
-                    <TableCell className="text-xs">{formatDate(a.created_at)}</TableCell>
+                    <TableCell className="text-right font-mono text-emerald-300">
+                      {(paidCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        disabled={myOpen.length === 0}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40"
+                        onClick={async () => {
+                          if (!confirm(`Dar baixa em ${myOpen.length} comissão(ões) de ${a.full_name} — total ${(openCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}?`)) return;
+                          try {
+                            await Promise.all(myOpen.map((s) => markPaid({ data: { saleId: s.id } })));
+                            toast.success(`Baixa registrada em ${myOpen.length} comissão(ões).`);
+                            await load();
+                          } catch {
+                            toast.error("Falha ao dar baixa.");
+                          }
+                        }}
+                      >
+                        Dar baixa ({myOpen.length})
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
