@@ -218,10 +218,7 @@ function Dashboard({
   const submitSale = useServerFn(submitAffiliateSale);
   const updateProfile = useServerFn(updateAffiliateProfile);
 
-  const link =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/${data.affiliate.slug}`
-      : `https://dtflexpro.com/${data.affiliate.slug}`;
+  const link = `https://dtflexpro.com/${data.affiliate.slug}`;
 
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
