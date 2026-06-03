@@ -244,7 +244,7 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     if (!resultUrl) return;
     const a = document.createElement("a");
     a.href = resultUrl;
-    a.download = mode === "remove" ? "sem-fundo.png" : mode === "fix" ? "png-corrigido.png" : "fundo-preto.png";
+    a.download = mode === "remove" ? "sem-fundo.png" : "fundo-preto.png";
     a.click();
   };
 
