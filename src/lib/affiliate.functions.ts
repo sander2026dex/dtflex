@@ -2,10 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import {
   deleteCookie,
   getCookie,
-  getRequestIP,
   setCookie,
 } from "@tanstack/react-start/server";
-import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
