@@ -162,6 +162,76 @@ function AppPage() {
       <iframe
         src="/dtflex-tool/index.html"
         title="DTFLEXPRO Halftone Engine"
+        onLoad={(e) => {
+          // Injeta um hook no iframe que limpa o canal alpha em QUALQUER PNG
+          // exportado pela ferramenta de halftone (toBlob / toDataURL / download <a>).
+          // Resultado: fundo 100% limpo, zero pixels flutuantes, zero ruído alpha.
+          try {
+            const win = (e.currentTarget as HTMLIFrameElement).contentWindow as any;
+            if (!win || win.__dtflexAlphaHookInstalled) return;
+            win.__dtflexAlphaHookInstalled = true;
+
+            const cleanAlpha = (data: Uint8ClampedArray, w: number, h: number) => {
+              const aThr = 8;
+              const minSize = 12;
+              const N = w * h;
+              for (let i = 0; i < N; i++) if (data[i * 4 + 3] <= aThr) data[i * 4 + 3] = 0;
+              const visited = new Uint8Array(N);
+              const stack = new Int32Array(N);
+              const comp = new Int32Array(N);
+              for (let p = 0; p < N; p++) {
+                if (visited[p] || data[p * 4 + 3] === 0) continue;
+                let top = 0; stack[top++] = p; visited[p] = 1; let count = 0;
+                while (top > 0) {
+                  const q = stack[--top]; comp[count++] = q;
+                  const x = q % w, y = (q / w) | 0;
+                  if (x > 0) { const n = q - 1; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
+                  if (x < w - 1) { const n = q + 1; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
+                  if (y > 0) { const n = q - w; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
+                  if (y < h - 1) { const n = q + w; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
+                }
+                if (count < minSize) for (let k = 0; k < count; k++) data[comp[k] * 4 + 3] = 0;
+              }
+            };
+
+            const cleanCanvas = (canvas: HTMLCanvasElement) => {
+              try {
+                const ctx = canvas.getContext("2d");
+                if (!ctx) return canvas;
+                const w = canvas.width, h = canvas.height;
+                if (w * h === 0 || w * h > 64_000_000) return canvas;
+                const out = (win.document as Document).createElement("canvas");
+                out.width = w; out.height = h;
+                const octx = out.getContext("2d")!;
+                octx.drawImage(canvas, 0, 0);
+                const img = octx.getImageData(0, 0, w, h);
+                cleanAlpha(img.data, w, h);
+                octx.putImageData(img, 0, 0);
+                return out;
+              } catch { return canvas; }
+            };
+
+            const CanvasProto = win.HTMLCanvasElement.prototype;
+            const origToBlob = CanvasProto.toBlob;
+            const origToDataURL = CanvasProto.toDataURL;
+
+            CanvasProto.toBlob = function (this: HTMLCanvasElement, cb: BlobCallback, type?: string, quality?: any) {
+              const mime = (type || "image/png").toLowerCase();
+              if (mime !== "image/png") return origToBlob.call(this, cb, type, quality);
+              const cleaned = cleanCanvas(this);
+              return origToBlob.call(cleaned, cb, type, quality);
+            };
+
+            CanvasProto.toDataURL = function (this: HTMLCanvasElement, type?: string, quality?: any) {
+              const mime = (type || "image/png").toLowerCase();
+              if (mime !== "image/png") return origToDataURL.call(this, type, quality);
+              const cleaned = cleanCanvas(this);
+              return origToDataURL.call(cleaned, type, quality);
+            };
+          } catch (err) {
+            console.warn("[dtflex] alpha hook não instalado:", err);
+          }
+        }}
         style={{
           position: "fixed",
           left: 0,
