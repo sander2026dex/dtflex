@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Eye, EyeOff, ShieldAlert } from "lucide-react";
-import { validateAccessCode, releaseOwnDeviceSession } from "@/lib/access.functions";
+import { validateAccessCode, releaseOwnDeviceSession, reactivateOwnAccess } from "@/lib/access.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
