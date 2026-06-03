@@ -133,6 +133,7 @@ function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardPayload>(EMPTY);
+  const [tab, setTab] = useState<"geral" | "afiliados">("geral");
 
   async function loadDashboard() {
     try {
