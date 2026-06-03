@@ -134,7 +134,13 @@ function AuthForm({
                 toast.success("Bem-vindo de volta!");
               }
             } catch (err: any) {
-              toast.error(err?.message || "Erro");
+              const msg = err?.message || "Erro";
+              if (mode === "signup" && /já existe/i.test(msg)) {
+                toast.info("E-mail já cadastrado. Faça login com sua senha.");
+                onToggle();
+              } else {
+                toast.error(msg);
+              }
             } finally {
               setBusy(false);
             }
