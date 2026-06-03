@@ -380,7 +380,24 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (!accessRow) {
+      const { data: revokedRow } = await db
+        .from("user_access")
+        .select("id")
+        .eq("email", email)
+        .eq("access_code", code)
+        .eq("status", "revoked")
+        .gt("expires_at", nowIso)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       await logSecurity("access_code_validation", false);
+      if (revokedRow) {
+        return {
+          ok: false,
+          revoked: true,
+          error: "Seu acesso foi revogado. Clique em \"Liberar\" para reativar (limite de 1 dispositivo).",
+        };
+      }
       return { ok: false, error: genericAccessError };
     }
 
