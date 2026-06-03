@@ -804,11 +804,11 @@ function AffiliateAdminSection({ forceOpen = false }: { forceOpen?: boolean }) {
     <Card className="rounded-lg border-2 border-amber-500/30 bg-gradient-to-br from-amber-950/20 to-card/50 p-0 shadow-[0_0_30px_-5px_rgba(245,158,11,0.15)] overflow-hidden">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => !forceOpen && setOpenState((v) => !v)}
         className="flex w-full items-center justify-between gap-4 px-5 py-4 hover:bg-amber-500/5 transition-colors"
       >
         <div className="flex items-center gap-3">
-          {open ? <ChevronDown className="h-5 w-5 text-amber-300" /> : <ChevronRight className="h-5 w-5 text-amber-300" />}
+          {!forceOpen && (open ? <ChevronDown className="h-5 w-5 text-amber-300" /> : <ChevronRight className="h-5 w-5 text-amber-300" />)}
           <Users className="h-5 w-5 text-amber-300" />
           <span className="text-lg font-semibold text-amber-300">Afiliados</span>
           <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
