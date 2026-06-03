@@ -327,23 +327,7 @@ function Dashboard({
                 <MessageCircle className="h-4 w-4" /> WhatsApp: (11) 94315-2441
               </a>
             </Button>
-            <Button asChild variant="outline">
-              <a href="mailto:contato@dtflexpro.com">contato@dtflexpro.com</a>
-            </Button>
           </div>
-        </Card>
-
-        <Card className="rounded-lg border-amber-500/30 bg-amber-500/5 p-5">
-          <h2 className="mb-2 text-lg font-medium flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-amber-400" /> Proteções da plataforma
-          </h2>
-          <ul className="space-y-1.5 text-sm text-muted-foreground list-disc pl-5">
-            <li>Senhas armazenadas com criptografia (scrypt + salt) — nem o administrador vê sua senha.</li>
-            <li>Sessão protegida por cookie assinado (HttpOnly, Secure) com validade de 30 dias.</li>
-            <li>Você só pode registrar vendas do <strong>Plano Anual</strong>; nenhuma outra ação fica disponível.</li>
-            <li>Comissão de <strong>{fmtBRL(data.affiliate.commission_cents)}</strong> liberada apenas após o administrador confirmar o PIX e ativar o cliente.</li>
-            <li>Em caso de suspeita de uso indevido, encerre a sessão clicando em <em>Sair</em> e troque sua senha.</li>
-          </ul>
         </Card>
 
         <Card className="rounded-lg bg-card/50 p-5">
