@@ -453,6 +453,7 @@ function AdminPage() {
                   <TableHead>Disp.</TableHead>
                   <TableHead>Online</TableHead>
                   <TableHead>Sessão</TableHead>
+                  <TableHead>Origem</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
