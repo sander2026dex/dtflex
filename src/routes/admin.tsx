@@ -19,6 +19,12 @@ import {
   updateDeviceLimit,
   verifyAdminPassword,
 } from "@/lib/access.functions";
+import {
+  activateAffiliateSale,
+  deleteAffiliateSale,
+  getAffiliateAdminData,
+  markAffiliateSalePaid,
+} from "@/lib/affiliate.functions";
 
 interface MonthlyMetric {
   month: string;
@@ -274,6 +280,8 @@ function AdminPage() {
             Total de códigos liberados (vendas) por mês — passe o mouse para ver mensal vs anual.
           </p>
         </DataCard>
+
+        <AffiliateAdminSection />
 
         <DataCard title="Registrar compra (envia senha provisória ao cliente)">
           <p className="mb-3 text-xs text-muted-foreground">
