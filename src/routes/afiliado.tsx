@@ -424,8 +424,10 @@ function Dashboard({
                       </TableCell>
                       <TableCell>{fmtBRL(s.commission_cents)}</TableCell>
                       <TableCell className="text-xs">{fmtDate(s.created_at)}</TableCell>
+                      <TableCell className="text-xs">{expiresIso ? fmtDate(expiresIso) : "—"}</TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
