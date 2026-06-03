@@ -394,9 +394,12 @@ function Dashboard({
         </Card>
 
         <Card className="rounded-lg bg-card/50 p-5">
-          <h2 className="mb-3 text-lg font-medium">Minhas vendas</h2>
-          {data.sales.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma venda registrada ainda.</p>
+          <h2 className="mb-1 text-lg font-medium">Minhas vendas em aberto</h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Mostra apenas vendas pendentes ou ativadas aguardando pagamento. Quando o administrador confirmar o PIX, a venda sai daqui.
+          </p>
+          {(() => { const openSales = data.sales.filter((s: any) => s.status !== "paid" && s.status !== "cancelled"); return openSales.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma venda em aberto.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
