@@ -12,9 +12,10 @@ import { removeBackground as imglyRemoveBackground, preload as imglyPreload } fr
 import { useServerFn } from "@tanstack/react-start";
 import { generateShirtMockups } from "@/lib/mockups.functions";
 import { generateImageFromPrompt } from "@/lib/imagegen.functions";
+import { cleanAlphaBlob } from "@/lib/clean-alpha";
 
 type Props = { trigger: React.ReactNode };
-type Mode = "remove" | "black" | "fix" | "mockup" | "ai";
+type Mode = "remove" | "black" | "mockup" | "ai";
 
 const SHIRT_COLORS = [
   "#000000", "#808080", "#1e3a8a", "#0f766e", "#dc2626",
@@ -26,8 +27,8 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
   const [mode, setMode] = useState<Mode>("remove");
   const [progress, setProgress] = useState(0);
   const [blackThresh, setBlackThresh] = useState(22);
-  const [fixMinCluster, setFixMinCluster] = useState(10);
-  const [fixAlphaThresh, setFixAlphaThresh] = useState(8);
+
+
 
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
@@ -130,14 +131,16 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     setProcessing(true);
     setProgress(0);
     try {
-      const blob = await imglyRemoveBackground(originalUrl, {
+      const rawBlob = await imglyRemoveBackground(originalUrl, {
         model: "isnet_quint8",
         output: { format: "image/png", quality: 0.85 },
         progress: (_k, c, t) => setProgress(Math.round((c / t) * 100)),
       });
-      setResultBlob(blob);
-      setResultUrl(URL.createObjectURL(blob));
-      toast.success("Fundo removido.");
+      // Limpeza automática do canal alpha: zera pixels flutuantes / poeira.
+      const cleaned = await cleanAlphaBlob(rawBlob, { alphaThreshold: 8, minClusterSize: 12 });
+      setResultBlob(cleaned);
+      setResultUrl(URL.createObjectURL(cleaned));
+      toast.success("Fundo removido. PNG limpo, pronto para DTF.");
     } catch (err) {
       console.error(err);
       toast.error("Falha ao remover fundo.");
@@ -172,54 +175,8 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     setProcessing(false);
   }, [blackThresh]);
 
-  const fixPng = useCallback(async () => {
-    const ref = getCanvasFromImg();
-    if (!ref) return;
-    setProcessing(true);
-    await new Promise((r) => setTimeout(r, 20));
-    const { canvas, ctx, w, h } = ref;
-    const imgData = ctx.getImageData(0, 0, w, h);
-    const data = imgData.data;
-    const N = w * h;
-    const aThr = fixAlphaThresh;
-    const minSize = Math.max(1, fixMinCluster);
 
-    // 1) Zera pixels com alpha abaixo do limite (poeira/ruído translúcido).
-    for (let i = 0; i < N; i++) {
-      if (data[i * 4 + 3] <= aThr) data[i * 4 + 3] = 0;
-    }
 
-    // 2) Connected components (4-vizinhança) sobre pixels com alpha > 0.
-    //    Remove clusters menores que minSize.
-    const visited = new Uint8Array(N);
-    const stack = new Int32Array(N);
-    const compIdx = new Int32Array(N);
-    for (let p = 0; p < N; p++) {
-      if (visited[p] || data[p * 4 + 3] === 0) continue;
-      let top = 0;
-      stack[top++] = p;
-      visited[p] = 1;
-      let count = 0;
-      while (top > 0) {
-        const q = stack[--top];
-        compIdx[count++] = q;
-        const x = q % w, y = (q / w) | 0;
-        // vizinhos
-        if (x > 0) { const n = q - 1; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
-        if (x < w - 1) { const n = q + 1; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
-        if (y > 0) { const n = q - w; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
-        if (y < h - 1) { const n = q + w; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
-      }
-      if (count < minSize) {
-        for (let k = 0; k < count; k++) data[compIdx[k] * 4 + 3] = 0;
-      }
-    }
-
-    ctx.putImageData(imgData, 0, 0);
-    await finalize(canvas);
-    setProcessing(false);
-    toast.success("PNG corrigido. Canal alpha limpo.");
-  }, [fixMinCluster, fixAlphaThresh]);
 
   const runMockups = useCallback(async () => {
     if (!originalFile) return;
@@ -289,7 +246,7 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     if (!resultUrl) return;
     const a = document.createElement("a");
     a.href = resultUrl;
-    a.download = mode === "remove" ? "sem-fundo.png" : mode === "fix" ? "png-corrigido.png" : "fundo-preto.png";
+    a.download = mode === "remove" ? "sem-fundo.png" : "fundo-preto.png";
     a.click();
   };
 
@@ -319,15 +276,12 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); setResultUrl(null); setResultBlob(null); }}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="remove" className="gap-2">
               <Wand2 className="h-4 w-4" /> Remover Fundo
             </TabsTrigger>
             <TabsTrigger value="black" className="gap-2">
               <Shirt className="h-4 w-4" /> Fundo Preto
-            </TabsTrigger>
-            <TabsTrigger value="fix" className="gap-2">
-              <Sparkles className="h-4 w-4" /> Corrigir PNG
             </TabsTrigger>
           </TabsList>
 
@@ -424,40 +378,8 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
             <ResultActions resultUrl={resultUrl} resultBlob={resultBlob} onSave={save} onCopy={copyResult} />
           </TabsContent>
 
-          {/* === CORRIGIR PNG === */}
-          <TabsContent value="fix" className="mt-4 space-y-4">
-            <div className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
-              <p className="text-sm font-semibold">Corrigir PNG (limpa canal alpha)</p>
-              <p className="text-[11px] text-muted-foreground">
-                Remove pixels soltos, poeira digital e fragmentos desconectados do fundo transparente.
-                Preserva cores, contraste, halftone, anti-aliasing e bordas suaves. Ideal para impressão DTF.
-              </p>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span>Tamanho mínimo de cluster (px)</span>
-                  <span className="text-muted-foreground">{fixMinCluster}</span>
-                </div>
-                <Slider value={[fixMinCluster]} min={1} max={50} step={1} onValueChange={(v) => setFixMinCluster(v[0])} />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span>Limite de alpha (poeira)</span>
-                  <span className="text-muted-foreground">{fixAlphaThresh}</span>
-                </div>
-                <Slider value={[fixAlphaThresh]} min={0} max={40} step={1} onValueChange={(v) => setFixAlphaThresh(v[0])} />
-              </div>
-            </div>
-            <Button
-              onClick={fixPng}
-              disabled={!originalUrl || processing}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
-            >
-              <Sparkles className="h-4 w-4" />
-              {processing ? "Corrigindo..." : "Corrigir PNG"}
-            </Button>
-            {renderPreview(originalUrl, resultUrl, imgRef, false)}
-            <ResultActions resultUrl={resultUrl} resultBlob={resultBlob} onSave={save} onCopy={copyResult} />
-          </TabsContent>
+
+
 
 
 
