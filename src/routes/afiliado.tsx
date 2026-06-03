@@ -94,8 +94,12 @@ function AuthForm({
   onToggle: () => void;
   onSubmit: (data: any) => Promise<void>;
 }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("dtflexpro-aff-email") || "";
+  });
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [fullName, setFullName] = useState("");
   const [preferredSlug, setPreferredSlug] = useState("");
   const [pixKey, setPixKey] = useState("");
