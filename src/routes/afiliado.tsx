@@ -310,6 +310,42 @@ function Dashboard({
           </p>
         </Card>
 
+        <Card className="rounded-lg border-primary/30 bg-primary/5 p-5">
+          <h2 className="mb-2 text-lg font-medium flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-primary" /> Contato do administrador
+          </h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Dúvidas, ativação de venda, pagamento de comissão ou suporte? Fale direto com o administrador da plataforma.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild className="bg-[oklch(0.62_0.19_150)] text-white hover:bg-[oklch(0.56_0.19_150)]">
+              <a
+                href="https://wa.me/5511943152441?text=Ol%C3%A1%2C%20sou%20afiliado%20DTFlexPRO%20e%20preciso%20de%20suporte."
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <MessageCircle className="h-4 w-4" /> WhatsApp: (11) 94315-2441
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="mailto:contato@dtflexpro.com">contato@dtflexpro.com</a>
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="rounded-lg border-amber-500/30 bg-amber-500/5 p-5">
+          <h2 className="mb-2 text-lg font-medium flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-amber-400" /> Proteções da plataforma
+          </h2>
+          <ul className="space-y-1.5 text-sm text-muted-foreground list-disc pl-5">
+            <li>Senhas armazenadas com criptografia (scrypt + salt) — nem o administrador vê sua senha.</li>
+            <li>Sessão protegida por cookie assinado (HttpOnly, Secure) com validade de 30 dias.</li>
+            <li>Você só pode registrar vendas do <strong>Plano Anual</strong>; nenhuma outra ação fica disponível.</li>
+            <li>Comissão de <strong>{fmtBRL(data.affiliate.commission_cents)}</strong> liberada apenas após o administrador confirmar o PIX e ativar o cliente.</li>
+            <li>Em caso de suspeita de uso indevido, encerre a sessão clicando em <em>Sair</em> e troque sua senha.</li>
+          </ul>
+        </Card>
+
         <Card className="rounded-lg bg-card/50 p-5">
           <h2 className="mb-2 text-lg font-medium">Registrar uma venda</h2>
           <p className="mb-3 text-xs text-muted-foreground">
