@@ -137,6 +137,10 @@ function AuthForm({
                 await onSubmit({ email, password });
                 toast.success("Bem-vindo de volta!");
               }
+              if (typeof window !== "undefined") {
+                if (remember) localStorage.setItem("dtflexpro-aff-email", email);
+                else localStorage.removeItem("dtflexpro-aff-email");
+              }
             } catch (err: any) {
               const msg = err?.message || "Erro";
               if (mode === "signup" && /já existe/i.test(msg)) {
