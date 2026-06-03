@@ -113,12 +113,26 @@ function LoginPage() {
         </div>
 
         {conflict && (
-          <div className="mb-4 flex gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
-            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <p className="font-semibold">Acesso já em uso em outro dispositivo</p>
-              <p className="mt-1 text-red-200/80">{conflict}</p>
+          <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+            <div className="flex gap-2">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">Acesso já em uso em outro dispositivo</p>
+                <p className="mt-1 text-red-200/80">{conflict}</p>
+                <p className="mt-2 text-xs text-red-200/70">
+                  Se este dispositivo é seu, libere o acesso para entrar aqui (respeitando o limite do seu plano).
+                </p>
+              </div>
             </div>
+            <Button
+              type="button"
+              onClick={handleRelease}
+              disabled={releasing || loading}
+              className="mt-3 w-full"
+              variant="destructive"
+            >
+              {releasing ? "Liberando..." : "Liberar acesso neste dispositivo"}
+            </Button>
           </div>
         )}
 
