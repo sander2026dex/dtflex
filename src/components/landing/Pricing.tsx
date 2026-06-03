@@ -8,12 +8,13 @@ import { pricingOptions } from "./data";
 
 const WHATSAPP_NUMBER = "5511943152441";
 
-export function Pricing() {
+export function Pricing({ affiliateMode = false }: { affiliateMode?: boolean } = {}) {
   const [billing, setBilling] = useState<"mensal" | "anual">("anual");
+  const effectiveBilling = affiliateMode ? "anual" : billing;
 
   const selectedPlan = useMemo(
-    () => pricingOptions.find((option) => option.billing === billing) ?? pricingOptions[0],
-    [billing],
+    () => pricingOptions.find((option) => option.billing === effectiveBilling) ?? pricingOptions[0],
+    [effectiveBilling],
   );
 
   function handleCheckout() {
@@ -38,22 +39,24 @@ export function Pricing() {
           </p>
         </div>
 
-        <div className="mb-8 inline-flex rounded-md border border-border/70 bg-card/65 p-1">
-          {(["mensal", "anual"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setBilling(option)}
-              className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                billing === option
-                  ? "bg-[oklch(0.58_0.25_27)] text-white shadow-[0_0_18px_oklch(0.58_0.25_27/0.55)]"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {option === "mensal" ? "Mensal" : "Anual"}
-            </button>
-          ))}
-        </div>
+        {!affiliateMode && (
+          <div className="mb-8 inline-flex rounded-md border border-border/70 bg-card/65 p-1">
+            {(["mensal", "anual"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setBilling(option)}
+                className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                  billing === option
+                    ? "bg-[oklch(0.58_0.25_27)] text-white shadow-[0_0_18px_oklch(0.58_0.25_27/0.55)]"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {option === "mensal" ? "Mensal" : "Anual"}
+              </button>
+            ))}
+          </div>
+        )}
 
 
         <Card className="max-w-3xl rounded-lg border-border/70 bg-card/60 p-8 shadow-[var(--shadow-panel)] backdrop-blur-xl">
