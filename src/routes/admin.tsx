@@ -46,6 +46,14 @@ interface DashboardPayload {
     active_session_token: string | null;
     active_session_started_at: string | null;
     last_activity_at: string | null;
+    affiliate_sale?: {
+      id: string;
+      affiliate_id: string;
+      customer_email: string;
+      status: string;
+      commission_cents: number;
+      affiliates?: { full_name: string; slug: string } | null;
+    } | null;
   }>;
   payments: Array<{
     id: string;
