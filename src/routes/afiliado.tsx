@@ -407,10 +407,15 @@ function Dashboard({
                     <TableHead>Status</TableHead>
                     <TableHead>Comissão</TableHead>
                     <TableHead>Registrada em</TableHead>
+                    <TableHead>Expira em</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.sales.map((s: any) => (
+                  {data.sales.map((s: any) => {
+                    const expiresIso = s.activated_at
+                      ? new Date(new Date(s.activated_at).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString()
+                      : null;
+                    return (
                     <TableRow key={s.id}>
                       <TableCell>{s.customer_name || "-"}</TableCell>
                       <TableCell className="max-w-[180px] truncate">{s.customer_email}</TableCell>
