@@ -62,6 +62,123 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_sales: {
+        Row: {
+          activated_at: string | null
+          admin_note: string | null
+          affiliate_id: string
+          amount_cents: number
+          commission_cents: number
+          created_at: string
+          customer_email: string
+          customer_name: string | null
+          customer_whatsapp: string | null
+          id: string
+          paid_at: string | null
+          pix_proof_note: string | null
+          plan_code: string
+          status: string
+          updated_at: string
+          user_access_id: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          admin_note?: string | null
+          affiliate_id: string
+          amount_cents?: number
+          commission_cents?: number
+          created_at?: string
+          customer_email: string
+          customer_name?: string | null
+          customer_whatsapp?: string | null
+          id?: string
+          paid_at?: string | null
+          pix_proof_note?: string | null
+          plan_code?: string
+          status?: string
+          updated_at?: string
+          user_access_id?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          admin_note?: string | null
+          affiliate_id?: string
+          amount_cents?: number
+          commission_cents?: number
+          created_at?: string
+          customer_email?: string
+          customer_name?: string | null
+          customer_whatsapp?: string | null
+          id?: string
+          paid_at?: string | null
+          pix_proof_note?: string | null
+          plan_code?: string
+          status?: string
+          updated_at?: string
+          user_access_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_sales_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_sales_user_access_id_fkey"
+            columns: ["user_access_id"]
+            isOneToOne: false
+            referencedRelation: "user_access"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliates: {
+        Row: {
+          commission_cents: number
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          last_login_at: string | null
+          password_hash: string
+          pix_key: string | null
+          slug: string
+          status: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          commission_cents?: number
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          last_login_at?: string | null
+          password_hash: string
+          pix_key?: string | null
+          slug: string
+          status?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          commission_cents?: number
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          last_login_at?: string | null
+          password_hash?: string
+          pix_key?: string | null
+          slug?: string
+          status?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       asset_downloads: {
         Row: {
           created_at: string
