@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Copy, LogOut, Wallet } from "lucide-react";
+import { Copy, LogOut, MessageCircle, ShieldCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -94,8 +94,12 @@ function AuthForm({
   onToggle: () => void;
   onSubmit: (data: any) => Promise<void>;
 }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("dtflexpro-aff-email") || "";
+  });
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [fullName, setFullName] = useState("");
   const [preferredSlug, setPreferredSlug] = useState("");
   const [pixKey, setPixKey] = useState("");
@@ -133,6 +137,10 @@ function AuthForm({
                 await onSubmit({ email, password });
                 toast.success("Bem-vindo de volta!");
               }
+              if (typeof window !== "undefined") {
+                if (remember) localStorage.setItem("dtflexpro-aff-email", email);
+                else localStorage.removeItem("dtflexpro-aff-email");
+              }
             } catch (err: any) {
               const msg = err?.message || "Erro";
               if (mode === "signup" && /já existe/i.test(msg)) {
@@ -168,12 +176,21 @@ function AuthForm({
           )}
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Senha</Label>
-            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Input id="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground select-none">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border accent-primary"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            Lembrar de mim neste navegador
+          </label>
           {mode === "signup" && (
             <>
               <div className="space-y-2">
@@ -291,6 +308,42 @@ function Dashboard({
             Você só pode vender o <strong>Plano Anual (R$ 147)</strong>. Comissão fixa de{" "}
             <strong>{fmtBRL(data.affiliate.commission_cents)}</strong> por venda ativada.
           </p>
+        </Card>
+
+        <Card className="rounded-lg border-primary/30 bg-primary/5 p-5">
+          <h2 className="mb-2 text-lg font-medium flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-primary" /> Contato do administrador
+          </h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Dúvidas, ativação de venda, pagamento de comissão ou suporte? Fale direto com o administrador da plataforma.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild className="bg-[oklch(0.62_0.19_150)] text-white hover:bg-[oklch(0.56_0.19_150)]">
+              <a
+                href="https://wa.me/5511943152441?text=Ol%C3%A1%2C%20sou%20afiliado%20DTFlexPRO%20e%20preciso%20de%20suporte."
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <MessageCircle className="h-4 w-4" /> WhatsApp: (11) 94315-2441
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="mailto:contato@dtflexpro.com">contato@dtflexpro.com</a>
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="rounded-lg border-amber-500/30 bg-amber-500/5 p-5">
+          <h2 className="mb-2 text-lg font-medium flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-amber-400" /> Proteções da plataforma
+          </h2>
+          <ul className="space-y-1.5 text-sm text-muted-foreground list-disc pl-5">
+            <li>Senhas armazenadas com criptografia (scrypt + salt) — nem o administrador vê sua senha.</li>
+            <li>Sessão protegida por cookie assinado (HttpOnly, Secure) com validade de 30 dias.</li>
+            <li>Você só pode registrar vendas do <strong>Plano Anual</strong>; nenhuma outra ação fica disponível.</li>
+            <li>Comissão de <strong>{fmtBRL(data.affiliate.commission_cents)}</strong> liberada apenas após o administrador confirmar o PIX e ativar o cliente.</li>
+            <li>Em caso de suspeita de uso indevido, encerre a sessão clicando em <em>Sair</em> e troque sua senha.</li>
+          </ul>
         </Card>
 
         <Card className="rounded-lg bg-card/50 p-5">

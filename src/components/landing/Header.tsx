@@ -12,7 +12,7 @@ export function Header() {
           to="/"
           className="inline-flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <img src={logo.url} alt="DTFlexPRO" className="h-10 w-auto md:h-12" />
+          <img src={logo.url} alt="DTFlexPRO" className="h-14 w-auto md:h-16" />
         </Link>
 
         <div className="flex items-center gap-2">

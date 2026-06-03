@@ -36,13 +36,18 @@ export const Route = createFileRoute("/$slug")({
 });
 
 function AffiliateLanding() {
-  const data = Route.useLoaderData();
   return (
-    <div className="relative">
-      <div className="sticky top-0 z-50 w-full bg-primary/95 backdrop-blur px-4 py-2 text-center text-sm font-medium text-primary-foreground">
-        🎉 Você foi indicado por <strong>{data.fullName}</strong> — Plano Anual R$ 147 / ano
-      </div>
-      <LandingPage />
+    <div
+      style={{
+        ["--brand" as any]: "oklch(0.58 0.25 27)",
+        ["--brand-foreground" as any]: "oklch(0.99 0 0)",
+        ["--brand-muted" as any]: "oklch(0.58 0.25 27 / 0.20)",
+        ["--primary" as any]: "oklch(0.58 0.25 27)",
+        ["--primary-foreground" as any]: "oklch(0.99 0 0)",
+        ["--ring" as any]: "oklch(0.58 0.25 27)",
+      }}
+    >
+      <LandingPage affiliateMode />
     </div>
   );
 }
