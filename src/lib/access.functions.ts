@@ -380,7 +380,24 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (!accessRow) {
+      const { data: revokedRow } = await db
+        .from("user_access")
+        .select("id")
+        .eq("email", email)
+        .eq("access_code", code)
+        .eq("status", "revoked")
+        .gt("expires_at", nowIso)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       await logSecurity("access_code_validation", false);
+      if (revokedRow) {
+        return {
+          ok: false,
+          revoked: true,
+          error: "Seu acesso foi revogado. Clique em \"Liberar\" para reativar (limite de 1 dispositivo).",
+        };
+      }
       return { ok: false, error: genericAccessError };
     }
 
@@ -815,3 +832,42 @@ export const pingAccessSession = createServerFn({ method: "POST" }).handler(asyn
     .eq("active_session_token", sessionToken);
   return { ok: true };
 });
+
+export const reactivateOwnAccess = createServerFn({ method: "POST" })
+  .inputValidator(accessCodeSchema)
+  .handler(async ({ data }) => {
+    const db = getDb();
+    const email = normalizeEmail(data.email);
+    const code = normalizeCode(data.code);
+    const nowIso = new Date().toISOString();
+
+    const { data: row } = await db
+      .from("user_access")
+      .select("id")
+      .eq("email", email)
+      .eq("access_code", code)
+      .eq("status", "revoked")
+      .gt("expires_at", nowIso)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!row) {
+      return { ok: false, error: "Nenhum acesso revogado encontrado para esse e-mail e código." };
+    }
+
+    await db
+      .from("user_access")
+      .update({
+        status: "active",
+        device_limit: 1,
+        active_session_token: null,
+        active_session_started_at: null,
+        active_session_ip: null,
+        active_session_user_agent: null,
+      })
+      .eq("id", row.id);
+
+    await logSecurity("access_self_reactivate", true);
+    return { ok: true };
+  });

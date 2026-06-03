@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Eye, EyeOff, ShieldAlert } from "lucide-react";
-import { validateAccessCode, releaseOwnDeviceSession } from "@/lib/access.functions";
+import { validateAccessCode, releaseOwnDeviceSession, reactivateOwnAccess } from "@/lib/access.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,12 +27,46 @@ function LoginPage() {
   const search = Route.useSearch();
   const validateCode = useServerFn(validateAccessCode);
   const releaseDevice = useServerFn(releaseOwnDeviceSession);
+  const reactivateAccess = useServerFn(reactivateOwnAccess);
   const [email, setEmail] = useState(search.email);
   const [code, setCode] = useState(search.code);
   const [loading, setLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
+  const [revoked, setRevoked] = useState<string | null>(null);
+
+  async function handleReactivate() {
+    const trimmedEmail = email.trim();
+    const trimmedCode = code.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail) || trimmedCode.length < 6) {
+      toast.error("Preencha e-mail e código antes de liberar o acesso");
+      return;
+    }
+    try {
+      setReactivating(true);
+      const result = await reactivateAccess({ data: { email: trimmedEmail, code: trimmedCode } });
+      if (!result.ok) {
+        toast.error(result.error ?? "Não foi possível reativar o acesso");
+        return;
+      }
+      toast.success("Acesso reativado para 1 dispositivo. Entrando...");
+      setRevoked(null);
+      setConflict(null);
+      const login = await validateCode({ data: { email: trimmedEmail, code: trimmedCode } });
+      if (!login.ok) {
+        toast.error(login.error ?? "Falha ao entrar após reativar");
+        return;
+      }
+      window.location.href = login.redirectTo;
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao reativar acesso");
+    } finally {
+      setReactivating(false);
+    }
+  }
 
   async function handleRelease() {
     const trimmedEmail = email.trim();
@@ -79,12 +113,16 @@ function LoginPage() {
     }
     try {
       setLoading(true);
+      setConflict(null);
+      setRevoked(null);
       const result = await validateCode({
         data: { email: trimmedEmail, code: trimmedCode },
       });
       if (!result.ok) {
-        // Mostra alerta inline quando é conflito de dispositivo
-        if (result.error && /dispositivo/i.test(result.error)) {
+        if ((result as any).revoked) {
+          setRevoked(result.error ?? "Seu acesso foi revogado.");
+          toast.error(result.error, { duration: 10000 });
+        } else if (result.error && /dispositivo/i.test(result.error)) {
           setConflict(result.error);
           toast.error(result.error, { duration: 10000 });
         } else {
@@ -120,18 +158,50 @@ function LoginPage() {
                 <p className="font-semibold">Acesso já em uso em outro dispositivo</p>
                 <p className="mt-1 text-red-200/80">{conflict}</p>
                 <p className="mt-2 text-xs text-red-200/70">
-                  Se este dispositivo é seu, libere o acesso para entrar aqui (respeitando o limite do seu plano).
+                  Plano permite apenas <strong>1 dispositivo</strong>. Libere para usar aqui ou reative se foi revogado.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                onClick={handleRelease}
+                disabled={releasing || reactivating || loading}
+                variant="destructive"
+              >
+                {releasing ? "Liberando..." : "Liberar p/ outro PC"}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleReactivate}
+                disabled={releasing || reactivating || loading}
+                variant="default"
+              >
+                {reactivating ? "Liberando..." : "Liberar (revogado)"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {revoked && (
+          <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+            <div className="flex gap-2">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">Seu acesso foi revogado</p>
+                <p className="mt-1 text-amber-100/80">{revoked}</p>
+                <p className="mt-2 text-xs text-amber-100/70">
+                  Ao liberar, o acesso será reativado para uso em <strong>1 dispositivo</strong>.
                 </p>
               </div>
             </div>
             <Button
               type="button"
-              onClick={handleRelease}
-              disabled={releasing || loading}
+              onClick={handleReactivate}
+              disabled={reactivating || loading}
               className="mt-3 w-full"
-              variant="destructive"
             >
-              {releasing ? "Liberando..." : "Liberar acesso neste dispositivo"}
+              {reactivating ? "Liberando..." : "Liberar acesso (1 dispositivo)"}
             </Button>
           </div>
         )}
