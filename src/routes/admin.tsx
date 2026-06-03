@@ -510,6 +510,16 @@ function AdminPage() {
                         <span className="text-xs text-muted-foreground">livre</span>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {item.affiliate_sale ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                          Afiliado: {item.affiliate_sale.affiliates?.full_name || item.affiliate_sale.customer_email}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Direta</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-wrap justify-end gap-1">
                         <Button
