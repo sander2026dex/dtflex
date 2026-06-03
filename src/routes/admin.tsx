@@ -133,6 +133,7 @@ function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardPayload>(EMPTY);
+  const [tab, setTab] = useState<"geral" | "afiliados">("geral");
 
   async function loadDashboard() {
     try {
@@ -263,38 +264,69 @@ function AdminPage() {
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-4">
-          <StatCard title="Clientes únicos" value={String(dashboard.metrics.uniqueClients)} />
-          <StatCard title="Códigos ativos" value={String(dashboard.metrics.activeCodes)} />
-          <StatCard title="Códigos emitidos" value={String(dashboard.metrics.totalCodes)} />
-          <StatCard title="Eventos de segurança" value={String(dashboard.logs.length)} />
-        </section>
+        <nav className="flex gap-2 border-b border-border">
+          <button
+            type="button"
+            onClick={() => setTab("geral")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              tab === "geral"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Geral
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("afiliados")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              tab === "afiliados"
+                ? "border-amber-400 text-amber-300"
+                : "border-transparent text-muted-foreground hover:text-amber-200"
+            }`}
+          >
+            Afiliados
+          </button>
+        </nav>
 
-        <DataCard title="Vendas por mês (últimos 12 meses)">
-          <div className="flex items-end gap-2 overflow-x-auto pb-2">
-            {dashboard.metrics.monthly.map((m) => {
-              const heightPct = (m.total / maxMonthly) * 100;
-              return (
-                <div key={m.month} className="flex min-w-[44px] flex-col items-center gap-1">
-                  <div className="flex h-32 w-full items-end justify-center">
-                    <div
-                      className="w-6 rounded-t bg-primary/80"
-                      style={{ height: `${Math.max(4, heightPct)}%` }}
-                      title={`${m.total} (${m.mensal} mensal · ${m.anual} anual)`}
-                    />
-                  </div>
-                  <span className="font-mono text-[10px] text-muted-foreground">{m.month.slice(5)}</span>
-                  <span className="font-mono text-[10px] text-foreground">{m.total}</span>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Total de códigos liberados (vendas) por mês — passe o mouse para ver mensal vs anual.
-          </p>
-        </DataCard>
+        {tab === "geral" && (
+          <>
+            <section className="grid gap-4 md:grid-cols-4">
+              <StatCard title="Clientes únicos" value={String(dashboard.metrics.uniqueClients)} />
+              <StatCard title="Códigos ativos" value={String(dashboard.metrics.activeCodes)} />
+              <StatCard title="Códigos emitidos" value={String(dashboard.metrics.totalCodes)} />
+              <StatCard title="Eventos de segurança" value={String(dashboard.logs.length)} />
+            </section>
 
-        <AffiliateAdminSection />
+            <DataCard title="Vendas por mês (últimos 12 meses)">
+              <div className="flex items-end gap-2 overflow-x-auto pb-2">
+                {dashboard.metrics.monthly.map((m) => {
+                  const heightPct = (m.total / maxMonthly) * 100;
+                  return (
+                    <div key={m.month} className="flex min-w-[44px] flex-col items-center gap-1">
+                      <div className="flex h-32 w-full items-end justify-center">
+                        <div
+                          className="w-6 rounded-t bg-primary/80"
+                          style={{ height: `${Math.max(4, heightPct)}%` }}
+                          title={`${m.total} (${m.mensal} mensal · ${m.anual} anual)`}
+                        />
+                      </div>
+                      <span className="font-mono text-[10px] text-muted-foreground">{m.month.slice(5)}</span>
+                      <span className="font-mono text-[10px] text-foreground">{m.total}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Total de códigos liberados (vendas) por mês — passe o mouse para ver mensal vs anual.
+              </p>
+            </DataCard>
+          </>
+        )}
+
+        {tab === "afiliados" && <AffiliateAdminSection forceOpen />}
+        {tab === "geral" && (
+        <>
 
         <DataCard title="Registrar compra (envia senha provisória ao cliente)">
           <p className="mb-3 text-xs text-muted-foreground">
@@ -656,6 +688,8 @@ function AdminPage() {
             </Table>
           </div>
         </DataCard>
+        </>
+        )}
       </div>
     </main>
   );
@@ -737,7 +771,7 @@ function buildClientMessage(item: {
   ].join("\n");
 }
 
-function AffiliateAdminSection() {
+function AffiliateAdminSection({ forceOpen = false }: { forceOpen?: boolean }) {
   const fetchData = useServerFn(getAffiliateAdminData);
   const activate = useServerFn(activateAffiliateSale);
   const markPaid = useServerFn(markAffiliateSalePaid);
@@ -754,7 +788,8 @@ function AffiliateAdminSection() {
   }
   useEffect(() => { load(); }, []);
 
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = forceOpen || openState;
 
   if (!data) return null;
   const pendingSales = data.sales.filter((s) => s.status === "pending");
@@ -769,11 +804,11 @@ function AffiliateAdminSection() {
     <Card className="rounded-lg border-2 border-amber-500/30 bg-gradient-to-br from-amber-950/20 to-card/50 p-0 shadow-[0_0_30px_-5px_rgba(245,158,11,0.15)] overflow-hidden">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => !forceOpen && setOpenState((v) => !v)}
         className="flex w-full items-center justify-between gap-4 px-5 py-4 hover:bg-amber-500/5 transition-colors"
       >
         <div className="flex items-center gap-3">
-          {open ? <ChevronDown className="h-5 w-5 text-amber-300" /> : <ChevronRight className="h-5 w-5 text-amber-300" />}
+          {!forceOpen && (open ? <ChevronDown className="h-5 w-5 text-amber-300" /> : <ChevronRight className="h-5 w-5 text-amber-300" />)}
           <Users className="h-5 w-5 text-amber-300" />
           <span className="text-lg font-semibold text-amber-300">Afiliados</span>
           <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
@@ -958,30 +993,65 @@ function AffiliateAdminSection() {
             <Table>
               <TableHeader>
                 <TableRow className="border-amber-500/20 hover:bg-transparent">
-                  <TableHead className="text-amber-200">Nome</TableHead>
-                  <TableHead className="text-amber-200">E-mail</TableHead>
-                  <TableHead className="text-amber-200">Link</TableHead>
-                  <TableHead className="text-amber-200">WhatsApp</TableHead>
+                  <TableHead className="text-amber-200">Afiliado</TableHead>
+                  <TableHead className="text-amber-200">Contato</TableHead>
                   <TableHead className="text-amber-200">PIX</TableHead>
-                  <TableHead className="text-amber-200">Cadastrado</TableHead>
+                  <TableHead className="text-amber-200 text-right">Vendas ativadas</TableHead>
+                  <TableHead className="text-amber-200 text-right">Em aberto</TableHead>
+                  <TableHead className="text-amber-200 text-right">Já pago</TableHead>
+                  <TableHead className="text-amber-200 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.affiliates.map((a) => (
+                {data.affiliates.map((a) => {
+                  const mySales = data.sales.filter((s) => s.affiliate_id === a.id);
+                  const myOpen = mySales.filter((s) => s.status === "activated");
+                  const myPaid = mySales.filter((s) => s.status === "paid");
+                  const myActivated = mySales.filter((s) => s.status === "activated" || s.status === "paid");
+                  const openCents = myOpen.reduce((sum, s) => sum + (s.commission_cents ?? 0), 0);
+                  const paidCents = myPaid.reduce((sum, s) => sum + (s.commission_cents ?? 0), 0);
+                  return (
                   <TableRow key={a.id} className="bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/10">
                     <TableCell>
-                      <span className="inline-flex items-center gap-2">
-                        <span className="font-bold text-amber-300">{a.full_name}</span>
-                        <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">AFILIADO</span>
+                      <div className="font-bold text-amber-300">{a.full_name}</div>
+                      <div className="font-mono text-xs text-muted-foreground">/{a.slug}</div>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <div>{a.email}</div>
+                      <div className="text-muted-foreground">{a.whatsapp || "-"}</div>
+                    </TableCell>
+                    <TableCell className="text-xs">{a.pix_key || "—"}</TableCell>
+                    <TableCell className="text-right font-mono text-amber-200">{myActivated.length}</TableCell>
+                    <TableCell className="text-right">
+                      <span className={`font-mono font-bold ${openCents > 0 ? "text-sky-300" : "text-muted-foreground"}`}>
+                        {(openCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs">{a.email}</TableCell>
-                    <TableCell className="font-mono text-xs">/{a.slug}</TableCell>
-                    <TableCell className="text-xs">{a.whatsapp || "-"}</TableCell>
-                    <TableCell className="text-xs">{a.pix_key || "-"}</TableCell>
-                    <TableCell className="text-xs">{formatDate(a.created_at)}</TableCell>
+                    <TableCell className="text-right font-mono text-emerald-300">
+                      {(paidCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        disabled={myOpen.length === 0}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40"
+                        onClick={async () => {
+                          if (!confirm(`Dar baixa em ${myOpen.length} comissão(ões) de ${a.full_name} — total ${(openCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}?`)) return;
+                          try {
+                            await Promise.all(myOpen.map((s) => markPaid({ data: { saleId: s.id } })));
+                            toast.success(`Baixa registrada em ${myOpen.length} comissão(ões).`);
+                            await load();
+                          } catch {
+                            toast.error("Falha ao dar baixa.");
+                          }
+                        }}
+                      >
+                        Dar baixa ({myOpen.length})
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
