@@ -674,6 +674,18 @@ function DataCard({ title, children }: { title: string; children: React.ReactNod
   );
 }
 
+function AffiliateDataCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card className="rounded-lg border-2 border-amber-500/30 bg-gradient-to-br from-amber-950/20 to-card/50 p-5 shadow-[0_0_30px_-5px_rgba(245,158,11,0.15)]">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
+        <h2 className="text-lg font-semibold text-amber-300">{title}</h2>
+      </div>
+      {children}
+    </Card>
+  );
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
