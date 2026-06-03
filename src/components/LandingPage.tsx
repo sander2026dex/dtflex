@@ -9,7 +9,7 @@ import { Pricing } from "@/components/landing/Pricing";
 import { SocialProof } from "@/components/landing/SocialProof";
 import { WhatsAppFloat } from "@/components/landing/WhatsAppFloat";
 
-export function LandingPage() {
+export function LandingPage({ affiliateMode = false }: { affiliateMode?: boolean } = {}) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
       {/* Halftone dot pattern overlay */}
@@ -32,7 +32,7 @@ export function LandingPage() {
         <Features />
         <SocialProof />
         <HowItWorks />
-        <Pricing />
+        <Pricing affiliateMode={affiliateMode} />
         <FAQ />
         <Footer />
         <WhatsAppFloat />
