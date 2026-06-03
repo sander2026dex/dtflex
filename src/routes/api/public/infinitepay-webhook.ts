@@ -13,16 +13,18 @@ export const Route = createFileRoute("/api/public/infinitepay-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Verificação opcional de token (querystring ou header)
+        // Autenticação obrigatória — sem secret, recusa imediatamente
         const secret = process.env.INFINITEPAY_WEBHOOK_SECRET;
-        if (secret) {
-          const url = new URL(request.url);
-          const provided =
-            url.searchParams.get("token") ?? request.headers.get("x-webhook-token") ?? "";
-          if (provided !== secret) {
-            await log("infinitepay_webhook_unauthorized", false, request);
-            return new Response("Unauthorized", { status: 401 });
-          }
+        if (!secret) {
+          await log("infinitepay_webhook_misconfigured", false, request);
+          return new Response("Server misconfigured", { status: 500 });
+        }
+        const url = new URL(request.url);
+        const provided =
+          url.searchParams.get("token") ?? request.headers.get("x-webhook-token") ?? "";
+        if (provided !== secret) {
+          await log("infinitepay_webhook_unauthorized", false, request);
+          return new Response("Unauthorized", { status: 401 });
         }
 
         let payload: Record<string, any> = {};
