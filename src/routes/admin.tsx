@@ -771,7 +771,7 @@ function buildClientMessage(item: {
   ].join("\n");
 }
 
-function AffiliateAdminSection() {
+function AffiliateAdminSection({ forceOpen = false }: { forceOpen?: boolean }) {
   const fetchData = useServerFn(getAffiliateAdminData);
   const activate = useServerFn(activateAffiliateSale);
   const markPaid = useServerFn(markAffiliateSalePaid);
@@ -788,7 +788,8 @@ function AffiliateAdminSection() {
   }
   useEffect(() => { load(); }, []);
 
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = forceOpen || openState;
 
   if (!data) return null;
   const pendingSales = data.sales.filter((s) => s.status === "pending");
