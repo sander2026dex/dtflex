@@ -424,6 +424,43 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
             <ResultActions resultUrl={resultUrl} resultBlob={resultBlob} onSave={save} onCopy={copyResult} />
           </TabsContent>
 
+          {/* === CORRIGIR PNG === */}
+          <TabsContent value="fix" className="mt-4 space-y-4">
+            <div className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
+              <p className="text-sm font-semibold">Corrigir PNG (limpa canal alpha)</p>
+              <p className="text-[11px] text-muted-foreground">
+                Remove pixels soltos, poeira digital e fragmentos desconectados do fundo transparente.
+                Preserva cores, contraste, halftone, anti-aliasing e bordas suaves. Ideal para impressão DTF.
+              </p>
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span>Tamanho mínimo de cluster (px)</span>
+                  <span className="text-muted-foreground">{fixMinCluster}</span>
+                </div>
+                <Slider value={[fixMinCluster]} min={1} max={50} step={1} onValueChange={(v) => setFixMinCluster(v[0])} />
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span>Limite de alpha (poeira)</span>
+                  <span className="text-muted-foreground">{fixAlphaThresh}</span>
+                </div>
+                <Slider value={[fixAlphaThresh]} min={0} max={40} step={1} onValueChange={(v) => setFixAlphaThresh(v[0])} />
+              </div>
+            </div>
+            <Button
+              onClick={fixPng}
+              disabled={!originalUrl || processing}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
+            >
+              <Sparkles className="h-4 w-4" />
+              {processing ? "Corrigindo..." : "Corrigir PNG"}
+            </Button>
+            {renderPreview(originalUrl, resultUrl, imgRef, false)}
+            <ResultActions resultUrl={resultUrl} resultBlob={resultBlob} onSave={save} onCopy={copyResult} />
+          </TabsContent>
+
+
+
           {/* === GERAR MOCKUP === */}
           <TabsContent value="mockup" className="mt-4 space-y-4">
             <div className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
