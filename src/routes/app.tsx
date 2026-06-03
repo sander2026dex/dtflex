@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles } from "lucide-react";
-import { getAccessSession, pingAccessSession } from "@/lib/access.functions";
+import { Sparkles, LogOut } from "lucide-react";
+import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { BackgroundRemoverDialog } from "@/components/BackgroundRemoverDialog";
 import { Button } from "@/components/ui/button";
 
