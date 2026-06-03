@@ -172,6 +172,55 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     setProcessing(false);
   }, [blackThresh]);
 
+  const fixPng = useCallback(async () => {
+    const ref = getCanvasFromImg();
+    if (!ref) return;
+    setProcessing(true);
+    await new Promise((r) => setTimeout(r, 20));
+    const { canvas, ctx, w, h } = ref;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+    const N = w * h;
+    const aThr = fixAlphaThresh;
+    const minSize = Math.max(1, fixMinCluster);
+
+    // 1) Zera pixels com alpha abaixo do limite (poeira/ruído translúcido).
+    for (let i = 0; i < N; i++) {
+      if (data[i * 4 + 3] <= aThr) data[i * 4 + 3] = 0;
+    }
+
+    // 2) Connected components (4-vizinhança) sobre pixels com alpha > 0.
+    //    Remove clusters menores que minSize.
+    const visited = new Uint8Array(N);
+    const stack = new Int32Array(N);
+    const compIdx = new Int32Array(N);
+    for (let p = 0; p < N; p++) {
+      if (visited[p] || data[p * 4 + 3] === 0) continue;
+      let top = 0;
+      stack[top++] = p;
+      visited[p] = 1;
+      let count = 0;
+      while (top > 0) {
+        const q = stack[--top];
+        compIdx[count++] = q;
+        const x = q % w, y = (q / w) | 0;
+        // vizinhos
+        if (x > 0) { const n = q - 1; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
+        if (x < w - 1) { const n = q + 1; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
+        if (y > 0) { const n = q - w; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
+        if (y < h - 1) { const n = q + w; if (!visited[n] && data[n * 4 + 3] > 0) { visited[n] = 1; stack[top++] = n; } }
+      }
+      if (count < minSize) {
+        for (let k = 0; k < count; k++) data[compIdx[k] * 4 + 3] = 0;
+      }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    await finalize(canvas);
+    setProcessing(false);
+    toast.success("PNG corrigido. Canal alpha limpo.");
+  }, [fixMinCluster, fixAlphaThresh]);
+
   const runMockups = useCallback(async () => {
     if (!originalFile) return;
     setProcessing(true);
