@@ -414,7 +414,7 @@ function Dashboard({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.sales.map((s: any) => {
+                  {openSales.map((s: any) => {
                     const expiresIso = s.activated_at
                       ? new Date(new Date(s.activated_at).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString()
                       : null;
@@ -434,7 +434,7 @@ function Dashboard({
                 </TableBody>
               </Table>
             </div>
-          )}
+          ); })()}
         </Card>
 
         <Card className="rounded-lg bg-card/50 p-5">
