@@ -27,8 +27,8 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
   const [mode, setMode] = useState<Mode>("remove");
   const [progress, setProgress] = useState(0);
   const [blackThresh, setBlackThresh] = useState(22);
-  const [fixMinCluster, setFixMinCluster] = useState(10);
-  const [fixAlphaThresh, setFixAlphaThresh] = useState(8);
+
+
 
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
