@@ -199,6 +199,7 @@ export const getAffiliateDashboard = createServerFn({ method: "GET" }).handler(a
       pix_key: aff.pix_key,
       whatsapp: aff.whatsapp,
       commission_cents: aff.commission_cents,
+      created_at: aff.created_at,
     },
     sales: list,
     metrics: {

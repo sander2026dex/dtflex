@@ -262,6 +262,7 @@ function Dashboard({
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Painel do afiliado</p>
               <h1 className="text-2xl font-semibold">Olá, {data.affiliate.full_name.split(" ")[0]}</h1>
+              <p className="text-xs text-muted-foreground">Cadastrado em {fmtDate(data.affiliate.created_at)}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -435,6 +436,51 @@ function Dashboard({
               </Table>
             </div>
           ); })()}
+        </Card>
+
+        <Card className="rounded-lg bg-card/50 p-5">
+          <h2 className="mb-1 text-lg font-medium">Clientes ativados</h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Vendas que já foram liberadas pelo administrador, com data de registro e expiração do acesso.
+          </p>
+          {(() => {
+            const activatedSales = data.sales.filter((s: any) => s.status === "activated" || s.status === "paid");
+            return activatedSales.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum cliente ativado ainda.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>E-mail</TableHead>
+                      <TableHead>Registrada em</TableHead>
+                      <TableHead>Acesso expira em</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activatedSales.map((s: any) => {
+                      const expiresIso = s.activated_at
+                        ? new Date(new Date(s.activated_at).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString()
+                        : null;
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell>{s.customer_name || "—"}</TableCell>
+                          <TableCell className="max-w-[180px] truncate">{s.customer_email}</TableCell>
+                          <TableCell className="text-xs">{fmtDate(s.created_at)}</TableCell>
+                          <TableCell className="text-xs">{expiresIso ? fmtDate(expiresIso) : "—"}</TableCell>
+                          <TableCell>
+                            <StatusBadge status={s.status} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            );
+          })()}
         </Card>
 
         <Card className="rounded-lg bg-card/50 p-5">
