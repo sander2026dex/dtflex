@@ -701,3 +701,205 @@ function buildClientMessage(item: {
   ].join("\n");
 }
 
+function AffiliateAdminSection() {
+  const fetchData = useServerFn(getAffiliateAdminData);
+  const activate = useServerFn(activateAffiliateSale);
+  const markPaid = useServerFn(markAffiliateSalePaid);
+  const removeSale = useServerFn(deleteAffiliateSale);
+  const [data, setData] = useState<{ affiliates: any[]; sales: any[] } | null>(null);
+
+  async function load() {
+    try {
+      const d = await fetchData();
+      setData(d as any);
+    } catch {
+      /* admin não logado ainda */
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  if (!data) return null;
+  const pendingSales = data.sales.filter((s) => s.status === "pending");
+  const activatedSales = data.sales.filter((s) => s.status === "activated" || s.status === "paid");
+
+  return (
+    <>
+      <DataCard title={`Vendas de afiliados — pendentes de ativação (${pendingSales.length})`}>
+        {pendingSales.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma venda pendente.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Afiliado</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>WhatsApp</TableHead>
+                  <TableHead>PIX (obs)</TableHead>
+                  <TableHead>Registrada</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingSales.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="text-xs">
+                      <div className="font-semibold">{s.affiliates?.full_name}</div>
+                      <div className="text-muted-foreground">@{s.affiliates?.slug}</div>
+                    </TableCell>
+                    <TableCell>{s.customer_name || "-"}</TableCell>
+                    <TableCell className="font-mono text-xs">{s.customer_email}</TableCell>
+                    <TableCell className="text-xs">{s.customer_whatsapp || "-"}</TableCell>
+                    <TableCell className="max-w-[180px] truncate text-xs">{s.pix_proof_note || "-"}</TableCell>
+                    <TableCell className="text-xs">{formatDate(s.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const r: any = await activate({ data: { saleId: s.id } });
+                              if (r.accessCode) {
+                                toast.success(`Acesso liberado: ${r.accessCode} → ${r.email}`);
+                              } else {
+                                toast.success("Já estava ativada.");
+                              }
+                              await load();
+                            } catch {
+                              toast.error("Falha ao ativar.");
+                            }
+                          }}
+                        >
+                          Ativar (Plano Anual)
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={async () => {
+                            if (!confirm("Excluir venda?")) return;
+                            try {
+                              await removeSale({ data: { saleId: s.id } });
+                              toast.success("Removida.");
+                              await load();
+                            } catch {
+                              toast.error("Falha.");
+                            }
+                          }}
+                        >
+                          Excluir
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </DataCard>
+
+      <DataCard title={`Vendas de afiliados — ativadas / pagas (${activatedSales.length})`}>
+        {activatedSales.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nada ainda.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Afiliado</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Comissão</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ativada</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activatedSales.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="text-xs">
+                      <div className="font-semibold">{s.affiliates?.full_name}</div>
+                      <div className="text-muted-foreground">PIX: {s.affiliates?.pix_key || "não informado"}</div>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <div>{s.customer_name || s.customer_email}</div>
+                      <div className="text-muted-foreground">{s.customer_email}</div>
+                    </TableCell>
+                    <TableCell className="font-mono">
+                      {((s.commission_cents ?? 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${s.status === "paid" ? "bg-sky-500/15 text-sky-300" : "bg-emerald-500/15 text-emerald-300"}`}>
+                        {s.status === "paid" ? "PAGA" : "Aguardando pagar PIX"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs">{s.activated_at ? formatDate(s.activated_at) : "-"}</TableCell>
+                    <TableCell className="text-right">
+                      {s.status !== "paid" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              await markPaid({ data: { saleId: s.id } });
+                              toast.success("Marcada como paga.");
+                              await load();
+                            } catch {
+                              toast.error("Falha.");
+                            }
+                          }}
+                        >
+                          Marcar PIX pago
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </DataCard>
+
+      <DataCard title={`Afiliados cadastrados (${data.affiliates.length})`}>
+        {data.affiliates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum afiliado ainda.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>Link</TableHead>
+                  <TableHead>WhatsApp</TableHead>
+                  <TableHead>PIX</TableHead>
+                  <TableHead>Cadastrado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.affiliates.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-2">
+                        {a.full_name}
+                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">AFILIADO</span>
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs">{a.email}</TableCell>
+                    <TableCell className="font-mono text-xs">/{a.slug}</TableCell>
+                    <TableCell className="text-xs">{a.whatsapp || "-"}</TableCell>
+                    <TableCell className="text-xs">{a.pix_key || "-"}</TableCell>
+                    <TableCell className="text-xs">{formatDate(a.created_at)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </DataCard>
+    </>
+  );
+}
+
