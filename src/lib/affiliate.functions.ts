@@ -422,9 +422,14 @@ export const lookupAffiliateBySlug = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { data: row } = await db()
       .from("affiliates")
-      .select("slug, full_name, status")
+      .select("slug, full_name, status, whatsapp")
       .eq("slug", data.slug.toLowerCase())
       .maybeSingle();
     if (!row || row.status !== "active") return { found: false as const };
-    return { found: true as const, slug: row.slug, fullName: row.full_name };
+    return {
+      found: true as const,
+      slug: row.slug,
+      fullName: row.full_name,
+      whatsapp: row.whatsapp ?? null,
+    };
   });

@@ -36,6 +36,7 @@ export const Route = createFileRoute("/$slug")({
 });
 
 function AffiliateLanding() {
+  const data = Route.useLoaderData();
   return (
     <div
       style={{
@@ -47,7 +48,7 @@ function AffiliateLanding() {
         ["--ring" as any]: "oklch(0.58 0.25 27)",
       }}
     >
-      <LandingPage affiliateMode />
+      <LandingPage affiliateMode affiliateWhatsapp={data?.found ? data.whatsapp : null} />
     </div>
   );
 }
