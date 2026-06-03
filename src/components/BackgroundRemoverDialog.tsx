@@ -131,14 +131,16 @@ export function BackgroundRemoverDialog({ trigger }: Props) {
     setProcessing(true);
     setProgress(0);
     try {
-      const blob = await imglyRemoveBackground(originalUrl, {
+      const rawBlob = await imglyRemoveBackground(originalUrl, {
         model: "isnet_quint8",
         output: { format: "image/png", quality: 0.85 },
         progress: (_k, c, t) => setProgress(Math.round((c / t) * 100)),
       });
-      setResultBlob(blob);
-      setResultUrl(URL.createObjectURL(blob));
-      toast.success("Fundo removido.");
+      // Limpeza automática do canal alpha: zera pixels flutuantes / poeira.
+      const cleaned = await cleanAlphaBlob(rawBlob, { alphaThreshold: 8, minClusterSize: 12 });
+      setResultBlob(cleaned);
+      setResultUrl(URL.createObjectURL(cleaned));
+      toast.success("Fundo removido. PNG limpo, pronto para DTF.");
     } catch (err) {
       console.error(err);
       toast.error("Falha ao remover fundo.");
