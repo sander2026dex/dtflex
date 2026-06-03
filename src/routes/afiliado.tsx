@@ -262,6 +262,7 @@ function Dashboard({
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Painel do afiliado</p>
               <h1 className="text-2xl font-semibold">Olá, {data.affiliate.full_name.split(" ")[0]}</h1>
+              <p className="text-xs text-muted-foreground">Cadastrado em {fmtDate(data.affiliate.created_at)}</p>
             </div>
           </div>
           <div className="flex gap-2">
