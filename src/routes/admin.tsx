@@ -264,38 +264,69 @@ function AdminPage() {
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-4">
-          <StatCard title="Clientes únicos" value={String(dashboard.metrics.uniqueClients)} />
-          <StatCard title="Códigos ativos" value={String(dashboard.metrics.activeCodes)} />
-          <StatCard title="Códigos emitidos" value={String(dashboard.metrics.totalCodes)} />
-          <StatCard title="Eventos de segurança" value={String(dashboard.logs.length)} />
-        </section>
+        <nav className="flex gap-2 border-b border-border">
+          <button
+            type="button"
+            onClick={() => setTab("geral")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              tab === "geral"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Geral
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("afiliados")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              tab === "afiliados"
+                ? "border-amber-400 text-amber-300"
+                : "border-transparent text-muted-foreground hover:text-amber-200"
+            }`}
+          >
+            Afiliados
+          </button>
+        </nav>
 
-        <DataCard title="Vendas por mês (últimos 12 meses)">
-          <div className="flex items-end gap-2 overflow-x-auto pb-2">
-            {dashboard.metrics.monthly.map((m) => {
-              const heightPct = (m.total / maxMonthly) * 100;
-              return (
-                <div key={m.month} className="flex min-w-[44px] flex-col items-center gap-1">
-                  <div className="flex h-32 w-full items-end justify-center">
-                    <div
-                      className="w-6 rounded-t bg-primary/80"
-                      style={{ height: `${Math.max(4, heightPct)}%` }}
-                      title={`${m.total} (${m.mensal} mensal · ${m.anual} anual)`}
-                    />
-                  </div>
-                  <span className="font-mono text-[10px] text-muted-foreground">{m.month.slice(5)}</span>
-                  <span className="font-mono text-[10px] text-foreground">{m.total}</span>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Total de códigos liberados (vendas) por mês — passe o mouse para ver mensal vs anual.
-          </p>
-        </DataCard>
+        {tab === "geral" && (
+          <>
+            <section className="grid gap-4 md:grid-cols-4">
+              <StatCard title="Clientes únicos" value={String(dashboard.metrics.uniqueClients)} />
+              <StatCard title="Códigos ativos" value={String(dashboard.metrics.activeCodes)} />
+              <StatCard title="Códigos emitidos" value={String(dashboard.metrics.totalCodes)} />
+              <StatCard title="Eventos de segurança" value={String(dashboard.logs.length)} />
+            </section>
 
-        <AffiliateAdminSection />
+            <DataCard title="Vendas por mês (últimos 12 meses)">
+              <div className="flex items-end gap-2 overflow-x-auto pb-2">
+                {dashboard.metrics.monthly.map((m) => {
+                  const heightPct = (m.total / maxMonthly) * 100;
+                  return (
+                    <div key={m.month} className="flex min-w-[44px] flex-col items-center gap-1">
+                      <div className="flex h-32 w-full items-end justify-center">
+                        <div
+                          className="w-6 rounded-t bg-primary/80"
+                          style={{ height: `${Math.max(4, heightPct)}%` }}
+                          title={`${m.total} (${m.mensal} mensal · ${m.anual} anual)`}
+                        />
+                      </div>
+                      <span className="font-mono text-[10px] text-muted-foreground">{m.month.slice(5)}</span>
+                      <span className="font-mono text-[10px] text-foreground">{m.total}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Total de códigos liberados (vendas) por mês — passe o mouse para ver mensal vs anual.
+              </p>
+            </DataCard>
+          </>
+        )}
+
+        {tab === "afiliados" && <AffiliateAdminSection forceOpen />}
+        {tab === "geral" && (
+        <>
 
         <DataCard title="Registrar compra (envia senha provisória ao cliente)">
           <p className="mb-3 text-xs text-muted-foreground">
