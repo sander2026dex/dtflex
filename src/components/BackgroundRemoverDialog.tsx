@@ -12,7 +12,7 @@ import { removeBackground as imglyRemoveBackground, preload as imglyPreload } fr
 import { useServerFn } from "@tanstack/react-start";
 import { generateShirtMockups } from "@/lib/mockups.functions";
 import { generateImageFromPrompt } from "@/lib/imagegen.functions";
-import { cleanAlphaInPlace, cleanAlphaBlob } from "@/lib/clean-alpha";
+import { cleanAlphaBlob } from "@/lib/clean-alpha";
 
 type Props = { trigger: React.ReactNode };
 type Mode = "remove" | "black" | "mockup" | "ai";
