@@ -26,11 +26,43 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const search = Route.useSearch();
   const validateCode = useServerFn(validateAccessCode);
+  const releaseDevice = useServerFn(releaseOwnDeviceSession);
   const [email, setEmail] = useState(search.email);
   const [code, setCode] = useState(search.code);
   const [loading, setLoading] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
+
+  async function handleRelease() {
+    const trimmedEmail = email.trim();
+    const trimmedCode = code.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail) || trimmedCode.length < 6) {
+      toast.error("Preencha e-mail e código antes de liberar o acesso");
+      return;
+    }
+    try {
+      setReleasing(true);
+      const result = await releaseDevice({ data: { email: trimmedEmail, code: trimmedCode } });
+      if (!result.ok) {
+        toast.error(result.error ?? "Não foi possível liberar o acesso");
+        return;
+      }
+      toast.success("Acesso liberado. Entrando neste dispositivo...");
+      setConflict(null);
+      const login = await validateCode({ data: { email: trimmedEmail, code: trimmedCode } });
+      if (!login.ok) {
+        toast.error(login.error ?? "Falha ao entrar após liberar");
+        return;
+      }
+      window.location.href = login.redirectTo;
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao liberar acesso");
+    } finally {
+      setReleasing(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
