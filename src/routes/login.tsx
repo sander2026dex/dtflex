@@ -27,12 +27,46 @@ function LoginPage() {
   const search = Route.useSearch();
   const validateCode = useServerFn(validateAccessCode);
   const releaseDevice = useServerFn(releaseOwnDeviceSession);
+  const reactivateAccess = useServerFn(reactivateOwnAccess);
   const [email, setEmail] = useState(search.email);
   const [code, setCode] = useState(search.code);
   const [loading, setLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
+  const [revoked, setRevoked] = useState<string | null>(null);
+
+  async function handleReactivate() {
+    const trimmedEmail = email.trim();
+    const trimmedCode = code.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail) || trimmedCode.length < 6) {
+      toast.error("Preencha e-mail e código antes de liberar o acesso");
+      return;
+    }
+    try {
+      setReactivating(true);
+      const result = await reactivateAccess({ data: { email: trimmedEmail, code: trimmedCode } });
+      if (!result.ok) {
+        toast.error(result.error ?? "Não foi possível reativar o acesso");
+        return;
+      }
+      toast.success("Acesso reativado para 1 dispositivo. Entrando...");
+      setRevoked(null);
+      setConflict(null);
+      const login = await validateCode({ data: { email: trimmedEmail, code: trimmedCode } });
+      if (!login.ok) {
+        toast.error(login.error ?? "Falha ao entrar após reativar");
+        return;
+      }
+      window.location.href = login.redirectTo;
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao reativar acesso");
+    } finally {
+      setReactivating(false);
+    }
+  }
 
   async function handleRelease() {
     const trimmedEmail = email.trim();
