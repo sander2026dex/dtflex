@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles, LogOut, Layers } from "lucide-react";
+import { Sparkles, LogOut } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { BackgroundRemoverDialog } from "@/components/BackgroundRemoverDialog";
-import { PostHalftonePanel } from "@/components/PostHalftonePanel";
 import { Button } from "@/components/ui/button";
 
 function AppError() {
