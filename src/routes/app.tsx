@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles, LogOut, Layers } from "lucide-react";
+import { Sparkles, LogOut } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { BackgroundRemoverDialog } from "@/components/BackgroundRemoverDialog";
-import { PostHalftonePanel } from "@/components/PostHalftonePanel";
 import { Button } from "@/components/ui/button";
 
 function AppError() {
@@ -199,18 +198,6 @@ function AppPage() {
           >
             <Sparkles className="h-5 w-5" />
             Preparar Arte para Halftone
-          </Button>
-        }
-      />
-      {/* Painel paralelo: Vazar/Sólido/Reticular por canal + Export 300 DPI real */}
-      <PostHalftonePanel
-        trigger={
-          <Button
-            variant="secondary"
-            className="fixed bottom-4 right-[260px] z-50 h-11 px-5 text-sm font-semibold shadow-lg"
-          >
-            <Layers className="h-5 w-5" />
-            Vazar / Sólido / Reticular · 300 DPI
           </Button>
         }
       />
