@@ -34,6 +34,93 @@
         window.addEventListener('afterprint', function () { document.body.style.visibility = ''; });
       })();
     </script>
+    <script>
+      // ====== Patch PNG export to embed real 300 DPI (pHYs chunk) ======
+      (function () {
+        var PNG_SIG = [137,80,78,71,13,10,26,10];
+        var CRC_TABLE = (function(){
+          var t = new Uint32Array(256);
+          for (var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}
+          return t;
+        })();
+        function crc32(b){var c=0xffffffff;for(var i=0;i<b.length;i++)c=CRC_TABLE[(c^b[i])&0xff]^(c>>>8);return (c^0xffffffff)>>>0;}
+        function buildPhys(dpi){
+          var ppm = Math.round(dpi*39.3701);
+          var data = new Uint8Array(9);
+          var dv = new DataView(data.buffer);
+          dv.setUint32(0, ppm, false); dv.setUint32(4, ppm, false); data[8]=1;
+          var type = new Uint8Array([0x70,0x48,0x59,0x73]);
+          var lt = new Uint8Array(4+4+9);
+          new DataView(lt.buffer).setUint32(0,9,false);
+          lt.set(type,4); lt.set(data,8);
+          var crc = crc32(lt.subarray(4));
+          var out = new Uint8Array(4+4+9+4);
+          out.set(lt,0);
+          new DataView(out.buffer).setUint32(4+4+9, crc, false);
+          return out;
+        }
+        function setDpi(buf, dpi){
+          for (var i=0;i<8;i++) if (buf[i]!==PNG_SIG[i]) return buf;
+          var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+          var off=8, chunks=[];
+          while (off < buf.length){
+            var len = dv.getUint32(off,false);
+            var t = String.fromCharCode(buf[off+4],buf[off+5],buf[off+6],buf[off+7]);
+            var end = off+8+len+4;
+            chunks.push({s:off,e:end,t:t});
+            if (t==='IEND') break;
+            off = end;
+          }
+          var phys = buildPhys(dpi);
+          var parts = [new Uint8Array(PNG_SIG)];
+          var inserted = false;
+          for (var j=0;j<chunks.length;j++){
+            var c = chunks[j];
+            if (c.t==='pHYs') continue;
+            if (!inserted && c.t!=='IHDR'){ parts.push(phys); inserted=true; }
+            parts.push(buf.subarray(c.s, c.e));
+          }
+          if (!inserted) parts.push(phys);
+          var total=0; for (var k=0;k<parts.length;k++) total+=parts[k].length;
+          var out = new Uint8Array(total); var cur=0;
+          for (var l=0;l<parts.length;l++){ out.set(parts[l], cur); cur+=parts[l].length; }
+          return out;
+        }
+        async function rewriteBlob(blob){
+          try {
+            if (!blob || blob.type !== 'image/png') return blob;
+            var buf = new Uint8Array(await blob.arrayBuffer());
+            var fixed = setDpi(buf, 300);
+            return new Blob([fixed], { type: 'image/png' });
+          } catch(e){ return blob; }
+        }
+        // Wrap canvas.toBlob
+        var origToBlob = HTMLCanvasElement.prototype.toBlob;
+        HTMLCanvasElement.prototype.toBlob = function(cb, type, q){
+          var args = [function(b){
+            if (b && (type==='image/png' || !type)) {
+              rewriteBlob(b).then(cb);
+            } else cb(b);
+          }, type, q];
+          return origToBlob.apply(this, args);
+        };
+        // Wrap toDataURL for PNG
+        var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+        HTMLCanvasElement.prototype.toDataURL = function(type){
+          var url = origToDataURL.apply(this, arguments);
+          if (type && type !== 'image/png') return url;
+          try {
+            var comma = url.indexOf(',');
+            var bin = atob(url.substring(comma+1));
+            var buf = new Uint8Array(bin.length);
+            for (var i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+            var fixed = setDpi(buf, 300);
+            var str=''; for (var j=0;j<fixed.length;j++) str+=String.fromCharCode(fixed[j]);
+            return 'data:image/png;base64,'+btoa(str);
+          } catch(e){ return url; }
+        };
+      })();
+    </script>
     <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=alpha-clean-real-2"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
