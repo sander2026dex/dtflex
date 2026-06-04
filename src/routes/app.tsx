@@ -201,18 +201,6 @@ function AppPage() {
           </Button>
         }
       />
-      {/* Painel paralelo: Vazar/Sólido/Reticular por canal + Export 300 DPI real */}
-      <PostHalftonePanel
-        trigger={
-          <Button
-            variant="secondary"
-            className="fixed bottom-4 right-[260px] z-50 h-11 px-5 text-sm font-semibold shadow-lg"
-          >
-            <Layers className="h-5 w-5" />
-            Vazar / Sólido / Reticular · 300 DPI
-          </Button>
-        }
-      />
     </>
   );
 }
