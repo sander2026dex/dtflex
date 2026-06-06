@@ -102,6 +102,25 @@
             return 'data:image/png;base64,' + bytesToBase64(setDpi(buf, 300));
           } catch(e){ return url; }
         }
+        var origAnchorClick = HTMLAnchorElement.prototype.click;
+        async function forceFixedPngDownload(a){
+          try {
+            var res = await fetch(a.href);
+            var fixed = setDpi(new Uint8Array(await res.arrayBuffer()), 300);
+            var url = URL.createObjectURL(new Blob([fixed], { type: 'image/png' }));
+            var dl = document.createElement('a');
+            dl.href = url;
+            dl.download = a.download || 'DTFlexPro_300dpi.png';
+            dl.setAttribute('data-dpi-fixed', 'true');
+            document.body.appendChild(dl);
+            origAnchorClick.call(dl);
+            setTimeout(function(){ URL.revokeObjectURL(url); dl.remove(); }, 1500);
+          } catch(e) {
+            a.href = fixDataUrl(a.href);
+            a.setAttribute('data-dpi-fixed', 'true');
+            origAnchorClick.call(a);
+          }
+        }
         async function rewriteBlob(blob){
           try {
             if (!blob || blob.type !== 'image/png') return blob;
@@ -127,13 +146,24 @@
           if (type && type !== 'image/png') return url;
           return fixDataUrl(url);
         };
+        HTMLAnchorElement.prototype.click = function(){
+          if (this.download && this.getAttribute('data-dpi-fixed') !== 'true' && typeof this.href === 'string' && this.href.indexOf('data:image/png') === 0) {
+            forceFixedPngDownload(this);
+            return;
+          }
+          return origAnchorClick.apply(this, arguments);
+        };
         document.addEventListener('click', function(e){
           var a = e.target && e.target.closest ? e.target.closest('a[download]') : null;
-          if (a && typeof a.href === 'string' && a.href.indexOf('data:image/png') === 0) a.href = fixDataUrl(a.href);
+          if (a && a.getAttribute('data-dpi-fixed') !== 'true' && typeof a.href === 'string' && a.href.indexOf('data:image/png') === 0) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            forceFixedPngDownload(a);
+          }
         }, true);
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-real-3"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-real-4"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
   <body>
