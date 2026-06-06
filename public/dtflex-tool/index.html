@@ -86,6 +86,22 @@
           for (var l=0;l<parts.length;l++){ out.set(parts[l], cur); cur+=parts[l].length; }
           return out;
         }
+        function bytesToBase64(bytes){
+          var binary = '';
+          var chunk = 0x8000;
+          for (var i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+          return btoa(binary);
+        }
+        function fixDataUrl(url){
+          if (typeof url !== 'string' || url.indexOf('data:image/png') !== 0) return url;
+          try {
+            var comma = url.indexOf(',');
+            var bin = atob(url.substring(comma+1));
+            var buf = new Uint8Array(bin.length);
+            for (var i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+            return 'data:image/png;base64,' + bytesToBase64(setDpi(buf, 300));
+          } catch(e){ return url; }
+        }
         async function rewriteBlob(blob){
           try {
             if (!blob || blob.type !== 'image/png') return blob;
@@ -109,19 +125,15 @@
         HTMLCanvasElement.prototype.toDataURL = function(type){
           var url = origToDataURL.apply(this, arguments);
           if (type && type !== 'image/png') return url;
-          try {
-            var comma = url.indexOf(',');
-            var bin = atob(url.substring(comma+1));
-            var buf = new Uint8Array(bin.length);
-            for (var i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
-            var fixed = setDpi(buf, 300);
-            var str=''; for (var j=0;j<fixed.length;j++) str+=String.fromCharCode(fixed[j]);
-            return 'data:image/png;base64,'+btoa(str);
-          } catch(e){ return url; }
+          return fixDataUrl(url);
         };
+        document.addEventListener('click', function(e){
+          var a = e.target && e.target.closest ? e.target.closest('a[download]') : null;
+          if (a && typeof a.href === 'string' && a.href.indexOf('data:image/png') === 0) a.href = fixDataUrl(a.href);
+        }, true);
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=alpha-clean-real-2"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-real-3"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
   <body>
