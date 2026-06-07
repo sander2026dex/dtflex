@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>DTFLEXPRO Halftone Engine</title>
     <style>
       @media print {
@@ -35,56 +38,89 @@
       })();
     </script>
     <script>
-      // ====== Patch PNG export to embed real 300 DPI (pHYs chunk) ======
+      // ====== Patch PNG export: final file is always verified at real 300 DPI (pHYs) ======
       (function () {
-        var PNG_SIG = [137,80,78,71,13,10,26,10];
+        var DPI = 300;
+        var PPM_300 = 11811;
+        var A4_WIDTH = 2480;
+        var A4_HEIGHT = 3508;
+        var PNG_SIG = new Uint8Array([137,80,78,71,13,10,26,10]);
+
+        try {
+          if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function (regs) { regs.forEach(function (reg) { reg.unregister(); }); });
+          if ('caches' in window) caches.keys().then(function (keys) { keys.forEach(function (key) { caches.delete(key); }); });
+        } catch (_) {}
+
         var CRC_TABLE = (function(){
           var t = new Uint32Array(256);
           for (var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}
           return t;
         })();
         function crc32(b){var c=0xffffffff;for(var i=0;i<b.length;i++)c=CRC_TABLE[(c^b[i])&0xff]^(c>>>8);return (c^0xffffffff)>>>0;}
-        function buildPhys(dpi){
-          var ppm = Math.round(dpi*39.3701);
+        function isPng(buf){ if (!buf || buf.length < 33) return false; for (var i=0;i<8;i++) if (buf[i]!==PNG_SIG[i]) return false; return true; }
+        function chunkType(buf, off){ return String.fromCharCode(buf[off+4],buf[off+5],buf[off+6],buf[off+7]); }
+        function concat(parts){ var total=0; for (var i=0;i<parts.length;i++) total+=parts[i].length; var out=new Uint8Array(total), cur=0; for (var j=0;j<parts.length;j++){ out.set(parts[j], cur); cur+=parts[j].length; } return out; }
+        function buildPhys(){
           var data = new Uint8Array(9);
           var dv = new DataView(data.buffer);
-          dv.setUint32(0, ppm, false); dv.setUint32(4, ppm, false); data[8]=1;
+          dv.setUint32(0, PPM_300, false);
+          dv.setUint32(4, PPM_300, false);
+          data[8]=1;
           var type = new Uint8Array([0x70,0x48,0x59,0x73]);
-          var lt = new Uint8Array(4+4+9);
-          new DataView(lt.buffer).setUint32(0,9,false);
-          lt.set(type,4); lt.set(data,8);
-          var crc = crc32(lt.subarray(4));
+          var body = new Uint8Array(4+9);
+          body.set(type,0); body.set(data,4);
           var out = new Uint8Array(4+4+9+4);
-          out.set(lt,0);
-          new DataView(out.buffer).setUint32(4+4+9, crc, false);
+          var od = new DataView(out.buffer);
+          od.setUint32(0,9,false);
+          out.set(type,4); out.set(data,8);
+          od.setUint32(17, crc32(body), false);
           return out;
         }
-        function setDpi(buf, dpi){
-          for (var i=0;i<8;i++) if (buf[i]!==PNG_SIG[i]) return buf;
+        function readPhys(buf){
+          if (!isPng(buf)) return null;
           var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-          var off=8, chunks=[];
-          while (off < buf.length){
+          var off=8;
+          while (off + 12 <= buf.length){
             var len = dv.getUint32(off,false);
-            var t = String.fromCharCode(buf[off+4],buf[off+5],buf[off+6],buf[off+7]);
             var end = off+8+len+4;
-            chunks.push({s:off,e:end,t:t});
+            if (end > buf.length) return null;
+            var t = chunkType(buf, off);
+            if (t==='pHYs' && len===9) {
+              return { x: dv.getUint32(off+8,false), y: dv.getUint32(off+12,false), unit: buf[off+16] };
+            }
             if (t==='IEND') break;
-            off = end;
+            off=end;
           }
-          var phys = buildPhys(dpi);
-          var parts = [new Uint8Array(PNG_SIG)];
+          return null;
+        }
+        function setDpi(buf){
+          if (!isPng(buf)) return buf;
+          var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+          var parts = [buf.subarray(0,8)];
+          var phys = buildPhys();
           var inserted = false;
-          for (var j=0;j<chunks.length;j++){
-            var c = chunks[j];
-            if (c.t==='pHYs') continue;
-            if (!inserted && c.t!=='IHDR'){ parts.push(phys); inserted=true; }
-            parts.push(buf.subarray(c.s, c.e));
+          var off=8;
+          while (off + 12 <= buf.length){
+            var len = dv.getUint32(off,false);
+            var end = off+8+len+4;
+            if (end > buf.length) return buf;
+            var t = chunkType(buf, off);
+            if (t !== 'pHYs') parts.push(buf.subarray(off,end));
+            if (t === 'IHDR' && !inserted) { parts.push(phys); inserted = true; }
+            off=end;
+            if (t==='IEND') break;
           }
-          if (!inserted) parts.push(phys);
-          var total=0; for (var k=0;k<parts.length;k++) total+=parts[k].length;
-          var out = new Uint8Array(total); var cur=0;
-          for (var l=0;l<parts.length;l++){ out.set(parts[l], cur); cur+=parts[l].length; }
-          return out;
+          if (!inserted) parts.splice(1,0,phys);
+          return concat(parts);
+        }
+        function ensureDpi(buf){
+          var fixed = setDpi(buf);
+          var meta = readPhys(fixed);
+          if (!meta || meta.x !== PPM_300 || meta.y !== PPM_300 || meta.unit !== 1) fixed = setDpi(fixed);
+          meta = readPhys(fixed);
+          window.__DTF_LAST_DPI_CHECK = meta;
+          try { console.log('[DPI300] verificado pHYs=', meta && meta.x, meta && meta.y, 'unit=', meta && meta.unit); } catch(_){}
+          return fixed;
         }
         function bytesToBase64(bytes){
           var binary = '';
@@ -92,80 +128,145 @@
           for (var i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
           return btoa(binary);
         }
+        function dataUrlToBytes(url){
+          var comma = url.indexOf(',');
+          var bin = atob(url.substring(comma+1));
+          var buf = new Uint8Array(bin.length);
+          for (var i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+          return buf;
+        }
         function fixDataUrl(url){
           if (typeof url !== 'string' || url.indexOf('data:image/png') !== 0) return url;
-          try {
-            var comma = url.indexOf(',');
-            var bin = atob(url.substring(comma+1));
-            var buf = new Uint8Array(bin.length);
-            for (var i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
-            return 'data:image/png;base64,' + bytesToBase64(setDpi(buf, 300));
-          } catch(e){ return url; }
+          try { return 'data:image/png;base64,' + bytesToBase64(ensureDpi(dataUrlToBytes(url))); }
+          catch(e){ console.warn('[DPI300] falha ao regravar data URL', e); return url; }
+        }
+        function makeA4Canvas(source){
+          var out = document.createElement('canvas');
+          out.width = A4_WIDTH; out.height = A4_HEIGHT;
+          var ctx = out.getContext('2d', { alpha: true });
+          if (!ctx) return source;
+          ctx.clearRect(0,0,A4_WIDTH,A4_HEIGHT);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          var scale = Math.min(A4_WIDTH / source.width, A4_HEIGHT / source.height);
+          var w = Math.round(source.width * scale);
+          var h = Math.round(source.height * scale);
+          var x = Math.round((A4_WIDTH - w) / 2);
+          var y = Math.round((A4_HEIGHT - h) / 2);
+          ctx.drawImage(source, 0, 0, source.width, source.height, x, y, w, h);
+          return out;
+        }
+        function normalizeDownloadName(name){
+          var finalName = name || 'DTFlexPro_300dpi.png';
+          if (window.__DTF_PENDING_A4_DOWNLOAD) {
+            finalName = finalName.replace(/\.png$/i, '');
+            if (finalName.indexOf('_A4') === -1) finalName += '_A4';
+            if (finalName.indexOf('300dpi') === -1) finalName += '_300dpi';
+            finalName += '.png';
+            window.__DTF_PENDING_A4_DOWNLOAD = false;
+          }
+          return finalName;
+        }
+        function fixAnchorSync(a){
+          a.href = fixDataUrl(a.href);
+          a.download = normalizeDownloadName(a.download);
+          a.setAttribute('data-dpi-fixed', 'true');
         }
         var origAnchorClick = HTMLAnchorElement.prototype.click;
         async function forceFixedPngDownload(a){
           try {
-            var res = await fetch(a.href);
-            var fixed = setDpi(new Uint8Array(await res.arrayBuffer()), 300);
+            var res = await fetch(a.href, { cache: 'no-store' });
+            var fixed = ensureDpi(new Uint8Array(await res.arrayBuffer()));
             var url = URL.createObjectURL(new Blob([fixed], { type: 'image/png' }));
             var dl = document.createElement('a');
             dl.href = url;
-            dl.download = a.download || 'DTFlexPro_300dpi.png';
+            dl.download = normalizeDownloadName(a.download);
             dl.setAttribute('data-dpi-fixed', 'true');
             document.body.appendChild(dl);
             origAnchorClick.call(dl);
             setTimeout(function(){ URL.revokeObjectURL(url); dl.remove(); }, 1500);
           } catch(e) {
-            a.href = fixDataUrl(a.href);
-            a.setAttribute('data-dpi-fixed', 'true');
+            fixAnchorSync(a);
             origAnchorClick.call(a);
           }
         }
         async function rewriteBlob(blob){
           try {
             if (!blob || blob.type !== 'image/png') return blob;
-            var buf = new Uint8Array(await blob.arrayBuffer());
-            var fixed = setDpi(buf, 300);
-            return new Blob([fixed], { type: 'image/png' });
+            return new Blob([ensureDpi(new Uint8Array(await blob.arrayBuffer()))], { type: 'image/png' });
           } catch(e){ return blob; }
         }
-        // Wrap canvas.toBlob
+
         var origToBlob = HTMLCanvasElement.prototype.toBlob;
         HTMLCanvasElement.prototype.toBlob = function(cb, type, q){
-          var args = [function(b){
-            if (b && (type==='image/png' || !type)) {
-              rewriteBlob(b).then(cb);
-            } else cb(b);
-          }, type, q];
-          return origToBlob.apply(this, args);
+          var source = this;
+          if ((!type || type === 'image/png') && window.__DTF_EXPORT_A4_NEXT && window.__flat && source === window.__flat) {
+            source = makeA4Canvas(source);
+            window.__DTF_EXPORT_A4_NEXT = false;
+            window.__DTF_PENDING_A4_DOWNLOAD = true;
+          }
+          return origToBlob.call(source, function(b){
+            if (b && (type==='image/png' || !type)) rewriteBlob(b).then(cb); else cb(b);
+          }, type, q);
         };
-        // Wrap toDataURL for PNG
+
         var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
         HTMLCanvasElement.prototype.toDataURL = function(type){
-          var url = origToDataURL.apply(this, arguments);
+          var source = this;
+          if ((!type || type === 'image/png') && window.__DTF_EXPORT_A4_NEXT && window.__flat && source === window.__flat) {
+            source = makeA4Canvas(source);
+            window.__DTF_EXPORT_A4_NEXT = false;
+            window.__DTF_PENDING_A4_DOWNLOAD = true;
+          }
+          var url = origToDataURL.apply(source, arguments);
           if (type && type !== 'image/png') return url;
-          var fixed = fixDataUrl(url);
-          try { console.log('[DPI300] toDataURL fixed, len=', fixed.length); } catch(_){}
-          return fixed;
+          return fixDataUrl(url);
         };
+
         HTMLAnchorElement.prototype.click = function(){
-          if (this.download && this.getAttribute('data-dpi-fixed') !== 'true' && typeof this.href === 'string' && (this.href.indexOf('data:image/png') === 0 || this.href.indexOf('blob:') === 0)) {
-            forceFixedPngDownload(this);
-            return;
+          if (this.download && this.getAttribute('data-dpi-fixed') !== 'true' && typeof this.href === 'string') {
+            if (this.href.indexOf('data:image/png') === 0) {
+              fixAnchorSync(this);
+              return origAnchorClick.apply(this, arguments);
+            }
+            if (this.href.indexOf('blob:') === 0) {
+              forceFixedPngDownload(this);
+              return;
+            }
           }
           return origAnchorClick.apply(this, arguments);
         };
         document.addEventListener('click', function(e){
           var a = e.target && e.target.closest ? e.target.closest('a[download]') : null;
-          if (a && a.getAttribute('data-dpi-fixed') !== 'true' && typeof a.href === 'string' && (a.href.indexOf('data:image/png') === 0 || a.href.indexOf('blob:') === 0)) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            forceFixedPngDownload(a);
+          if (a && a.getAttribute('data-dpi-fixed') !== 'true' && typeof a.href === 'string') {
+            if (a.href.indexOf('data:image/png') === 0) { fixAnchorSync(a); return; }
+            if (a.href.indexOf('blob:') === 0) { e.preventDefault(); e.stopImmediatePropagation(); forceFixedPngDownload(a); }
           }
         }, true);
+
+        function installA4Button(){
+          var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
+          var master = buttons.find(function(btn){ return /Exportar Master/i.test(btn.textContent || ''); });
+          if (!master || document.getElementById('dtf-a4-export-btn')) return;
+          var btn = document.createElement('button');
+          btn.id = 'dtf-a4-export-btn';
+          btn.type = 'button';
+          btn.className = master.className;
+          btn.textContent = 'Salvar PNG A4 (300 DPI)';
+          btn.addEventListener('click', function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            window.__DTF_EXPORT_A4_NEXT = true;
+            master.click();
+          });
+          master.parentElement && master.parentElement.appendChild(btn);
+        }
+        document.addEventListener('DOMContentLoaded', installA4Button);
+        new MutationObserver(installA4Button).observe(document.documentElement, { childList: true, subtree: true });
+        window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT] };
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-real-5"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a4-v6"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
   <body>
