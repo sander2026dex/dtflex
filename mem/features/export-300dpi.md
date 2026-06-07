@@ -12,6 +12,8 @@ Comportamento:
   - x/y pixels per meter = round(300 * 39.3701) = 11811
   - unit = 1 (metro)
 - CRC-32 recalculado.
+- Antes do download final, valida o chunk `pHYs`; se não estiver exatamente 11811/11811/unit 1, regrava novamente.
+- A ferramenta também deve oferecer “Salvar PNG A4 (300 DPI)”: canvas final 2480 x 3508 px, centralizado, transparente, com o mesmo pHYs 300 DPI.
 - Bundle minificado da ferramenta (`assets/index-*.js`) NÃO é modificado.
 
-Regra: nunca remover esse patch. Validar abrindo o PNG exportado em Photoshop/identify — deve mostrar 300 DPI.
+Regra: nunca remover esse patch. Validar abrindo o PNG exportado em Photoshop/identify — deve mostrar 300 DPI, não 72/96/150.
