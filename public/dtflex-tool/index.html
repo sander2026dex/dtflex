@@ -144,10 +144,12 @@
         HTMLCanvasElement.prototype.toDataURL = function(type){
           var url = origToDataURL.apply(this, arguments);
           if (type && type !== 'image/png') return url;
-          return fixDataUrl(url);
+          var fixed = fixDataUrl(url);
+          try { console.log('[DPI300] toDataURL fixed, len=', fixed.length); } catch(_){}
+          return fixed;
         };
         HTMLAnchorElement.prototype.click = function(){
-          if (this.download && this.getAttribute('data-dpi-fixed') !== 'true' && typeof this.href === 'string' && this.href.indexOf('data:image/png') === 0) {
+          if (this.download && this.getAttribute('data-dpi-fixed') !== 'true' && typeof this.href === 'string' && (this.href.indexOf('data:image/png') === 0 || this.href.indexOf('blob:') === 0)) {
             forceFixedPngDownload(this);
             return;
           }
@@ -155,7 +157,7 @@
         };
         document.addEventListener('click', function(e){
           var a = e.target && e.target.closest ? e.target.closest('a[download]') : null;
-          if (a && a.getAttribute('data-dpi-fixed') !== 'true' && typeof a.href === 'string' && a.href.indexOf('data:image/png') === 0) {
+          if (a && a.getAttribute('data-dpi-fixed') !== 'true' && typeof a.href === 'string' && (a.href.indexOf('data:image/png') === 0 || a.href.indexOf('blob:') === 0)) {
             e.preventDefault();
             e.stopImmediatePropagation();
             forceFixedPngDownload(a);
@@ -163,7 +165,7 @@
         }, true);
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-real-4"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-real-5"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
   <body>
