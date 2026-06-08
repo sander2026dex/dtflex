@@ -176,7 +176,7 @@ function AppPage() {
         </span>
       </div>
       <iframe
-        src="/dtflex-tool/index.html?v=dpi300-a4-v6"
+        src="/dtflex-tool/index.html?v=dpi300-a3-v7"
         title="DTFLEXPRO Halftone Engine"
         style={{
           position: "fixed",
