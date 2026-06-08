@@ -227,4 +227,8 @@ function AppPage() {
           }
         />
       </div>
+    </>
+  );
+}
+
 
