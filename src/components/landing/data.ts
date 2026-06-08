@@ -30,8 +30,8 @@ export const featureItems: FeatureItem[] = [
   },
   {
     icon: "printer",
-    title: "Pronto para Print DTF",
-    description: "Calibração pensada para DTF print halftone, com leitura visual forte e produção previsível.",
+    title: "Export A4 e A3 em 300 DPI real",
+    description: "Salve em PNG A4 (2480x3508) ou A3 (3508x4961) com metadados pHYs cravados em 300 DPI, prontos para DTF.",
   },
 ];
 
