@@ -142,30 +142,34 @@
           try { return 'data:image/png;base64,' + bytesToBase64(ensureDpi(dataUrlToBytes(url))); }
           catch(e){ console.warn('[DPI300] falha ao regravar data URL', e); return url; }
         }
-        function makeA4Canvas(source){
+        function makeSizedCanvas(source, W, H){
           var out = document.createElement('canvas');
-          out.width = A4_WIDTH; out.height = A4_HEIGHT;
+          out.width = W; out.height = H;
           var ctx = out.getContext('2d', { alpha: true });
           if (!ctx) return source;
-          ctx.clearRect(0,0,A4_WIDTH,A4_HEIGHT);
+          ctx.clearRect(0,0,W,H);
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          var scale = Math.min(A4_WIDTH / source.width, A4_HEIGHT / source.height);
+          var scale = Math.min(W / source.width, H / source.height);
           var w = Math.round(source.width * scale);
           var h = Math.round(source.height * scale);
-          var x = Math.round((A4_WIDTH - w) / 2);
-          var y = Math.round((A4_HEIGHT - h) / 2);
+          var x = Math.round((W - w) / 2);
+          var y = Math.round((H - h) / 2);
           ctx.drawImage(source, 0, 0, source.width, source.height, x, y, w, h);
           return out;
         }
+        function makeA4Canvas(source){ return makeSizedCanvas(source, A4_WIDTH, A4_HEIGHT); }
+        function makeA3Canvas(source){ return makeSizedCanvas(source, A3_WIDTH, A3_HEIGHT); }
         function normalizeDownloadName(name){
           var finalName = name || 'DTFlexPro_300dpi.png';
-          if (window.__DTF_PENDING_A4_DOWNLOAD) {
+          var tag = null;
+          if (window.__DTF_PENDING_A4_DOWNLOAD) { tag = '_A4'; window.__DTF_PENDING_A4_DOWNLOAD = false; }
+          else if (window.__DTF_PENDING_A3_DOWNLOAD) { tag = '_A3'; window.__DTF_PENDING_A3_DOWNLOAD = false; }
+          if (tag) {
             finalName = finalName.replace(/\.png$/i, '');
-            if (finalName.indexOf('_A4') === -1) finalName += '_A4';
+            if (finalName.indexOf(tag) === -1) finalName += tag;
             if (finalName.indexOf('300dpi') === -1) finalName += '_300dpi';
             finalName += '.png';
-            window.__DTF_PENDING_A4_DOWNLOAD = false;
           }
           return finalName;
         }
@@ -202,10 +206,16 @@
         var origToBlob = HTMLCanvasElement.prototype.toBlob;
         HTMLCanvasElement.prototype.toBlob = function(cb, type, q){
           var source = this;
-          if ((!type || type === 'image/png') && window.__DTF_EXPORT_A4_NEXT && window.__flat && source === window.__flat) {
-            source = makeA4Canvas(source);
-            window.__DTF_EXPORT_A4_NEXT = false;
-            window.__DTF_PENDING_A4_DOWNLOAD = true;
+          if ((!type || type === 'image/png') && window.__flat && source === window.__flat) {
+            if (window.__DTF_EXPORT_A4_NEXT) {
+              source = makeA4Canvas(source);
+              window.__DTF_EXPORT_A4_NEXT = false;
+              window.__DTF_PENDING_A4_DOWNLOAD = true;
+            } else if (window.__DTF_EXPORT_A3_NEXT) {
+              source = makeA3Canvas(source);
+              window.__DTF_EXPORT_A3_NEXT = false;
+              window.__DTF_PENDING_A3_DOWNLOAD = true;
+            }
           }
           return origToBlob.call(source, function(b){
             if (b && (type==='image/png' || !type)) rewriteBlob(b).then(cb); else cb(b);
@@ -215,10 +225,16 @@
         var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
         HTMLCanvasElement.prototype.toDataURL = function(type){
           var source = this;
-          if ((!type || type === 'image/png') && window.__DTF_EXPORT_A4_NEXT && window.__flat && source === window.__flat) {
-            source = makeA4Canvas(source);
-            window.__DTF_EXPORT_A4_NEXT = false;
-            window.__DTF_PENDING_A4_DOWNLOAD = true;
+          if ((!type || type === 'image/png') && window.__flat && source === window.__flat) {
+            if (window.__DTF_EXPORT_A4_NEXT) {
+              source = makeA4Canvas(source);
+              window.__DTF_EXPORT_A4_NEXT = false;
+              window.__DTF_PENDING_A4_DOWNLOAD = true;
+            } else if (window.__DTF_EXPORT_A3_NEXT) {
+              source = makeA3Canvas(source);
+              window.__DTF_EXPORT_A3_NEXT = false;
+              window.__DTF_PENDING_A3_DOWNLOAD = true;
+            }
           }
           var url = origToDataURL.apply(source, arguments);
           if (type && type !== 'image/png') return url;
@@ -246,29 +262,43 @@
           }
         }, true);
 
-        function installA4Button(){
+        function installSizeButtons(){
           var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
           var master = buttons.find(function(btn){ return /Exportar Master/i.test(btn.textContent || ''); });
-          if (!master || document.getElementById('dtf-a4-export-btn')) return;
-          var btn = document.createElement('button');
-          btn.id = 'dtf-a4-export-btn';
-          btn.type = 'button';
-          btn.className = master.className;
-          btn.textContent = 'Salvar PNG A4 (300 DPI)';
-          btn.addEventListener('click', function(e){
-            e.preventDefault();
-            e.stopPropagation();
-            window.__DTF_EXPORT_A4_NEXT = true;
-            master.click();
-          });
-          master.parentElement && master.parentElement.appendChild(btn);
+          if (!master || !master.parentElement) return;
+          if (!document.getElementById('dtf-a4-export-btn')) {
+            var btn4 = document.createElement('button');
+            btn4.id = 'dtf-a4-export-btn';
+            btn4.type = 'button';
+            btn4.className = master.className;
+            btn4.textContent = 'Salvar PNG A4 (300 DPI)';
+            btn4.addEventListener('click', function(e){
+              e.preventDefault(); e.stopPropagation();
+              window.__DTF_EXPORT_A4_NEXT = true;
+              master.click();
+            });
+            master.parentElement.appendChild(btn4);
+          }
+          if (!document.getElementById('dtf-a3-export-btn')) {
+            var btn3 = document.createElement('button');
+            btn3.id = 'dtf-a3-export-btn';
+            btn3.type = 'button';
+            btn3.className = master.className;
+            btn3.textContent = 'Salvar PNG A3 (300 DPI)';
+            btn3.addEventListener('click', function(e){
+              e.preventDefault(); e.stopPropagation();
+              window.__DTF_EXPORT_A3_NEXT = true;
+              master.click();
+            });
+            master.parentElement.appendChild(btn3);
+          }
         }
-        document.addEventListener('DOMContentLoaded', installA4Button);
-        new MutationObserver(installA4Button).observe(document.documentElement, { childList: true, subtree: true });
-        window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT] };
+        document.addEventListener('DOMContentLoaded', installSizeButtons);
+        new MutationObserver(installSizeButtons).observe(document.documentElement, { childList: true, subtree: true });
+        window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT], a3: [A3_WIDTH, A3_HEIGHT] };
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a4-v6"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v7"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
   <body>
