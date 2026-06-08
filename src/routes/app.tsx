@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles, LogOut } from "lucide-react";
+import { Sparkles, LogOut, Calculator, Wand2, Scissors } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { BackgroundRemoverDialog } from "@/components/BackgroundRemoverDialog";
+import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
+import { ImageEnhancerDialog } from "@/components/ImageEnhancerDialog";
 import { Button } from "@/components/ui/button";
 
 function AppError() {
