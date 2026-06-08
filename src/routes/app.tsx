@@ -192,18 +192,39 @@ function AppPage() {
           background: "#0a0c10",
         }}
       />
-      {/* Botão flutuante: Preparar Arte para Halftone */}
-      <BackgroundRemoverDialog
-        trigger={
-          <Button
-            className="fixed bottom-4 right-4 z-50 h-11 px-5 text-sm shadow-[var(--shadow-glow)] font-semibold"
-          >
-            <Sparkles className="h-5 w-5" />
-            Preparar Arte para Halftone
-          </Button>
-        }
-      />
-    </>
-  );
-}
+      {/* Botões flutuantes: ferramentas auxiliares */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-wrap items-center justify-end gap-2">
+        <DTFCalculatorDialog
+          trigger={
+            <Button variant="secondary" className="h-11 px-4 text-sm font-semibold shadow-lg">
+              <Calculator className="h-5 w-5" />
+              Calculadora DTF
+            </Button>
+          }
+        />
+        <ImageEnhancerDialog
+          trigger={
+            <Button variant="secondary" className="h-11 px-4 text-sm font-semibold shadow-lg">
+              <Wand2 className="h-5 w-5" />
+              Melhoria de Imagem
+            </Button>
+          }
+        />
+        <BackgroundRemoverDialog
+          trigger={
+            <Button variant="secondary" className="h-11 px-4 text-sm font-semibold shadow-lg">
+              <Scissors className="h-5 w-5" />
+              Removedor de Fundo
+            </Button>
+          }
+        />
+        <BackgroundRemoverDialog
+          trigger={
+            <Button className="h-11 px-5 text-sm shadow-[var(--shadow-glow)] font-semibold">
+              <Sparkles className="h-5 w-5" />
+              Preparar Arte para Halftone
+            </Button>
+          }
+        />
+      </div>
 
