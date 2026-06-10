@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyAdminRouteImport } from './routes/verify-admin'
 import { Route as ValidateAccessCodeRouteImport } from './routes/validate-access-code'
+import { Route as PedidoRouteImport } from './routes/pedido'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AfiliadoRouteImport } from './routes/afiliado'
@@ -29,6 +30,11 @@ const VerifyAdminRoute = VerifyAdminRouteImport.update({
 const ValidateAccessCodeRoute = ValidateAccessCodeRouteImport.update({
   id: '/validate-access-code',
   path: '/validate-access-code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PedidoRoute = PedidoRouteImport.update({
+  id: '/pedido',
+  path: '/pedido',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/afiliado': typeof AfiliadoRoute
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
+  '/pedido': typeof PedidoRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/afiliado': typeof AfiliadoRoute
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
+  '/pedido': typeof PedidoRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/afiliado': typeof AfiliadoRoute
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
+  '/pedido': typeof PedidoRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/afiliado'
     | '/app'
     | '/login'
+    | '/pedido'
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/afiliado'
     | '/app'
     | '/login'
+    | '/pedido'
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/afiliado'
     | '/app'
     | '/login'
+    | '/pedido'
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   AfiliadoRoute: typeof AfiliadoRoute
   AppRoute: typeof AppRoute
   LoginRoute: typeof LoginRoute
+  PedidoRoute: typeof PedidoRoute
   ValidateAccessCodeRoute: typeof ValidateAccessCodeRoute
   VerifyAdminRoute: typeof VerifyAdminRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
@@ -189,6 +202,13 @@ declare module '@tanstack/react-router' {
       path: '/validate-access-code'
       fullPath: '/validate-access-code'
       preLoaderRoute: typeof ValidateAccessCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedido': {
+      id: '/pedido'
+      path: '/pedido'
+      fullPath: '/pedido'
+      preLoaderRoute: typeof PedidoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   AfiliadoRoute: AfiliadoRoute,
   AppRoute: AppRoute,
   LoginRoute: LoginRoute,
+  PedidoRoute: PedidoRoute,
   ValidateAccessCodeRoute: ValidateAccessCodeRoute,
   VerifyAdminRoute: VerifyAdminRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
@@ -273,3 +294,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
