@@ -329,6 +329,60 @@ export type Database = {
         }
         Relationships: []
       }
+      halftone_orders: {
+        Row: {
+          amount: number
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          delivered_at: string | null
+          delivery_status: string
+          id: string
+          image_path: string
+          infinitepay_transaction_id: string | null
+          notes: string | null
+          order_code: string
+          paid_at: string | null
+          payment_status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          delivered_at?: string | null
+          delivery_status?: string
+          id?: string
+          image_path: string
+          infinitepay_transaction_id?: string | null
+          notes?: string | null
+          order_code: string
+          paid_at?: string | null
+          payment_status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          customer_email?: string
+          customer_name?: string
+          customer_phone?: string
+          delivered_at?: string | null
+          delivery_status?: string
+          id?: string
+          image_path?: string
+          infinitepay_transaction_id?: string | null
+          notes?: string | null
+          order_code?: string
+          paid_at?: string | null
+          payment_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number

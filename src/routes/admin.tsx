@@ -26,6 +26,7 @@ import {
   markAffiliateSalePaid,
 } from "@/lib/affiliate.functions";
 import logo from "@/assets/dtflexpro-logo.png.asset.json";
+import { HalftoneOrdersAdmin } from "@/components/admin/HalftoneOrdersAdmin";
 import { ChevronDown, ChevronRight, Users } from "lucide-react";
 
 interface MonthlyMetric {
@@ -133,7 +134,7 @@ function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardPayload>(EMPTY);
-  const [tab, setTab] = useState<"geral" | "afiliados">("geral");
+  const [tab, setTab] = useState<"geral" | "afiliados" | "halftone">("geral");
 
   async function loadDashboard() {
     try {
@@ -278,6 +279,17 @@ function AdminPage() {
           </button>
           <button
             type="button"
+            onClick={() => setTab("halftone")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              tab === "halftone"
+                ? "border-[oklch(0.86_0.18_92)] text-[oklch(0.86_0.18_92)]"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Pedidos Halftone
+          </button>
+          <button
+            type="button"
             onClick={() => setTab("afiliados")}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               tab === "afiliados"
@@ -288,6 +300,8 @@ function AdminPage() {
             Afiliados
           </button>
         </nav>
+
+        {tab === "halftone" && <HalftoneOrdersAdmin />}
 
         {tab === "geral" && (
           <>
