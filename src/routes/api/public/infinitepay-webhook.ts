@@ -88,6 +88,41 @@ export const Route = createFileRoute("/api/public/infinitepay-webhook")({
           return Response.json({ received: true, ignored: "not_paid", status });
         }
 
+        // === Pedido avulso de Halftone (R$ 5) ===
+        // Não cria assinatura. Apenas marca o pedido como pago.
+        if (amount >= 4 && amount <= 6) {
+          await db.from("payments").upsert(
+            { email, stripe_session_id: transactionId, amount, status: "paid" },
+            { onConflict: "stripe_session_id" },
+          );
+
+          const { data: pendingOrder } = await db
+            .from("halftone_orders")
+            .select("id, order_code, payment_status")
+            .eq("customer_email", email)
+            .eq("payment_status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (pendingOrder) {
+            await db
+              .from("halftone_orders")
+              .update({
+                payment_status: "paid",
+                delivery_status: "aguardando_envio",
+                paid_at: new Date().toISOString(),
+                infinitepay_transaction_id: transactionId,
+              })
+              .eq("id", pendingOrder.id);
+            await log("infinitepay_webhook_halftone_paid", true, request);
+            return Response.json({ received: true, kind: "halftone_order", order_code: pendingOrder.order_code });
+          }
+
+          await log("infinitepay_webhook_halftone_no_order", true, request);
+          return Response.json({ received: true, kind: "halftone_order", ignored: "no_pending_order" });
+        }
+
         // Determina plano pelo valor: R$147 => anual, caso contrário mensal (R$47)
         const planCode: "mensal" | "anual" = amount >= 100 ? "anual" : "mensal";
 
