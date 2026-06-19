@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles, LogOut, Calculator, Wand2, Scissors } from "lucide-react";
+import { LogOut, Calculator } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
-import { BackgroundRemoverDialog } from "@/components/BackgroundRemoverDialog";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
-import { ImageEnhancerDialog } from "@/components/ImageEnhancerDialog";
 import { Button } from "@/components/ui/button";
 
 function AppError() {
@@ -199,30 +197,6 @@ function AppPage() {
             <Button variant="secondary" className="h-11 px-4 text-sm font-semibold shadow-lg">
               <Calculator className="h-5 w-5" />
               Calculadora DTF
-            </Button>
-          }
-        />
-        <ImageEnhancerDialog
-          trigger={
-            <Button variant="secondary" className="h-11 px-4 text-sm font-semibold shadow-lg">
-              <Wand2 className="h-5 w-5" />
-              Melhoria de Imagem
-            </Button>
-          }
-        />
-        <BackgroundRemoverDialog
-          trigger={
-            <Button variant="secondary" className="h-11 px-4 text-sm font-semibold shadow-lg">
-              <Scissors className="h-5 w-5" />
-              Removedor de Fundo
-            </Button>
-          }
-        />
-        <BackgroundRemoverDialog
-          trigger={
-            <Button className="h-11 px-5 text-sm shadow-[var(--shadow-glow)] font-semibold">
-              <Sparkles className="h-5 w-5" />
-              Preparar Arte para Halftone
             </Button>
           }
         />
