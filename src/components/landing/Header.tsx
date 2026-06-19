@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Sparkles, Users } from "lucide-react";
+import { ArrowUpRight, Sparkles, Users, MessageCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/dtflexpro-logo.png.asset.json";
@@ -21,6 +21,21 @@ export function Header({ affiliateMode = false }: { affiliateMode?: boolean } = 
         </Link>
 
         <div className="flex items-center gap-2">
+          <Button
+            asChild
+            size="sm"
+            className="bg-[#25D366] text-white hover:bg-[#1ebe57] shadow-[0_0_18px_#25D36680]"
+          >
+            <a
+              href="https://chat.whatsapp.com/D8RHqGnmh0bBkMoPCcAkBY"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Entre no nosso grupo</span>
+              <span className="sm:hidden">Grupo</span>
+            </a>
+          </Button>
           <Button
             asChild
             size="sm"
