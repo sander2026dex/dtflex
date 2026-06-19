@@ -150,7 +150,11 @@
           ctx.clearRect(0,0,W,H);
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          var scale = Math.min(W / source.width, H / source.height);
+          // Preenche a folha inteira mantendo proporção: usa Math.max (cover)
+          // garantindo que não fique espaço vago. Para evitar corte, recomenda-se
+          // que a arte tenha proporção próxima a A4/A3; caso contrário a sobra
+          // mínima é centralizada e o excedente fica fora da folha.
+          var scale = Math.max(W / source.width, H / source.height);
           var w = Math.round(source.width * scale);
           var h = Math.round(source.height * scale);
           var x = Math.round((W - w) / 2);
