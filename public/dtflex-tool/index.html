@@ -142,24 +142,26 @@
           try { return 'data:image/png;base64,' + bytesToBase64(ensureDpi(dataUrlToBytes(url))); }
           catch(e){ console.warn('[DPI300] falha ao regravar data URL', e); return url; }
         }
-        function makeSizedCanvas(source, W, H){
+        function makeSizedCanvas(source, maxW, maxH){
           var out = document.createElement('canvas');
-          out.width = W; out.height = H;
           var ctx = out.getContext('2d', { alpha: true });
           if (!ctx) return source;
-          ctx.clearRect(0,0,W,H);
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          // Preenche a folha inteira mantendo proporção: usa Math.max (cover)
-          // garantindo que não fique espaço vago. Para evitar corte, recomenda-se
-          // que a arte tenha proporção próxima a A4/A3; caso contrário a sobra
-          // mínima é centralizada e o excedente fica fora da folha.
-          var scale = Math.max(W / source.width, H / source.height);
+          // Se a arte cabe dentro da folha, manter tamanho original
+          if (source.width <= maxW && source.height <= maxH) {
+            out.width = source.width;
+            out.height = source.height;
+            ctx.drawImage(source, 0, 0);
+            return out;
+          }
+          // Se a arte é maior que a folha, reduzir proporcionalmente
+          var scale = Math.min(maxW / source.width, maxH / source.height);
           var w = Math.round(source.width * scale);
           var h = Math.round(source.height * scale);
-          var x = Math.round((W - w) / 2);
-          var y = Math.round((H - h) / 2);
-          ctx.drawImage(source, 0, 0, source.width, source.height, x, y, w, h);
+          out.width = w;
+          out.height = h;
+          ctx.drawImage(source, 0, 0, source.width, source.height, 0, 0, w, h);
           return out;
         }
         function makeA4Canvas(source){ return makeSizedCanvas(source, A4_WIDTH, A4_HEIGHT); }
