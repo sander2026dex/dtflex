@@ -148,20 +148,22 @@
           if (!ctx) return source;
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          // Se a arte cabe dentro da folha, manter tamanho original
-          if (source.width <= maxW && source.height <= maxH) {
-            out.width = source.width;
-            out.height = source.height;
-            ctx.drawImage(source, 0, 0);
-            return out;
+          // Canvas sempre no tamanho exato da folha (A4 ou A3) a 300 DPI
+          out.width = maxW;
+          out.height = maxH;
+          var w = source.width;
+          var h = source.height;
+          // Se a arte é maior que a folha, reduzir proporcionalmente sem cortar
+          if (w > maxW || h > maxH) {
+            var scale = Math.min(maxW / w, maxH / h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
           }
-          // Se a arte é maior que a folha, reduzir proporcionalmente
-          var scale = Math.min(maxW / source.width, maxH / source.height);
-          var w = Math.round(source.width * scale);
-          var h = Math.round(source.height * scale);
-          out.width = w;
-          out.height = h;
-          ctx.drawImage(source, 0, 0, source.width, source.height, 0, 0, w, h);
+          // Centralizar a arte na folha, sem cortar, sem alterar tamanho real (quando couber)
+          var x = Math.round((maxW - w) / 2);
+          var y = Math.round((maxH - h) / 2);
+          ctx.clearRect(0, 0, maxW, maxH);
+          ctx.drawImage(source, 0, 0, source.width, source.height, x, y, w, h);
           return out;
         }
         function makeA4Canvas(source){ return makeSizedCanvas(source, A4_WIDTH, A4_HEIGHT); }
