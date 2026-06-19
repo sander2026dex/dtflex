@@ -274,6 +274,8 @@
           var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
           var master = buttons.find(function(btn){ return /Exportar Master/i.test(btn.textContent || ''); });
           if (!master || !master.parentElement) return;
+          // Esconder "Exportar Master" — só queremos A3 e A4
+          master.style.display = 'none';
           if (!document.getElementById('dtf-a4-export-btn')) {
             var btn4 = document.createElement('button');
             btn4.id = 'dtf-a4-export-btn';
