@@ -27,7 +27,7 @@ import {
 } from "@/lib/affiliate.functions";
 import logo from "@/assets/dtflexpro-logo.png.asset.json";
 import { HalftoneOrdersAdmin } from "@/components/admin/HalftoneOrdersAdmin";
-import { ChevronDown, ChevronRight, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Users, MessageCircle, AlertTriangle } from "lucide-react";
 
 interface MonthlyMetric {
   month: string;
@@ -341,6 +341,10 @@ function AdminPage() {
         {tab === "afiliados" && <AffiliateAdminSection forceOpen />}
         {tab === "geral" && (
         <>
+
+        <ExpiringMonthlySection
+          codes={dashboard.codes}
+        />
 
         <DataCard title="Registrar compra (envia senha provisória ao cliente)">
           <p className="mb-3 text-xs text-muted-foreground">
@@ -783,6 +787,159 @@ function buildClientMessage(item: {
     "",
     "Equipe DTFlexPRO 💛",
   ].join("\n");
+}
+
+function buildBillingMessage(item: {
+  email: string;
+  access_code: string;
+  expires_at: string;
+  plan_code: string | null;
+}) {
+  const expiresAt = new Date(item.expires_at);
+  const now = Date.now();
+  const diffDays = Math.ceil((expiresAt.getTime() - now) / 86400000);
+  const status =
+    diffDays < 0
+      ? `*venceu há ${Math.abs(diffDays)} dia(s)*`
+      : diffDays === 0
+        ? "*vence hoje*"
+        : `*vence em ${diffDays} dia(s)*`;
+  const pixUrl = "https://loja.infinitepay.io/dtflexpro/wt5fr8t-mensal-r4700";
+  return [
+    "Olá! 👋 Aqui é da *DTFlexPRO*.",
+    "",
+    `Sua mensalidade (${item.email}) ${status}.`,
+    `📅 Vencimento: ${formatDate(item.expires_at)}`,
+    "",
+    "💳 Para renovar e manter o acesso ativo, é só pagar o Pix de *R$ 47* pelo link abaixo:",
+    pixUrl,
+    "",
+    "Assim que confirmar, libero seu acesso pra mais 30 dias. 🚀",
+    "",
+    "Qualquer dúvida, é só responder aqui.",
+    "Equipe DTFlexPRO 💛",
+  ].join("\n");
+}
+
+function ExpiringMonthlySection({
+  codes,
+}: {
+  codes: DashboardPayload["codes"];
+}) {
+  const now = Date.now();
+  const items = codes
+    .filter((c) => c.plan_code === "mensal" && c.status !== "revoked")
+    .map((c) => {
+      const exp = new Date(c.expires_at).getTime();
+      const days = Math.ceil((exp - now) / 86400000);
+      return { ...c, days };
+    })
+    .filter((c) => c.days <= 7 && c.days >= -30)
+    .sort((a, b) => a.days - b.days);
+
+  const expired = items.filter((i) => i.days < 0).length;
+  const today = items.filter((i) => i.days === 0).length;
+  const soon = items.filter((i) => i.days > 0).length;
+
+  return (
+    <DataCard
+      title={`Mensalidades a vencer / vencidas (${items.length})`}
+    >
+      <div className="mb-3 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-md bg-destructive/15 px-3 py-1 font-semibold text-destructive">
+          Vencidas: {expired}
+        </span>
+        <span className="rounded-md bg-amber-500/20 px-3 py-1 font-semibold text-amber-300">
+          Vencem hoje: {today}
+        </span>
+        <span className="rounded-md bg-amber-500/10 px-3 py-1 font-semibold text-amber-200">
+          Próximos 7 dias: {soon}
+        </span>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Nenhuma mensalidade próxima do vencimento. 🎉
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => {
+            const isExpired = item.days < 0;
+            const isUrgent = item.days <= 0;
+            const msg = buildBillingMessage(item);
+            const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+            return (
+              <div
+                key={item.id}
+                className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${
+                  isExpired
+                    ? "border-destructive/60 bg-destructive/10"
+                    : isUrgent
+                      ? "border-amber-400/60 bg-amber-500/10"
+                      : "border-amber-300/40 bg-amber-500/5"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    {isExpired && (
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+                    )}
+                    <span className="truncate font-semibold text-foreground">
+                      {item.email}
+                    </span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {item.access_code}
+                    </span>
+                  </div>
+                  <p
+                    className={`mt-1 text-xs font-semibold ${
+                      isExpired
+                        ? "text-destructive"
+                        : isUrgent
+                          ? "text-amber-300"
+                          : "text-amber-200"
+                    }`}
+                  >
+                    {isExpired
+                      ? `Venceu há ${Math.abs(item.days)} dia(s)`
+                      : item.days === 0
+                        ? "Vence hoje"
+                        : `Vence em ${item.days} dia(s)`}{" "}
+                    · {formatDate(item.expires_at)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(msg);
+                        toast.success("Mensagem de cobrança copiada!");
+                      } catch {
+                        window.prompt("Copie a mensagem:", msg);
+                      }
+                    }}
+                  >
+                    Copiar cobrança
+                  </Button>
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[oklch(0.62_0.19_150)] px-3 text-xs font-semibold text-white hover:bg-[oklch(0.56_0.19_150)]"
+                    title="Enviar cobrança via WhatsApp"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Cobrar no WhatsApp
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </DataCard>
+  );
 }
 
 function AffiliateAdminSection({ forceOpen = false }: { forceOpen?: boolean }) {
