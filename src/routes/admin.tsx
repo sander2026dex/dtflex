@@ -344,6 +344,21 @@ function AdminPage() {
 
         <ExpiringMonthlySection
           codes={dashboard.codes}
+          onRenew={async (item) => {
+            try {
+              const result = await generateManualCode({
+                data: {
+                  email: item.email,
+                  planCode: (item.plan_code as "mensal" | "anual") ?? "mensal",
+                  deviceLimit: item.device_limit ?? 1,
+                },
+              });
+              toast.success(`Renovado! Novo código ${result.accessCode} enviado para ${result.email}.`);
+              await loadDashboard();
+            } catch {
+              toast.error("Falha ao renovar acesso.");
+            }
+          }}
         />
 
         <DataCard title="Registrar compra (envia senha provisória ao cliente)">
