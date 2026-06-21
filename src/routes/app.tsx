@@ -35,18 +35,20 @@ export const Route = createFileRoute("/app")({
   component: AppPage,
 });
 
-function formatExpiry(iso: string | null): { label: string; tone: "ok" | "warn" | "danger" } {
-  if (!iso) return { label: "Acesso vitalício", tone: "ok" };
+function formatExpiry(iso: string | null): { label: string; tone: "ok" | "warn" | "danger"; daysLeft: number | null } {
+  if (!iso) return { label: "Acesso vitalício", tone: "ok", daysLeft: null };
   const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return { label: "Acesso expirado", tone: "danger" };
+  if (ms <= 0) return { label: "Acesso expirado", tone: "danger", daysLeft: 0 };
   const days = Math.floor(ms / 86_400_000);
   // Vitalício = expira muito longe (>10 anos)
-  if (days > 3650) return { label: "Acesso vitalício", tone: "ok" };
+  if (days > 3650) return { label: "Acesso vitalício", tone: "ok", daysLeft: null };
   const date = new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
   const tone: "ok" | "warn" | "danger" = days <= 3 ? "danger" : days <= 7 ? "warn" : "ok";
   const restante = days === 0 ? "expira hoje" : days === 1 ? "1 dia restante" : `${days} dias restantes`;
-  return { label: `Expira em ${date} · ${restante}`, tone };
+  return { label: `Expira em ${date} · ${restante}`, tone, daysLeft: days };
 }
+
+const ADMIN_WHATSAPP = "5511943152441";
 
 function AppPage() {
   const ping = useServerFn(pingAccessSession);
@@ -144,6 +146,12 @@ function AppPage() {
         ? "bg-amber-500/95 text-black"
         : "bg-emerald-600/95 text-white";
 
+  const showRenewBanner = exp ? exp.tone === "warn" || exp.tone === "danger" : false;
+  const renewMsg = encodeURIComponent(
+    `Olá! Sou ${expiry?.email ?? ""} e quero renovar meu acesso ao DTFlexPRO. ${exp?.label ?? ""}`,
+  );
+  const topOffset = (exp ? 28 : 0) + (showRenewBanner ? 36 : 0);
+
   return (
     <>
       {exp && (
@@ -164,6 +172,24 @@ function AppPage() {
           </button>
         </div>
       )}
+      {showRenewBanner && (
+        <div
+          className="fixed left-0 right-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 text-xs font-semibold shadow bg-amber-500 text-black"
+          style={{ top: 28 }}
+        >
+          <span className="truncate">
+            ⚠️ Seu acesso está {exp?.tone === "danger" ? "expirado/quase expirando" : "perto de expirar"}. Entre em contato com o administrador para renovar.
+          </span>
+          <a
+            href={`https://wa.me/${ADMIN_WHATSAPP}?text=${renewMsg}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex shrink-0 items-center gap-1 rounded-md bg-black/80 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white hover:bg-black"
+          >
+            Renovar pelo WhatsApp
+          </a>
+        </div>
+      )}
       <iframe
         src="/dtflex-tool/index.html?v=dpi300-a3-v7"
         title="DTFLEXPRO Halftone Engine"
@@ -172,9 +198,9 @@ function AppPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          top: exp ? 28 : 0,
+          top: topOffset,
           width: "100vw",
-          height: exp ? "calc(100vh - 28px)" : "100vh",
+          height: `calc(100vh - ${topOffset}px)`,
           border: "none",
           background: "#0a0c10",
         }}
