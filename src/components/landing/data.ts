@@ -81,7 +81,7 @@ export const pricingOptions: PricingOption[] = [
     price: "R$ 47",
     cadence: "/mês",
     summary: "Ideal para começar a produzir com qualidade profissional e acesso completo à ferramenta de halftone.",
-    checkoutHref: "https://checkout.infinitepay.io/alexsander-63468735-b77/0pSavbkf8O",
+    checkoutHref: "https://loja.infinitepay.io/dtflexpro/wt5fr8t-mensal-r4700",
     benefits: [
       "Acesso completo à geração de halftone profissional",
       "Exportação em PNG 300 DPI pronto para DTF",
