@@ -805,7 +805,7 @@ function buildClientMessage(item: {
 }
 
 const PLAN_CHECKOUT = {
-  mensal: { price: "R$ 47", cadence: "30 dias", url: "https://loja.infinitepay.io/dtflexpro/wt5fr8t-mensal-r4700" },
+  mensal: { price: "R$ 47", cadence: "30 dias", url: "https://invoice.infinitepay.io/plans/alexsander-63468735-b77/1TxPj2BbwT" },
   anual: { price: "R$ 147", cadence: "365 dias", url: "https://checkout.infinitepay.io/alexsander-63468735-b77/nGf1d3Y7up" },
 } as const;
 
