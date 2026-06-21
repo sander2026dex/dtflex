@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator } from "lucide-react";
+import { LogOut, Calculator, Scissors } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
@@ -162,19 +162,6 @@ function AppPage() {
           </button>
         </div>
       )}
-      {/* Aviso sobre preto absoluto */}
-      <div
-        className="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-semibold shadow"
-        style={{
-          top: exp ? 28 : 0,
-          background: "#facc15",
-          color: "#0f0f0f",
-        }}
-      >
-        <span className="truncate">
-          Camisas pretas: o preto precisa ser preto absoluto (RGB 0,0,0) — remova a cor de fundo para não ter sujeira na estampa.
-        </span>
-      </div>
       <iframe
         src="/dtflex-tool/index.html?v=dpi300-a3-v7"
         title="DTFLEXPRO Halftone Engine"
@@ -183,15 +170,26 @@ function AppPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          top: exp ? 56 : 28,
+          top: exp ? 28 : 0,
           width: "100vw",
-          height: exp ? "calc(100vh - 56px)" : "calc(100vh - 28px)",
+          height: exp ? "calc(100vh - 28px)" : "100vh",
           border: "none",
           background: "#0a0c10",
         }}
       />
       {/* Botões flutuantes: ferramentas auxiliares */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-wrap items-center justify-end gap-2">
+        <a
+          href="https://www.photoroom.com/pt-pt/tools/background-remover"
+          target="_blank"
+          rel="noopener noreferrer"
+          referrerPolicy="no-referrer"
+        >
+          <Button className="h-11 px-4 text-sm font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white">
+            <Scissors className="h-5 w-5" />
+            Removedor de fundos
+          </Button>
+        </a>
         <DTFCalculatorDialog
           trigger={
             <Button variant="secondary" className="h-11 px-4 text-sm font-semibold shadow-lg">
