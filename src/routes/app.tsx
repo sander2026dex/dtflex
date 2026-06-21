@@ -54,6 +54,7 @@ function AppPage() {
   const logout = useServerFn(logoutAccessSession);
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
+  const [showVtracer, setShowVtracer] = useState(false);
 
   async function handleLogout() {
     try {
