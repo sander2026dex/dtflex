@@ -35,18 +35,20 @@ export const Route = createFileRoute("/app")({
   component: AppPage,
 });
 
-function formatExpiry(iso: string | null): { label: string; tone: "ok" | "warn" | "danger" } {
-  if (!iso) return { label: "Acesso vitalício", tone: "ok" };
+function formatExpiry(iso: string | null): { label: string; tone: "ok" | "warn" | "danger"; daysLeft: number | null } {
+  if (!iso) return { label: "Acesso vitalício", tone: "ok", daysLeft: null };
   const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return { label: "Acesso expirado", tone: "danger" };
+  if (ms <= 0) return { label: "Acesso expirado", tone: "danger", daysLeft: 0 };
   const days = Math.floor(ms / 86_400_000);
   // Vitalício = expira muito longe (>10 anos)
-  if (days > 3650) return { label: "Acesso vitalício", tone: "ok" };
+  if (days > 3650) return { label: "Acesso vitalício", tone: "ok", daysLeft: null };
   const date = new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
   const tone: "ok" | "warn" | "danger" = days <= 3 ? "danger" : days <= 7 ? "warn" : "ok";
   const restante = days === 0 ? "expira hoje" : days === 1 ? "1 dia restante" : `${days} dias restantes`;
-  return { label: `Expira em ${date} · ${restante}`, tone };
+  return { label: `Expira em ${date} · ${restante}`, tone, daysLeft: days };
 }
+
+const ADMIN_WHATSAPP = "5511943152441";
 
 function AppPage() {
   const ping = useServerFn(pingAccessSession);
