@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,7 @@ function AppPage() {
   const readSession = useServerFn(getAccessSession);
   const logout = useServerFn(logoutAccessSession);
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
+  const [showRemover, setShowRemover] = useState(false);
 
   async function handleLogout() {
     try {
@@ -179,17 +180,13 @@ function AppPage() {
       />
       {/* Botões flutuantes: ferramentas auxiliares */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-wrap items-center justify-end gap-2">
-        <a
-          href="https://www.photoroom.com/pt-pt/tools/background-remover"
-          target="_blank"
-          rel="noopener noreferrer"
-          referrerPolicy="no-referrer"
+        <Button
+          className="h-11 px-4 text-sm font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
+          onClick={() => setShowRemover(true)}
         >
-          <Button className="h-11 px-4 text-sm font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white">
-            <Scissors className="h-5 w-5" />
-            Removedor de fundos
-          </Button>
-        </a>
+          <Scissors className="h-5 w-5" />
+          Removedor de fundos
+        </Button>
         <DTFCalculatorDialog
           trigger={
             <Button variant="secondary" className="h-11 px-4 text-sm font-semibold shadow-lg">
@@ -199,6 +196,32 @@ function AppPage() {
           }
         />
       </div>
+
+      {/* Overlay do Removedor de Fundos */}
+      {showRemover && (
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col">
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-b bg-white">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 font-semibold"
+              onClick={() => setShowRemover(false)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para ferramenta
+            </Button>
+            <span className="text-sm text-muted-foreground">Removedor de fundos — Photoroom</span>
+            <div className="w-20" />
+          </div>
+          <iframe
+            src="https://www.photoroom.com/pt-pt/tools/background-remover"
+            title="Removedor de fundos"
+            className="flex-1 w-full border-none"
+            referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+          />
+        </div>
+      )}
     </>
   );
 }
