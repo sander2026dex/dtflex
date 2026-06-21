@@ -804,7 +804,7 @@ function buildBillingMessage(item: {
       : diffDays === 0
         ? "*vence hoje*"
         : `*vence em ${diffDays} dia(s)*`;
-  const pixUrl = "https://loja.infinitepay.io/dtflexpro/wt5fr8t-mensal-r4700";
+  const pixUrl = "https://checkout.infinitepay.io/alexsander-63468735-b77/0pSavbkf8O";
   return [
     "Olá! 👋 Aqui é da *DTFlexPRO*.",
     "",
