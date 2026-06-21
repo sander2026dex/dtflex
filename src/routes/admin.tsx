@@ -804,6 +804,11 @@ function buildClientMessage(item: {
   ].join("\n");
 }
 
+const PLAN_CHECKOUT = {
+  mensal: { price: "R$ 47", cadence: "30 dias", url: "https://loja.infinitepay.io/dtflexpro/wt5fr8t-mensal-r4700" },
+  anual: { price: "R$ 147", cadence: "365 dias", url: "https://checkout.infinitepay.io/alexsander-63468735-b77/nGf1d3Y7up" },
+} as const;
+
 function buildBillingMessage(item: {
   email: string;
   access_code: string;
@@ -819,17 +824,19 @@ function buildBillingMessage(item: {
       : diffDays === 0
         ? "*vence hoje*"
         : `*vence em ${diffDays} dia(s)*`;
-  const pixUrl = "https://checkout.infinitepay.io/alexsander-63468735-b77/0pSavbkf8O";
+  const planKey: "mensal" | "anual" = item.plan_code === "anual" ? "anual" : "mensal";
+  const plan = PLAN_CHECKOUT[planKey];
+  const planLabel = planKey === "anual" ? "Plano Anual" : "Plano Mensal";
   return [
     "Olá! 👋 Aqui é da *DTFlexPRO*.",
     "",
-    `Sua mensalidade (${item.email}) ${status}.`,
+    `Sua assinatura ${planLabel} (${item.email}) ${status}.`,
     `📅 Vencimento: ${formatDate(item.expires_at)}`,
     "",
-    "💳 Para renovar e manter o acesso ativo, é só pagar o Pix de *R$ 47* pelo link abaixo:",
-    pixUrl,
+    `💳 Para renovar e manter o acesso ativo, é só pagar *${plan.price}* pelo link abaixo:`,
+    plan.url,
     "",
-    "Assim que confirmar, libero seu acesso pra mais 30 dias. 🚀",
+    `Assim que confirmar, libero seu acesso por mais ${plan.cadence}. 🚀`,
     "",
     "Qualquer dúvida, é só responder aqui.",
     "Equipe DTFlexPRO 💛",
@@ -838,12 +845,14 @@ function buildBillingMessage(item: {
 
 function ExpiringMonthlySection({
   codes,
+  onRenew,
 }: {
   codes: DashboardPayload["codes"];
+  onRenew: (item: DashboardPayload["codes"][number]) => Promise<void>;
 }) {
   const now = Date.now();
   const items = codes
-    .filter((c) => c.plan_code === "mensal" && c.status !== "revoked")
+    .filter((c) => (c.plan_code === "mensal" || c.plan_code === "anual") && c.status !== "revoked")
     .map((c) => {
       const exp = new Date(c.expires_at).getTime();
       const days = Math.ceil((exp - now) / 86400000);
@@ -858,7 +867,7 @@ function ExpiringMonthlySection({
 
   return (
     <DataCard
-      title={`Mensalidades a vencer / vencidas (${items.length})`}
+      title={`Assinaturas a vencer / vencidas (${items.length})`}
     >
       <div className="mb-3 flex flex-wrap gap-2 text-xs">
         <span className="rounded-md bg-destructive/15 px-3 py-1 font-semibold text-destructive">
@@ -873,7 +882,7 @@ function ExpiringMonthlySection({
       </div>
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nenhuma mensalidade próxima do vencimento. 🎉
+          Nenhuma assinatura próxima do vencimento. 🎉
         </p>
       ) : (
         <div className="space-y-2">
@@ -882,6 +891,7 @@ function ExpiringMonthlySection({
             const isUrgent = item.days <= 0;
             const msg = buildBillingMessage(item);
             const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+            const planLabel = item.plan_code === "anual" ? "Anual" : "Mensal";
             return (
               <div
                 key={item.id}
@@ -900,6 +910,9 @@ function ExpiringMonthlySection({
                     )}
                     <span className="truncate font-semibold text-foreground">
                       {item.email}
+                    </span>
+                    <span className="rounded-full bg-background/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {planLabel}
                     </span>
                     <span className="font-mono text-xs text-muted-foreground">
                       {item.access_code}
@@ -947,6 +960,16 @@ function ExpiringMonthlySection({
                     <MessageCircle className="h-4 w-4" />
                     Cobrar no WhatsApp
                   </a>
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 text-white hover:bg-emerald-500"
+                    onClick={async () => {
+                      if (!confirm(`Renovar manualmente o acesso de ${item.email} (${planLabel})? Será gerado um novo código e enviado por e-mail.`)) return;
+                      await onRenew(item);
+                    }}
+                  >
+                    Renovar
+                  </Button>
                 </div>
               </div>
             );
