@@ -53,6 +53,7 @@ function AppPage() {
   const readSession = useServerFn(getAccessSession);
   const logout = useServerFn(logoutAccessSession);
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
+  const [showRemover, setShowRemover] = useState(false);
 
   async function handleLogout() {
     try {
