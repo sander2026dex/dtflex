@@ -268,8 +268,5 @@ function ExternalToolOverlay({
     </div>
   );
 }
-    </>
-  );
-}
 
 
