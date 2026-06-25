@@ -42,11 +42,14 @@ export const Route = createRootRoute({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "DTFLEXPRO" },
-      { name: "description", content: "Artisan Halftone automates image processing for high-fidelity offset printing effects." },
-      { property: "og:description", content: "Artisan Halftone automates image processing for high-fidelity offset printing effects." },
-      { name: "twitter:description", content: "Artisan Halftone automates image processing for high-fidelity offset printing effects." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/3f03c4bc-41dc-48a8-937d-14bdc9cfb3e8/id-preview-0a1b42f0--a7fd8d4e-d446-4b6e-a7ae-aab9c3c7e970.lovable.app-1776773295117.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/3f03c4bc-41dc-48a8-937d-14bdc9cfb3e8/id-preview-0a1b42f0--a7fd8d4e-d446-4b6e-a7ae-aab9c3c7e970.lovable.app-1776773295117.png" },
+      { name: "description", content: "Para quem é o dtflexpro.com?
+- **Profissionais de dtf  (halftone):** Que precisam preparar artes com retículas (LPI) perfeitas para tirar o efeito plastificado" },
+      { property: "og:description", content: "Para quem é o dtflexpro.com?
+- **Profissionais de dtf  (halftone):** Que precisam preparar artes com retículas (LPI) perfeitas para tirar o efeito plastificado" },
+      { name: "twitter:description", content: "Para quem é o dtflexpro.com?
+- **Profissionais de dtf  (halftone):** Que precisam preparar artes com retículas (LPI) perfeitas para tirar o efeito plastificado" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/HqcOtKknNuVBb6VR55JOqjij9vw1/social-images/social-1782385388593-ChatGPT_Image_25_de_jun._de_2026,_08_02_36.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/HqcOtKknNuVBb6VR55JOqjij9vw1/social-images/social-1782385388593-ChatGPT_Image_25_de_jun._de_2026,_08_02_36.webp" },
     ],
     links: [
       {
