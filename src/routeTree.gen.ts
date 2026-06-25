@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyAdminRouteImport } from './routes/verify-admin'
 import { Route as ValidateAccessCodeRouteImport } from './routes/validate-access-code'
+import { Route as SobreHalftoneRouteImport } from './routes/sobre-halftone'
 import { Route as PedidoRouteImport } from './routes/pedido'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/app'
@@ -30,6 +31,11 @@ const VerifyAdminRoute = VerifyAdminRouteImport.update({
 const ValidateAccessCodeRoute = ValidateAccessCodeRouteImport.update({
   id: '/validate-access-code',
   path: '/validate-access-code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SobreHalftoneRoute = SobreHalftoneRouteImport.update({
+  id: '/sobre-halftone',
+  path: '/sobre-halftone',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PedidoRoute = PedidoRouteImport.update({
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
   '/pedido': typeof PedidoRoute
+  '/sobre-halftone': typeof SobreHalftoneRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
   '/pedido': typeof PedidoRoute
+  '/sobre-halftone': typeof SobreHalftoneRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
   '/pedido': typeof PedidoRoute
+  '/sobre-halftone': typeof SobreHalftoneRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/pedido'
+    | '/sobre-halftone'
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/pedido'
+    | '/sobre-halftone'
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/pedido'
+    | '/sobre-halftone'
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
@@ -181,6 +193,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRoute
   LoginRoute: typeof LoginRoute
   PedidoRoute: typeof PedidoRoute
+  SobreHalftoneRoute: typeof SobreHalftoneRoute
   ValidateAccessCodeRoute: typeof ValidateAccessCodeRoute
   VerifyAdminRoute: typeof VerifyAdminRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
@@ -202,6 +215,13 @@ declare module '@tanstack/react-router' {
       path: '/validate-access-code'
       fullPath: '/validate-access-code'
       preLoaderRoute: typeof ValidateAccessCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sobre-halftone': {
+      id: '/sobre-halftone'
+      path: '/sobre-halftone'
+      fullPath: '/sobre-halftone'
+      preLoaderRoute: typeof SobreHalftoneRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pedido': {
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRoute,
   LoginRoute: LoginRoute,
   PedidoRoute: PedidoRoute,
+  SobreHalftoneRoute: SobreHalftoneRoute,
   ValidateAccessCodeRoute: ValidateAccessCodeRoute,
   VerifyAdminRoute: VerifyAdminRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
