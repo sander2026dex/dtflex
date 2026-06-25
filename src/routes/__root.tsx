@@ -42,12 +42,9 @@ export const Route = createRootRoute({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "DTFLEXPRO" },
-      { name: "description", content: "Para quem é o dtflexpro.com?
-- **Profissionais de dtf  (halftone):** Que precisam preparar artes com retículas (LPI) perfeitas para tirar o efeito plastificado" },
-      { property: "og:description", content: "Para quem é o dtflexpro.com?
-- **Profissionais de dtf  (halftone):** Que precisam preparar artes com retículas (LPI) perfeitas para tirar o efeito plastificado" },
-      { name: "twitter:description", content: "Para quem é o dtflexpro.com?
-- **Profissionais de dtf  (halftone):** Que precisam preparar artes com retículas (LPI) perfeitas para tirar o efeito plastificado" },
+      { name: "description", content: "Para quem é o dtflexpro.com? Profissionais de DTF (halftone) que precisam preparar artes com retículas (LPI) perfeitas para tirar o efeito plastificado." },
+      { property: "og:description", content: "Para quem é o dtflexpro.com? Profissionais de DTF (halftone) que precisam preparar artes com retículas (LPI) perfeitas para tirar o efeito plastificado." },
+      { name: "twitter:description", content: "Para quem é o dtflexpro.com? Profissionais de DTF (halftone) que precisam preparar artes com retículas (LPI) perfeitas para tirar o efeito plastificado." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/HqcOtKknNuVBb6VR55JOqjij9vw1/social-images/social-1782385388593-ChatGPT_Image_25_de_jun._de_2026,_08_02_36.webp" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/HqcOtKknNuVBb6VR55JOqjij9vw1/social-images/social-1782385388593-ChatGPT_Image_25_de_jun._de_2026,_08_02_36.webp" },
     ],
