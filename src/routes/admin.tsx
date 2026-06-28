@@ -122,6 +122,8 @@ function AdminPage() {
   const resetSession = useServerFn(resetActiveSession);
   const warnDevice = useServerFn(sendDeviceWarning);
   const generateManualCode = useServerFn(generateManualAccessCode);
+  const regenerateCode = useServerFn(regenerateAccessCode);
+
   const registerProvisional = useServerFn(registerProvisionalAccess);
   const logout = useServerFn(logoutAdminSession);
 
