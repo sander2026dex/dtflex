@@ -473,8 +473,9 @@ export const getAccessSession = createServerFn({ method: "GET" }).handler(async 
 
   const stillActive =
     row &&
-    (row.status === "active" || row.status === "pending") &&
+    row.status !== "deleted" &&
     row.active_session_token === sessionToken;
+
 
   if (!stillActive) {
     await clearSession(getAccessSessionConfig());
