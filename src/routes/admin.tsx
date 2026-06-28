@@ -118,6 +118,7 @@ function AdminPage() {
   const removeAccount = useServerFn(deleteAccess);
   const setDevices = useServerFn(updateDeviceLimit);
   const resetSession = useServerFn(resetActiveSession);
+  const warnDevice = useServerFn(sendDeviceWarning);
   const generateManualCode = useServerFn(generateManualAccessCode);
   const registerProvisional = useServerFn(registerProvisionalAccess);
   const logout = useServerFn(logoutAdminSession);
