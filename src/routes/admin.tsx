@@ -48,6 +48,8 @@ interface DashboardPayload {
     device_limit: number | null;
     active_session_token: string | null;
     active_session_started_at: string | null;
+    active_session_ip: string | null;
+    active_session_user_agent: string | null;
     last_activity_at: string | null;
     affiliate_sale?: {
       id: string;
