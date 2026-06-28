@@ -368,16 +368,20 @@ export const validateAccessCode = createServerFn({ method: "POST" })
     const code = normalizeCode(data.code);
     const nowIso = new Date().toISOString();
 
+    // Não filtra por expires_at: códigos vencidos ainda validam.
+    // O painel do cliente mostra o aviso de expiração e pede para contatar o admin para renovar.
     const { data: accessRow } = await db
       .from("user_access")
       .select("id, email, access_code, expires_at, status, device_limit, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent")
       .eq("email", email)
       .eq("access_code", code)
       .in("status", ["active", "pending"])
-      .gt("expires_at", nowIso)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // Evita warning de variável não usada (nowIso era usado no filtro removido)
+    void nowIso;
 
     if (!accessRow) {
       const { data: revokedRow } = await db
@@ -386,7 +390,6 @@ export const validateAccessCode = createServerFn({ method: "POST" })
         .eq("email", email)
         .eq("access_code", code)
         .eq("status", "revoked")
-        .gt("expires_at", nowIso)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
