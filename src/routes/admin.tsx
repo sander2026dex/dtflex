@@ -710,6 +710,22 @@ function AdminPage() {
 
                         <Button
                           size="sm"
+                          variant="secondary"
+                          onClick={async () => {
+                            if (!confirm(`Gerar um NOVO código para ${item.email}? O código atual deixará de funcionar.`)) return;
+                            try {
+                              const r = await regenerateCode({ data: { accessId: item.id } });
+                              toast.success(`Novo código: ${r.accessCode}`);
+                              await loadDashboard();
+                            } catch {
+                              toast.error("Falha ao atualizar código.");
+                            }
+                          }}
+                        >
+                          Atualizar código
+                        </Button>
+                        <Button
+                          size="sm"
                           variant="outline"
                           disabled={item.status === "revoked"}
                           onClick={async () => {
@@ -724,6 +740,7 @@ function AdminPage() {
                         >
                           Revogar
                         </Button>
+
                         <Button
                           size="sm"
                           variant="destructive"
