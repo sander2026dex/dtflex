@@ -521,7 +521,7 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
     db
       .from("user_access")
       .select(
-        "id, email, access_code, status, expires_at, created_at, plan_code, device_limit, active_session_token, active_session_started_at, last_activity_at",
+        "id, email, access_code, status, expires_at, created_at, plan_code, device_limit, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent, last_activity_at",
       )
       .order("created_at", { ascending: false })
       .limit(200),
@@ -869,5 +869,82 @@ export const reactivateOwnAccess = createServerFn({ method: "POST" })
       .eq("id", row.id);
 
     await logSecurity("access_self_reactivate", true);
+    return { ok: true };
+  });
+
+const deviceWarningSchema = z.object({
+  accessId: z.string().uuid(),
+  kind: z.enum(["warning", "allow", "remove", "add"]),
+  customMessage: z.string().trim().max(2000).optional(),
+});
+
+export const sendDeviceWarning = createServerFn({ method: "POST" })
+  .inputValidator(deviceWarningSchema)
+  .handler(async ({ data }) => {
+    await requireAdminSession();
+    const db = getDb();
+    const apiKey = process.env.RESEND_API_KEY;
+
+    const { data: row } = await db
+      .from("user_access")
+      .select("id, email, device_limit, active_session_ip, active_session_user_agent, active_session_started_at")
+      .eq("id", data.accessId)
+      .maybeSingle();
+
+    if (!row) throw new Error("Acesso não encontrado");
+
+    const subjects: Record<string, string> = {
+      warning: "⚠️ Aviso de uso de dispositivo - DTFLEXPRO",
+      allow: "✅ Novo dispositivo liberado - DTFLEXPRO",
+      remove: "🚫 Dispositivo removido - DTFLEXPRO",
+      add: "➕ Slot de dispositivo adicionado - DTFLEXPRO",
+    };
+
+    const headlines: Record<string, string> = {
+      warning: "Detectamos uso da sua conta em outro dispositivo",
+      allow: "Liberamos o acesso para o seu novo dispositivo",
+      remove: "Um dispositivo foi removido da sua conta",
+      add: "Adicionamos um slot extra de dispositivo",
+    };
+
+    const bodies: Record<string, string> = {
+      warning: "Identificamos uma tentativa de uso da sua conta em um dispositivo diferente do habitual. Se foi você, ignore este e-mail. Caso contrário, entre em contato com o suporte imediatamente.",
+      allow: "O acesso ao seu novo dispositivo foi liberado pelo administrador. Você já pode entrar normalmente.",
+      remove: "O dispositivo ativo foi removido pelo administrador. Para voltar a usar a plataforma, faça login novamente em um único dispositivo.",
+      add: `O administrador aumentou o limite de dispositivos da sua conta. Limite atual: ${row.device_limit ?? 1}.`,
+    };
+
+    if (apiKey) {
+      try {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: "DTFLEXPRO <onboarding@resend.dev>",
+            to: [row.email],
+            subject: subjects[data.kind],
+            html: `
+              <div style="background:#fff;padding:32px;font-family:Arial,sans-serif;color:#111827">
+                <div style="max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;padding:32px">
+                  <h1 style="font-size:22px;margin:0 0 12px">${headlines[data.kind]}</h1>
+                  <p style="font-size:14px;color:#4b5563;line-height:1.7">${bodies[data.kind]}</p>
+                  ${data.customMessage ? `<p style="font-size:14px;color:#111827;line-height:1.7;margin-top:16px;padding:12px;border-left:3px solid #f2c94c;background:#fffbeb">${data.customMessage}</p>` : ""}
+                  <p style="font-size:12px;color:#6b7280;margin-top:24px">Equipe DTFLEXPRO</p>
+                </div>
+              </div>
+            `,
+          }),
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
+
+    await db.from("audit_logs").insert({
+      event_type: `admin_device_${data.kind}`,
+      metadata: { email: row.email, access_id: row.id, custom: data.customMessage ?? null },
+    });
+
+    await logSecurity(`admin_device_${data.kind}`, true);
     return { ok: true };
   });

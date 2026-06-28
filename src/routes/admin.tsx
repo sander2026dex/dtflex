@@ -16,6 +16,7 @@ import {
   registerProvisionalAccess,
   resetActiveSession,
   revokeAccess,
+  sendDeviceWarning,
   updateDeviceLimit,
   verifyAdminPassword,
 } from "@/lib/access.functions";
@@ -48,6 +49,8 @@ interface DashboardPayload {
     device_limit: number | null;
     active_session_token: string | null;
     active_session_started_at: string | null;
+    active_session_ip: string | null;
+    active_session_user_agent: string | null;
     last_activity_at: string | null;
     affiliate_sale?: {
       id: string;
@@ -115,6 +118,7 @@ function AdminPage() {
   const removeAccount = useServerFn(deleteAccess);
   const setDevices = useServerFn(updateDeviceLimit);
   const resetSession = useServerFn(resetActiveSession);
+  const warnDevice = useServerFn(sendDeviceWarning);
   const generateManualCode = useServerFn(generateManualAccessCode);
   const registerProvisional = useServerFn(registerProvisionalAccess);
   const logout = useServerFn(logoutAdminSession);
@@ -159,7 +163,7 @@ function AdminPage() {
           await loadDashboard();
           interval = setInterval(() => {
             loadDashboard();
-          }, 30_000);
+          }, 10_000);
         }
       } finally {
         if (active) setChecking(false);
@@ -575,7 +579,19 @@ function AdminPage() {
                     </TableCell>
                     <TableCell>
                       {item.active_session_token ? (
-                        <span className="text-xs text-amber-500">em uso</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-medium text-amber-500">em uso</span>
+                          {item.active_session_ip && (
+                            <span className="text-[10px] text-muted-foreground" title={item.active_session_user_agent ?? ""}>
+                              IP: {item.active_session_ip}
+                            </span>
+                          )}
+                          {item.active_session_user_agent && (
+                            <span className="text-[10px] text-muted-foreground truncate max-w-[180px]" title={item.active_session_user_agent}>
+                              {item.active_session_user_agent.slice(0, 28)}…
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">livre</span>
                       )}
@@ -624,6 +640,69 @@ function AdminPage() {
                         >
                           Liberar p/ outro computador
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                          onClick={async () => {
+                            const customMessage = window.prompt(
+                              "Mensagem adicional (opcional) na advertência ao cliente:",
+                              "",
+                            );
+                            if (customMessage === null) return;
+                            try {
+                              await warnDevice({
+                                data: {
+                                  accessId: item.id,
+                                  kind: "warning",
+                                  customMessage: customMessage || undefined,
+                                },
+                              });
+                              toast.success("Advertência enviada por e-mail ao cliente.");
+                            } catch {
+                              toast.error("Falha ao enviar advertência.");
+                            }
+                          }}
+                        >
+                          Advertir
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                          onClick={async () => {
+                            const current = item.device_limit ?? 1;
+                            try {
+                              await setDevices({
+                                data: { accessId: item.id, deviceLimit: current + 1 },
+                              });
+                              await warnDevice({
+                                data: { accessId: item.id, kind: "add" },
+                              });
+                              toast.success(`Dispositivo adicionado (limite: ${current + 1}). Cliente avisado.`);
+                              await loadDashboard();
+                            } catch {
+                              toast.error("Falha ao adicionar dispositivo.");
+                            }
+                          }}
+                        >
+                          + Dispositivo
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              await warnDevice({ data: { accessId: item.id, kind: "allow" } });
+                              toast.success("Cliente avisado: novo dispositivo permitido.");
+                            } catch {
+                              toast.error("Falha ao notificar.");
+                            }
+                          }}
+                        >
+                          Permitir
+                        </Button>
+
 
                         <Button
                           size="sm"
