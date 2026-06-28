@@ -164,8 +164,10 @@ function normalizeEmail(email: string) {
 }
 
 function normalizeCode(code: string) {
-  return code.trim().toUpperCase();
+  // Remove espaços, hífens e qualquer caractere não alfanumérico; força maiúsculas.
+  return code.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 }
+
 
 function safeEqual(input: string, expected: string) {
   const a = Buffer.from(input);
@@ -368,14 +370,14 @@ export const validateAccessCode = createServerFn({ method: "POST" })
     const code = normalizeCode(data.code);
     const nowIso = new Date().toISOString();
 
-    // Não filtra por expires_at: códigos vencidos ainda validam.
+    // Não filtra por expires_at nem por status: códigos vencidos OU revogados ainda validam.
     // O painel do cliente mostra o aviso de expiração e pede para contatar o admin para renovar.
+    // Se o código existir para este e-mail (em qualquer status), libera o acesso.
     const { data: accessRow } = await db
       .from("user_access")
       .select("id, email, access_code, expires_at, status, device_limit, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent")
       .eq("email", email)
       .eq("access_code", code)
-      .in("status", ["active", "pending"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -384,25 +386,18 @@ export const validateAccessCode = createServerFn({ method: "POST" })
     void nowIso;
 
     if (!accessRow) {
-      const { data: revokedRow } = await db
-        .from("user_access")
-        .select("id")
-        .eq("email", email)
-        .eq("access_code", code)
-        .eq("status", "revoked")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
       await logSecurity("access_code_validation", false);
-      if (revokedRow) {
-        return {
-          ok: false,
-          revoked: true,
-          error: "Seu acesso foi revogado. Clique em \"Liberar\" para reativar (limite de 1 dispositivo).",
-        };
-      }
       return { ok: false, error: genericAccessError };
     }
+
+    // Se estava revogado, reativa automaticamente ao validar com sucesso.
+    if (accessRow.status === "revoked") {
+      await db
+        .from("user_access")
+        .update({ status: "active" })
+        .eq("id", accessRow.id);
+    }
+
 
     // Controle de sessão única por dispositivo
     // Regra: abrir várias abas / re-logar no MESMO navegador (mesmo IP) NÃO é outro dispositivo.
@@ -480,8 +475,9 @@ export const getAccessSession = createServerFn({ method: "GET" }).handler(async 
 
   const stillActive =
     row &&
-    (row.status === "active" || row.status === "pending") &&
+    row.status !== "deleted" &&
     row.active_session_token === sessionToken;
+
 
   if (!stillActive) {
     await clearSession(getAccessSessionConfig());
