@@ -163,7 +163,7 @@ function AdminPage() {
           await loadDashboard();
           interval = setInterval(() => {
             loadDashboard();
-          }, 30_000);
+          }, 10_000);
         }
       } finally {
         if (active) setChecking(false);
