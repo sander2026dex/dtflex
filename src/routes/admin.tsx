@@ -579,7 +579,19 @@ function AdminPage() {
                     </TableCell>
                     <TableCell>
                       {item.active_session_token ? (
-                        <span className="text-xs text-amber-500">em uso</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-medium text-amber-500">em uso</span>
+                          {item.active_session_ip && (
+                            <span className="text-[10px] text-muted-foreground" title={item.active_session_user_agent ?? ""}>
+                              IP: {item.active_session_ip}
+                            </span>
+                          )}
+                          {item.active_session_user_agent && (
+                            <span className="text-[10px] text-muted-foreground truncate max-w-[180px]" title={item.active_session_user_agent}>
+                              {item.active_session_user_agent.slice(0, 28)}…
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">livre</span>
                       )}
