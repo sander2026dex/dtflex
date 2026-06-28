@@ -318,6 +318,13 @@ function planLabel(planCode: string) {
   return "Plano Mensal";
 }
 
+function refreshedExpiresAt(row: { expires_at?: string | null; plan_code?: string | null }) {
+  const current = row.expires_at ? new Date(row.expires_at).getTime() : 0;
+  if (current > Date.now()) return row.expires_at!;
+  const days = planDurationDays(row.plan_code ?? "mensal");
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 
 export const getAdminSession = createServerFn({ method: "GET" }).handler(async () => {
   const session = readSignedAdminSession();
@@ -374,7 +381,7 @@ export const validateAccessCode = createServerFn({ method: "POST" })
     // Se o código existir para este e-mail (em qualquer status), libera o acesso.
     const { data: accessRow } = await db
       .from("user_access")
-      .select("id, email, access_code, expires_at, status, device_limit, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent")
+      .select("id, email, access_code, expires_at, status, plan_code, device_limit, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent")
       .eq("email", email)
       .eq("access_code", code)
       .order("created_at", { ascending: false })
@@ -385,15 +392,6 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       await logSecurity("access_code_validation", false);
       return { ok: false, error: genericAccessError };
     }
-
-    // Se estava revogado, reativa automaticamente ao validar com sucesso.
-    if (accessRow.status === "revoked") {
-      await db
-        .from("user_access")
-        .update({ status: "active" })
-        .eq("id", accessRow.id);
-    }
-
 
     // Controle de sessão única por dispositivo
     // Regra: abrir várias abas / re-logar no MESMO navegador (mesmo IP) NÃO é outro dispositivo.
@@ -419,9 +417,12 @@ export const validateAccessCode = createServerFn({ method: "POST" })
     }
 
     const sessionToken = randomUUID();
+    const expiresAt = refreshedExpiresAt(accessRow);
     const { error: updateError } = await db
       .from("user_access")
       .update({
+        status: "active",
+        expires_at: expiresAt,
         active_session_token: sessionToken,
         active_session_started_at: new Date().toISOString(),
         active_session_ip: currentIp,
@@ -441,7 +442,7 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       code,
       accessId: accessRow.id,
       sessionToken,
-      expiresAt: accessRow.expires_at,
+      expiresAt,
     });
 
     await logSecurity("access_code_validation", true);
@@ -678,6 +679,7 @@ export const regenerateAccessCode = createServerFn({ method: "POST" })
     }
 
     const newCode = generateAccessCode();
+    const expiresAt = refreshedExpiresAt(row);
     // Atualiza a MESMA linha para refletir o novo código no painel admin.
     // Limpa sessão ativa para que o cliente possa entrar imediatamente com o novo código.
     const { error } = await db
@@ -685,6 +687,7 @@ export const regenerateAccessCode = createServerFn({ method: "POST" })
       .update({
         access_code: newCode,
         status: "active",
+        expires_at: expiresAt,
         active_session_token: null,
         active_session_started_at: null,
         active_session_ip: null,
@@ -701,7 +704,7 @@ export const regenerateAccessCode = createServerFn({ method: "POST" })
       await sendAccessEmail({
         email: row.email,
         accessCode: newCode,
-        expiresAt: row.expires_at,
+        expiresAt,
         planLabel: planLabel((row.plan_code as any) ?? "mensal"),
       });
     } catch {
@@ -843,7 +846,7 @@ export const releaseOwnDeviceSession = createServerFn({ method: "POST" })
 
     const { data: accessRow } = await db
       .from("user_access")
-      .select("id, device_limit")
+      .select("id, device_limit, expires_at, plan_code")
       .eq("email", email)
       .eq("access_code", code)
       .order("created_at", { ascending: false })
@@ -856,7 +859,7 @@ export const releaseOwnDeviceSession = createServerFn({ method: "POST" })
 
     await db
       .from("user_access")
-      .update({ active_session_token: null, active_session_started_at: null, active_session_ip: null, active_session_user_agent: null })
+      .update({ status: "active", expires_at: refreshedExpiresAt(accessRow), active_session_token: null, active_session_started_at: null, active_session_ip: null, active_session_user_agent: null })
       .eq("id", accessRow.id);
 
     await logSecurity("access_self_release", true);
@@ -886,7 +889,7 @@ export const reactivateOwnAccess = createServerFn({ method: "POST" })
 
     const { data: row } = await db
       .from("user_access")
-      .select("id")
+      .select("id, expires_at, plan_code")
       .eq("email", email)
       .eq("access_code", code)
       .order("created_at", { ascending: false })
@@ -901,6 +904,7 @@ export const reactivateOwnAccess = createServerFn({ method: "POST" })
       .from("user_access")
       .update({
         status: "active",
+        expires_at: refreshedExpiresAt(row),
         device_limit: 1,
         active_session_token: null,
         active_session_started_at: null,
@@ -928,7 +932,7 @@ export const sendDeviceWarning = createServerFn({ method: "POST" })
 
     const { data: row } = await db
       .from("user_access")
-      .select("id, email, device_limit, active_session_ip, active_session_user_agent, active_session_started_at")
+      .select("id, email, device_limit, expires_at, plan_code, active_session_ip, active_session_user_agent, active_session_started_at")
       .eq("id", data.accessId)
       .maybeSingle();
 
@@ -938,6 +942,8 @@ export const sendDeviceWarning = createServerFn({ method: "POST" })
       await db
         .from("user_access")
         .update({
+          status: "active",
+          expires_at: refreshedExpiresAt(row),
           active_session_token: null,
           active_session_started_at: null,
           active_session_ip: null,
