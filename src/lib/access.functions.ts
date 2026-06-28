@@ -368,7 +368,6 @@ export const validateAccessCode = createServerFn({ method: "POST" })
     const db = getDb();
     const email = normalizeEmail(data.email);
     const code = normalizeCode(data.code);
-    const nowIso = new Date().toISOString();
 
     // Não filtra por expires_at nem por status: códigos vencidos OU revogados ainda validam.
     // O painel do cliente mostra o aviso de expiração e pede para contatar o admin para renovar.
@@ -381,9 +380,6 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-
-    // Evita warning de variável não usada (nowIso era usado no filtro removido)
-    void nowIso;
 
     if (!accessRow) {
       await logSecurity("access_code_validation", false);
@@ -669,10 +665,11 @@ export const regenerateAccessCode = createServerFn({ method: "POST" })
     await requireAdminSession();
     const db = getDb();
 
-    // Busca a conta atual para reaproveitar e-mail / plano / validade
+    // Gera um código novo SEM invalidar o código antigo.
+    // Isso evita o erro "código inválido ou expirado" quando o cliente usa o código anterior.
     const { data: row, error: readError } = await db
       .from("user_access")
-      .select("id, email, expires_at, plan_code")
+      .select("id, email, expires_at, plan_code, device_limit")
       .eq("id", data.accessId)
       .maybeSingle();
 
@@ -681,15 +678,14 @@ export const regenerateAccessCode = createServerFn({ method: "POST" })
     }
 
     const newCode = generateAccessCode();
-    const { error } = await db
-      .from("user_access")
-      .update({
-        access_code: newCode,
-        status: "active",
-        active_session_token: null,
-        active_session_started_at: null,
-      })
-      .eq("id", data.accessId);
+    const { error } = await db.from("user_access").insert({
+      email: normalizeEmail(row.email),
+      access_code: newCode,
+      status: "active",
+      expires_at: row.expires_at,
+      plan_code: row.plan_code ?? "mensal",
+      device_limit: row.device_limit ?? 1,
+    });
 
     if (error) {
       throw new Error("Não foi possível atualizar o código");
@@ -838,15 +834,12 @@ export const releaseOwnDeviceSession = createServerFn({ method: "POST" })
     const db = getDb();
     const email = normalizeEmail(data.email);
     const code = normalizeCode(data.code);
-    const nowIso = new Date().toISOString();
 
     const { data: accessRow } = await db
       .from("user_access")
       .select("id, device_limit")
       .eq("email", email)
       .eq("access_code", code)
-      .in("status", ["active", "pending"])
-      .gt("expires_at", nowIso)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -884,15 +877,12 @@ export const reactivateOwnAccess = createServerFn({ method: "POST" })
     const db = getDb();
     const email = normalizeEmail(data.email);
     const code = normalizeCode(data.code);
-    const nowIso = new Date().toISOString();
 
     const { data: row } = await db
       .from("user_access")
       .select("id")
       .eq("email", email)
       .eq("access_code", code)
-      .eq("status", "revoked")
-      .gt("expires_at", nowIso)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
