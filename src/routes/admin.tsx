@@ -698,7 +698,8 @@ function AdminPage() {
                           onClick={async () => {
                             try {
                               await warnDevice({ data: { accessId: item.id, kind: "allow" } });
-                              toast.success("Cliente avisado: novo dispositivo permitido.");
+                              toast.success("Acesso liberado e validade renovada para o cliente.");
+                              await loadDashboard();
                             } catch {
                               toast.error("Falha ao notificar.");
                             }
