@@ -678,18 +678,24 @@ export const regenerateAccessCode = createServerFn({ method: "POST" })
     }
 
     const newCode = generateAccessCode();
-    const { error } = await db.from("user_access").insert({
-      email: normalizeEmail(row.email),
-      access_code: newCode,
-      status: "active",
-      expires_at: row.expires_at,
-      plan_code: row.plan_code ?? "mensal",
-      device_limit: row.device_limit ?? 1,
-    });
+    // Atualiza a MESMA linha para refletir o novo código no painel admin.
+    // Limpa sessão ativa para que o cliente possa entrar imediatamente com o novo código.
+    const { error } = await db
+      .from("user_access")
+      .update({
+        access_code: newCode,
+        status: "active",
+        active_session_token: null,
+        active_session_started_at: null,
+        active_session_ip: null,
+        active_session_user_agent: null,
+      })
+      .eq("id", data.accessId);
 
     if (error) {
       throw new Error("Não foi possível atualizar o código");
     }
+
 
     try {
       await sendAccessEmail({
