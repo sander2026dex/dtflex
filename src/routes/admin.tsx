@@ -640,6 +640,69 @@ function AdminPage() {
                         >
                           Liberar p/ outro computador
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                          onClick={async () => {
+                            const customMessage = window.prompt(
+                              "Mensagem adicional (opcional) na advertência ao cliente:",
+                              "",
+                            );
+                            if (customMessage === null) return;
+                            try {
+                              await warnDevice({
+                                data: {
+                                  accessId: item.id,
+                                  kind: "warning",
+                                  customMessage: customMessage || undefined,
+                                },
+                              });
+                              toast.success("Advertência enviada por e-mail ao cliente.");
+                            } catch {
+                              toast.error("Falha ao enviar advertência.");
+                            }
+                          }}
+                        >
+                          Advertir
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                          onClick={async () => {
+                            const current = item.device_limit ?? 1;
+                            try {
+                              await setDevices({
+                                data: { accessId: item.id, deviceLimit: current + 1 },
+                              });
+                              await warnDevice({
+                                data: { accessId: item.id, kind: "add" },
+                              });
+                              toast.success(`Dispositivo adicionado (limite: ${current + 1}). Cliente avisado.`);
+                              await loadDashboard();
+                            } catch {
+                              toast.error("Falha ao adicionar dispositivo.");
+                            }
+                          }}
+                        >
+                          + Dispositivo
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              await warnDevice({ data: { accessId: item.id, kind: "allow" } });
+                              toast.success("Cliente avisado: novo dispositivo permitido.");
+                            } catch {
+                              toast.error("Falha ao notificar.");
+                            }
+                          }}
+                        >
+                          Permitir
+                        </Button>
+
 
                         <Button
                           size="sm"
