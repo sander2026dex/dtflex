@@ -651,10 +651,18 @@ export const resetActiveSession = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAdminSession();
     const db = getDb();
+    const { data: row } = await db
+      .from("user_access")
+      .select("email")
+      .eq("id", data.accessId)
+      .maybeSingle();
+
+    if (!row) throw new Error("Acesso não encontrado");
+
     const { error } = await db
       .from("user_access")
-      .update({ active_session_token: null, active_session_started_at: null })
-      .eq("id", data.accessId);
+      .update({ active_session_token: null, active_session_started_at: null, active_session_ip: null, active_session_user_agent: null })
+      .eq("email", row.email);
     if (error) throw new Error("Não foi possível liberar a sessão");
     await logSecurity("admin_reset_session", true);
     return { ok: true };
@@ -939,15 +947,22 @@ export const sendDeviceWarning = createServerFn({ method: "POST" })
     if (!row) throw new Error("Acesso não encontrado");
 
     if (data.kind === "allow" || data.kind === "remove") {
+      const renewedExpiresAt = refreshedExpiresAt(row);
       await db
         .from("user_access")
         .update({
-          status: "active",
-          expires_at: refreshedExpiresAt(row),
           active_session_token: null,
           active_session_started_at: null,
           active_session_ip: null,
           active_session_user_agent: null,
+        })
+        .eq("email", row.email);
+
+      await db
+        .from("user_access")
+        .update({
+          status: "active",
+          expires_at: renewedExpiresAt,
         })
         .eq("id", data.accessId);
     }
