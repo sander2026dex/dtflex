@@ -928,6 +928,18 @@ export const sendDeviceWarning = createServerFn({ method: "POST" })
 
     if (!row) throw new Error("Acesso não encontrado");
 
+    if (data.kind === "allow" || data.kind === "remove") {
+      await db
+        .from("user_access")
+        .update({
+          active_session_token: null,
+          active_session_started_at: null,
+          active_session_ip: null,
+          active_session_user_agent: null,
+        })
+        .eq("id", data.accessId);
+    }
+
     const subjects: Record<string, string> = {
       warning: "⚠️ Aviso de uso de dispositivo - DTFLEXPRO",
       allow: "✅ Novo dispositivo liberado - DTFLEXPRO",
