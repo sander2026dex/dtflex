@@ -164,8 +164,10 @@ function normalizeEmail(email: string) {
 }
 
 function normalizeCode(code: string) {
-  return code.trim().toUpperCase();
+  // Remove espaços, hífens e qualquer caractere não alfanumérico; força maiúsculas.
+  return code.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 }
+
 
 function safeEqual(input: string, expected: string) {
   const a = Buffer.from(input);
