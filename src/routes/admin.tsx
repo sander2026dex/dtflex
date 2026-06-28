@@ -13,6 +13,7 @@ import {
   getAdminDashboardData,
   getAdminSession,
   logoutAdminSession,
+  regenerateAccessCode,
   registerProvisionalAccess,
   resetActiveSession,
   revokeAccess,
@@ -20,6 +21,7 @@ import {
   updateDeviceLimit,
   verifyAdminPassword,
 } from "@/lib/access.functions";
+
 import {
   activateAffiliateSale,
   deleteAffiliateSale,
