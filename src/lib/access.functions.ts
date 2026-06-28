@@ -663,6 +663,54 @@ export const resetActiveSession = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const regenerateAccessCode = createServerFn({ method: "POST" })
+  .inputValidator(revokeSchema)
+  .handler(async ({ data }) => {
+    await requireAdminSession();
+    const db = getDb();
+
+    // Busca a conta atual para reaproveitar e-mail / plano / validade
+    const { data: row, error: readError } = await db
+      .from("user_access")
+      .select("id, email, expires_at, plan_code")
+      .eq("id", data.accessId)
+      .maybeSingle();
+
+    if (readError || !row) {
+      throw new Error("Conta não encontrada");
+    }
+
+    const newCode = generateAccessCode();
+    const { error } = await db
+      .from("user_access")
+      .update({
+        access_code: newCode,
+        status: "active",
+        active_session_token: null,
+        active_session_started_at: null,
+      })
+      .eq("id", data.accessId);
+
+    if (error) {
+      throw new Error("Não foi possível atualizar o código");
+    }
+
+    try {
+      await sendAccessEmail({
+        email: row.email,
+        accessCode: newCode,
+        expiresAt: row.expires_at,
+        planLabel: planLabel((row.plan_code as any) ?? "mensal"),
+      });
+    } catch {
+      await logSecurity("regenerate_access_email_error", false);
+    }
+
+    await logSecurity("admin_regenerate_code", true);
+    return { ok: true, accessCode: newCode };
+  });
+
+
 export const generateManualAccessCode = createServerFn({ method: "POST" })
   .inputValidator(manualAccessSchema)
   .handler(async ({ data }) => {
