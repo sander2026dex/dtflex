@@ -463,15 +463,14 @@ export const getAccessSession = createServerFn({ method: "GET" }).handler(async 
   const accessId = session.data?.accessId;
   const sessionToken = session.data?.sessionToken;
 
-  const baseValid = Boolean(
-    session.data?.authenticated && expiresAt && new Date(expiresAt).getTime() > Date.now(),
-  );
+  const baseValid = Boolean(session.data?.authenticated && expiresAt);
 
   if (!baseValid || !accessId || !sessionToken) {
     return { authenticated: false, email: null, expiresAt: null };
   }
 
-  // Revalida que esta sessão ainda é a "ativa" no banco
+  // Revalida que esta sessão ainda é a "ativa" no banco.
+  // Não bloqueia por expires_at: códigos vencidos continuam logados; o painel exibe aviso.
   const db = getDb();
   const { data: row } = await db
     .from("user_access")
@@ -482,7 +481,6 @@ export const getAccessSession = createServerFn({ method: "GET" }).handler(async 
   const stillActive =
     row &&
     (row.status === "active" || row.status === "pending") &&
-    new Date(row.expires_at).getTime() > Date.now() &&
     row.active_session_token === sessionToken;
 
   if (!stillActive) {
