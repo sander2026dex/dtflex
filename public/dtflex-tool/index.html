@@ -335,20 +335,141 @@
           if (!master || !master.parentElement) return;
           master.style.display = 'none';
 
+        function openManualCropModal(onConfirm){
+          if (!window.__flat) { alert('Gere a arte primeiro.'); return; }
+          var src = window.__flat;
+          var overlay = document.createElement('div');
+          overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;';
+          overlay.innerHTML = ''
+            + '<div style="color:#fff;font:600 14px system-ui;text-align:center;max-width:640px;">Arraste para selecionar a área de recorte. Use as alças para ajustar. Clique em Confirmar para exportar.</div>'
+            + '<div id="dtf-crop-stage" style="position:relative;background:#222;border:1px solid #444;max-width:90vw;max-height:70vh;overflow:hidden;"></div>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">'
+            + '  <button id="dtf-crop-reset" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Selecionar tudo</button>'
+            + '  <button id="dtf-crop-cancel" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Cancelar</button>'
+            + '  <button id="dtf-crop-ok" style="padding:8px 14px;border-radius:8px;border:0;background:#22c55e;color:#062;font-weight:700;cursor:pointer;">Confirmar e baixar</button>'
+            + '</div>';
+          document.body.appendChild(overlay);
+
+          var stage = overlay.querySelector('#dtf-crop-stage');
+          var maxW = Math.min(window.innerWidth * 0.9, 1100);
+          var maxH = Math.min(window.innerHeight * 0.7, 720);
+          var scale = Math.min(maxW / src.width, maxH / src.height, 1);
+          var dispW = Math.round(src.width * scale);
+          var dispH = Math.round(src.height * scale);
+          var preview = document.createElement('canvas');
+          preview.width = dispW; preview.height = dispH;
+          preview.style.cssText = 'display:block;background:#111;';
+          preview.getContext('2d').drawImage(src, 0, 0, dispW, dispH);
+          stage.style.width = dispW + 'px'; stage.style.height = dispH + 'px';
+          stage.appendChild(preview);
+
+          var sel = document.createElement('div');
+          sel.style.cssText = 'position:absolute;border:2px dashed #22c55e;background:rgba(34,197,94,.12);cursor:move;box-sizing:border-box;';
+          stage.appendChild(sel);
+
+          // Inicia com bbox automático se houver, senão tudo
+          var auto = getContentBBox(src);
+          var rect = auto ? { x: auto.x*scale, y: auto.y*scale, w: auto.w*scale, h: auto.h*scale }
+                          : { x: 0, y: 0, w: dispW, h: dispH };
+          function applyRect(){
+            rect.x = Math.max(0, Math.min(rect.x, dispW - 10));
+            rect.y = Math.max(0, Math.min(rect.y, dispH - 10));
+            rect.w = Math.max(10, Math.min(rect.w, dispW - rect.x));
+            rect.h = Math.max(10, Math.min(rect.h, dispH - rect.y));
+            sel.style.left = rect.x + 'px'; sel.style.top = rect.y + 'px';
+            sel.style.width = rect.w + 'px'; sel.style.height = rect.h + 'px';
+          }
+          applyRect();
+
+          // Alças
+          ['nw','ne','sw','se'].forEach(function(pos){
+            var h = document.createElement('div');
+            h.dataset.pos = pos;
+            var corner = {nw:'top:-6px;left:-6px;cursor:nwse-resize;',
+                          ne:'top:-6px;right:-6px;cursor:nesw-resize;',
+                          sw:'bottom:-6px;left:-6px;cursor:nesw-resize;',
+                          se:'bottom:-6px;right:-6px;cursor:nwse-resize;'}[pos];
+            h.style.cssText = 'position:absolute;width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:50%;'+corner;
+            sel.appendChild(h);
+          });
+
+          var drag = null;
+          stage.addEventListener('mousedown', function(e){
+            var r = stage.getBoundingClientRect();
+            var px = e.clientX - r.left, py = e.clientY - r.top;
+            var t = e.target;
+            if (t.dataset && t.dataset.pos) {
+              drag = { mode:'resize', pos:t.dataset.pos, sx:px, sy:py, ox:rect.x, oy:rect.y, ow:rect.w, oh:rect.h };
+            } else if (t === sel) {
+              drag = { mode:'move', sx:px, sy:py, ox:rect.x, oy:rect.y };
+            } else {
+              drag = { mode:'new', sx:px, sy:py };
+              rect = { x:px, y:py, w:1, h:1 }; applyRect();
+            }
+            e.preventDefault();
+          });
+          window.addEventListener('mousemove', function(e){
+            if (!drag) return;
+            var r = stage.getBoundingClientRect();
+            var px = e.clientX - r.left, py = e.clientY - r.top;
+            var dx = px - drag.sx, dy = py - drag.sy;
+            if (drag.mode === 'move') { rect.x = drag.ox + dx; rect.y = drag.oy + dy; }
+            else if (drag.mode === 'new') {
+              rect.x = Math.min(drag.sx, px); rect.y = Math.min(drag.sy, py);
+              rect.w = Math.abs(dx); rect.h = Math.abs(dy);
+            } else {
+              if (drag.pos.indexOf('e')>-1) rect.w = drag.ow + dx;
+              if (drag.pos.indexOf('s')>-1) rect.h = drag.oh + dy;
+              if (drag.pos.indexOf('w')>-1) { rect.x = drag.ox + dx; rect.w = drag.ow - dx; }
+              if (drag.pos.indexOf('n')>-1) { rect.y = drag.oy + dy; rect.h = drag.oh - dy; }
+            }
+            applyRect();
+          });
+          window.addEventListener('mouseup', function(){ drag = null; });
+
+          overlay.querySelector('#dtf-crop-reset').onclick = function(){
+            rect = { x:0, y:0, w:dispW, h:dispH }; applyRect();
+          };
+          overlay.querySelector('#dtf-crop-cancel').onclick = function(){ overlay.remove(); };
+          overlay.querySelector('#dtf-crop-ok').onclick = function(){
+            var bbox = {
+              x: Math.round(rect.x / scale),
+              y: Math.round(rect.y / scale),
+              w: Math.round(rect.w / scale),
+              h: Math.round(rect.h / scale)
+            };
+            window.__DTF_MANUAL_BBOX = bbox;
+            window.__DTF_SKIP_PADDING = true;
+            overlay.remove();
+            onConfirm();
+          };
+        }
+
+        function installSizeButtons(){
+          var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
+          var master = buttons.find(function(btn){ return /Exportar Master/i.test(btn.textContent || ''); });
+          if (!master || !master.parentElement) return;
+          master.style.display = 'none';
+
+          var inputStyle = 'padding:4px 8px;border-radius:6px;border:1px solid #888;background:#fff;color:#111;font-weight:600;';
+          var btnA4Style = 'padding:8px 14px;border-radius:8px;border:0;background:#2563eb;color:#fff;font-weight:700;cursor:pointer;margin:4px;';
+          var btnA3Style = 'padding:8px 14px;border-radius:8px;border:0;background:#7c3aed;color:#fff;font-weight:700;cursor:pointer;margin:4px;';
+          var btnCropStyle = 'padding:8px 14px;border-radius:8px;border:0;background:#f59e0b;color:#1a1a1a;font-weight:700;cursor:pointer;margin:4px;';
+
           // Seletor de margem de recorte
           if (!document.getElementById('dtf-margin-wrap')) {
             var wrap = document.createElement('div');
             wrap.id = 'dtf-margin-wrap';
-            wrap.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0;font-size:12px;color:inherit;';
+            wrap.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:8px 10px;border-radius:8px;background:#f8fafc;border:1px solid #cbd5e1;font:600 12px system-ui;color:#0f172a;';
             wrap.innerHTML = ''
-              + '<label style="font-weight:600;">Margem de recorte:</label>'
-              + '<select id="dtf-margin-mode" style="padding:4px 6px;border-radius:6px;border:1px solid #555;background:transparent;color:inherit;">'
+              + '<label style="color:#0f172a;">Margem de recorte:</label>'
+              + '<select id="dtf-margin-mode" style="'+inputStyle+'">'
               + '  <option value="auto">Automática (8%)</option>'
               + '  <option value="percent">Porcentagem (%)</option>'
               + '  <option value="mm">Milímetros (mm)</option>'
               + '</select>'
-              + '<input id="dtf-margin-value" type="number" min="0" step="1" value="8" style="width:70px;padding:4px 6px;border-radius:6px;border:1px solid #555;background:transparent;color:inherit;display:none;" />'
-              + '<span id="dtf-margin-unit" style="opacity:.7;display:none;">%</span>';
+              + '<input id="dtf-margin-value" type="number" min="0" step="1" value="8" style="width:80px;'+inputStyle+'display:none;" />'
+              + '<span id="dtf-margin-unit" style="color:#334155;display:none;">%</span>';
             master.parentElement.insertBefore(wrap, master);
             var modeSel = wrap.querySelector('#dtf-margin-mode');
             var valInp = wrap.querySelector('#dtf-margin-value');
@@ -374,7 +495,7 @@
             var btn4 = document.createElement('button');
             btn4.id = 'dtf-a4-export-btn';
             btn4.type = 'button';
-            btn4.className = master.className;
+            btn4.style.cssText = btnA4Style;
             btn4.textContent = 'Salvar PNG A4 (300 DPI)';
             btn4.addEventListener('click', function(e){
               e.preventDefault(); e.stopPropagation();
@@ -387,7 +508,7 @@
             var btn3 = document.createElement('button');
             btn3.id = 'dtf-a3-export-btn';
             btn3.type = 'button';
-            btn3.className = master.className;
+            btn3.style.cssText = btnA3Style;
             btn3.textContent = 'Salvar PNG A3 (300 DPI)';
             btn3.addEventListener('click', function(e){
               e.preventDefault(); e.stopPropagation();
@@ -396,6 +517,36 @@
             });
             master.parentElement.appendChild(btn3);
           }
+          if (!document.getElementById('dtf-crop-a4-btn')) {
+            var bc4 = document.createElement('button');
+            bc4.id = 'dtf-crop-a4-btn';
+            bc4.type = 'button';
+            bc4.style.cssText = btnCropStyle;
+            bc4.textContent = '✂ Recorte manual → A4';
+            bc4.addEventListener('click', function(e){
+              e.preventDefault(); e.stopPropagation();
+              openManualCropModal(function(){
+                window.__DTF_EXPORT_A4_NEXT = true;
+                master.click();
+              });
+            });
+            master.parentElement.appendChild(bc4);
+          }
+          if (!document.getElementById('dtf-crop-a3-btn')) {
+            var bc3 = document.createElement('button');
+            bc3.id = 'dtf-crop-a3-btn';
+            bc3.type = 'button';
+            bc3.style.cssText = btnCropStyle;
+            bc3.textContent = '✂ Recorte manual → A3';
+            bc3.addEventListener('click', function(e){
+              e.preventDefault(); e.stopPropagation();
+              openManualCropModal(function(){
+                window.__DTF_EXPORT_A3_NEXT = true;
+                master.click();
+              });
+            });
+            master.parentElement.appendChild(bc3);
+          }
         }
 
         document.addEventListener('DOMContentLoaded', installSizeButtons);
@@ -403,7 +554,7 @@
         window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT], a3: [A3_WIDTH, A3_HEIGHT] };
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v8"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v9"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
   <body>
