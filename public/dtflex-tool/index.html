@@ -324,8 +324,43 @@
           var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
           var master = buttons.find(function(btn){ return /Exportar Master/i.test(btn.textContent || ''); });
           if (!master || !master.parentElement) return;
-          // Esconder "Exportar Master" — só queremos A3 e A4
           master.style.display = 'none';
+
+          // Seletor de margem de recorte
+          if (!document.getElementById('dtf-margin-wrap')) {
+            var wrap = document.createElement('div');
+            wrap.id = 'dtf-margin-wrap';
+            wrap.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0;font-size:12px;color:inherit;';
+            wrap.innerHTML = ''
+              + '<label style="font-weight:600;">Margem de recorte:</label>'
+              + '<select id="dtf-margin-mode" style="padding:4px 6px;border-radius:6px;border:1px solid #555;background:transparent;color:inherit;">'
+              + '  <option value="auto">Automática (8%)</option>'
+              + '  <option value="percent">Porcentagem (%)</option>'
+              + '  <option value="mm">Milímetros (mm)</option>'
+              + '</select>'
+              + '<input id="dtf-margin-value" type="number" min="0" step="1" value="8" style="width:70px;padding:4px 6px;border-radius:6px;border:1px solid #555;background:transparent;color:inherit;display:none;" />'
+              + '<span id="dtf-margin-unit" style="opacity:.7;display:none;">%</span>';
+            master.parentElement.insertBefore(wrap, master);
+            var modeSel = wrap.querySelector('#dtf-margin-mode');
+            var valInp = wrap.querySelector('#dtf-margin-value');
+            var unitSpan = wrap.querySelector('#dtf-margin-unit');
+            function syncMargin(){
+              var mode = modeSel.value;
+              window.__DTF_EXPORT_MARGIN = { mode: mode, value: Number(valInp.value) || 0 };
+              if (mode === 'auto') {
+                valInp.style.display = 'none'; unitSpan.style.display = 'none';
+              } else {
+                valInp.style.display = ''; unitSpan.style.display = '';
+                if (mode === 'percent') { unitSpan.textContent = '%'; valInp.value = valInp.value || 8; }
+                else { unitSpan.textContent = 'mm'; valInp.value = valInp.value || 15; }
+                window.__DTF_EXPORT_MARGIN.value = Number(valInp.value) || 0;
+              }
+            }
+            modeSel.addEventListener('change', syncMargin);
+            valInp.addEventListener('input', syncMargin);
+            syncMargin();
+          }
+
           if (!document.getElementById('dtf-a4-export-btn')) {
             var btn4 = document.createElement('button');
             btn4.id = 'dtf-a4-export-btn';
@@ -353,6 +388,7 @@
             master.parentElement.appendChild(btn3);
           }
         }
+
         document.addEventListener('DOMContentLoaded', installSizeButtons);
         new MutationObserver(installSizeButtons).observe(document.documentElement, { childList: true, subtree: true });
         window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT], a3: [A3_WIDTH, A3_HEIGHT] };
