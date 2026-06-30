@@ -142,32 +142,82 @@
           try { return 'data:image/png;base64,' + bytesToBase64(ensureDpi(dataUrlToBytes(url))); }
           catch(e){ console.warn('[DPI300] falha ao regravar data URL', e); return url; }
         }
+        // Bounding box dos pixels não-transparentes do canvas de origem
+        function getContentBBox(source){
+          try {
+            var sctx = source.getContext && source.getContext('2d');
+            if (!sctx) return null;
+            var W = source.width, H = source.height;
+            var img = sctx.getImageData(0, 0, W, H).data;
+            var minX = W, minY = H, maxX = -1, maxY = -1;
+            for (var y = 0; y < H; y++) {
+              for (var x = 0; x < W; x++) {
+                if (img[(y * W + x) * 4 + 3] > 4) {
+                  if (x < minX) minX = x;
+                  if (x > maxX) maxX = x;
+                  if (y < minY) minY = y;
+                  if (y > maxY) maxY = y;
+                }
+              }
+            }
+            if (maxX < 0) return null;
+            return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+          } catch (e) { return null; }
+        }
+        // Configuração de margem de segurança (acessível via UI)
+        window.__DTF_EXPORT_MARGIN = window.__DTF_EXPORT_MARGIN || { mode: 'auto', value: 8 };
+        function computePaddingPx(bbox){
+          var cfg = window.__DTF_EXPORT_MARGIN || { mode: 'auto', value: 8 };
+          var base = Math.max(bbox.w, bbox.h);
+          if (cfg.mode === 'mm') {
+            // 300 DPI → 1 mm = 300/25.4 px
+            return Math.round((Number(cfg.value) || 0) * 300 / 25.4);
+          }
+          if (cfg.mode === 'percent') {
+            return Math.round(base * (Number(cfg.value) || 0) / 100);
+          }
+          // auto: 8% do maior lado da arte
+          return Math.round(base * 0.08);
+        }
         function makeSizedCanvas(source, maxW, maxH){
           var out = document.createElement('canvas');
           var ctx = out.getContext('2d', { alpha: true });
           if (!ctx) return source;
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          // Canvas sempre no tamanho exato da folha (A4 ou A3) a 300 DPI
           out.width = maxW;
           out.height = maxH;
-          var w = source.width;
-          var h = source.height;
-          // Se a arte é maior que a folha, reduzir proporcionalmente sem cortar
-          if (w > maxW || h > maxH) {
-            var scale = Math.min(maxW / w, maxH / h);
-            w = Math.round(w * scale);
-            h = Math.round(h * scale);
-          }
-          // Centralizar a arte na folha, sem cortar, sem alterar tamanho real (quando couber)
-          var x = Math.round((maxW - w) / 2);
-          var y = Math.round((maxH - h) / 2);
           ctx.clearRect(0, 0, maxW, maxH);
-          ctx.drawImage(source, 0, 0, source.width, source.height, x, y, w, h);
+
+          // 1) Detectar bounding box real da arte (inclui glow/halftone/respingos)
+          var bbox = getContentBBox(source);
+          if (!bbox) bbox = { x: 0, y: 0, w: source.width, h: source.height };
+
+          // 2) Adicionar margem de segurança ao redor
+          var pad = computePaddingPx(bbox);
+          var paddedW = bbox.w + pad * 2;
+          var paddedH = bbox.h + pad * 2;
+
+          // 3) Ajustar à folha mantendo proporção (só reduz se exceder)
+          var scale = 1;
+          if (paddedW > maxW || paddedH > maxH) {
+            scale = Math.min(maxW / paddedW, maxH / paddedH);
+          }
+          var drawW = Math.round(bbox.w * scale);
+          var drawH = Math.round(bbox.h * scale);
+          var totalW = Math.round(paddedW * scale);
+          var totalH = Math.round(paddedH * scale);
+
+          // 4) Centralizar na folha
+          var offX = Math.round((maxW - totalW) / 2 + pad * scale);
+          var offY = Math.round((maxH - totalH) / 2 + pad * scale);
+
+          ctx.drawImage(source, bbox.x, bbox.y, bbox.w, bbox.h, offX, offY, drawW, drawH);
           return out;
         }
         function makeA4Canvas(source){ return makeSizedCanvas(source, A4_WIDTH, A4_HEIGHT); }
         function makeA3Canvas(source){ return makeSizedCanvas(source, A3_WIDTH, A3_HEIGHT); }
+
         function normalizeDownloadName(name){
           var finalName = name || 'DTFlexPro_300dpi.png';
           var tag = null;
@@ -274,8 +324,43 @@
           var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
           var master = buttons.find(function(btn){ return /Exportar Master/i.test(btn.textContent || ''); });
           if (!master || !master.parentElement) return;
-          // Esconder "Exportar Master" — só queremos A3 e A4
           master.style.display = 'none';
+
+          // Seletor de margem de recorte
+          if (!document.getElementById('dtf-margin-wrap')) {
+            var wrap = document.createElement('div');
+            wrap.id = 'dtf-margin-wrap';
+            wrap.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0;font-size:12px;color:inherit;';
+            wrap.innerHTML = ''
+              + '<label style="font-weight:600;">Margem de recorte:</label>'
+              + '<select id="dtf-margin-mode" style="padding:4px 6px;border-radius:6px;border:1px solid #555;background:transparent;color:inherit;">'
+              + '  <option value="auto">Automática (8%)</option>'
+              + '  <option value="percent">Porcentagem (%)</option>'
+              + '  <option value="mm">Milímetros (mm)</option>'
+              + '</select>'
+              + '<input id="dtf-margin-value" type="number" min="0" step="1" value="8" style="width:70px;padding:4px 6px;border-radius:6px;border:1px solid #555;background:transparent;color:inherit;display:none;" />'
+              + '<span id="dtf-margin-unit" style="opacity:.7;display:none;">%</span>';
+            master.parentElement.insertBefore(wrap, master);
+            var modeSel = wrap.querySelector('#dtf-margin-mode');
+            var valInp = wrap.querySelector('#dtf-margin-value');
+            var unitSpan = wrap.querySelector('#dtf-margin-unit');
+            function syncMargin(){
+              var mode = modeSel.value;
+              window.__DTF_EXPORT_MARGIN = { mode: mode, value: Number(valInp.value) || 0 };
+              if (mode === 'auto') {
+                valInp.style.display = 'none'; unitSpan.style.display = 'none';
+              } else {
+                valInp.style.display = ''; unitSpan.style.display = '';
+                if (mode === 'percent') { unitSpan.textContent = '%'; valInp.value = valInp.value || 8; }
+                else { unitSpan.textContent = 'mm'; valInp.value = valInp.value || 15; }
+                window.__DTF_EXPORT_MARGIN.value = Number(valInp.value) || 0;
+              }
+            }
+            modeSel.addEventListener('change', syncMargin);
+            valInp.addEventListener('input', syncMargin);
+            syncMargin();
+          }
+
           if (!document.getElementById('dtf-a4-export-btn')) {
             var btn4 = document.createElement('button');
             btn4.id = 'dtf-a4-export-btn';
@@ -303,12 +388,13 @@
             master.parentElement.appendChild(btn3);
           }
         }
+
         document.addEventListener('DOMContentLoaded', installSizeButtons);
         new MutationObserver(installSizeButtons).observe(document.documentElement, { childList: true, subtree: true });
         window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT], a3: [A3_WIDTH, A3_HEIGHT] };
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v7"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v8"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
   <body>
