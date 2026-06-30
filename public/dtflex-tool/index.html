@@ -189,12 +189,21 @@
           out.height = maxH;
           ctx.clearRect(0, 0, maxW, maxH);
 
-          // 1) Detectar bounding box real da arte (inclui glow/halftone/respingos)
-          var bbox = getContentBBox(source);
+          // 1) Bounding box: usa recorte manual se definido; senão detecta automaticamente
+          var bbox = null;
+          if (window.__DTF_MANUAL_BBOX) {
+            var m = window.__DTF_MANUAL_BBOX;
+            bbox = { x: Math.max(0, m.x|0), y: Math.max(0, m.y|0),
+                     w: Math.min(source.width - (m.x|0), m.w|0),
+                     h: Math.min(source.height - (m.y|0), m.h|0) };
+            window.__DTF_MANUAL_BBOX = null;
+          }
+          if (!bbox || bbox.w <= 0 || bbox.h <= 0) bbox = getContentBBox(source);
           if (!bbox) bbox = { x: 0, y: 0, w: source.width, h: source.height };
 
-          // 2) Adicionar margem de segurança ao redor
-          var pad = computePaddingPx(bbox);
+          // 2) Adicionar margem de segurança ao redor (0 quando o recorte foi manual)
+          var pad = window.__DTF_SKIP_PADDING ? 0 : computePaddingPx(bbox);
+          window.__DTF_SKIP_PADDING = false;
           var paddedW = bbox.w + pad * 2;
           var paddedH = bbox.h + pad * 2;
 
