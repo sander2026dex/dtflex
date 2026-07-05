@@ -440,13 +440,6 @@
             rect = { x:0, y:0, w:dispW, h:dispH }; applyRect();
           };
           overlay.querySelector('#dtf-crop-cancel').onclick = function(){ overlay.remove(); };
-          overlay.querySelector('#dtf-crop-ok').onclick = function(){
-            var bbox = {
-              x: Math.round(rect.x / scale),
-              y: Math.round(rect.y / scale),
-              w: Math.round(rect.w / scale),
-              h: Math.round(rect.h / scale)
-            };
           // Presets de proporção
           var ar = 0; // 0 = livre; senão w/h
           function setAR(mode){
