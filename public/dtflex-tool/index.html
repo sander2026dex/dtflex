@@ -447,6 +447,48 @@
               w: Math.round(rect.w / scale),
               h: Math.round(rect.h / scale)
             };
+          // Presets de proporção
+          var ar = 0; // 0 = livre; senão w/h
+          function setAR(mode){
+            if (mode === 'free') ar = 0;
+            else if (mode === '1:1') ar = 1;
+            else if (mode === '3:4') ar = 3/4;
+            else if (mode === '4:3') ar = 4/3;
+            else if (mode === 'A4') ar = 2480/3508;
+            else if (mode === 'A3') ar = 3508/4961;
+            overlay.querySelectorAll('.dtf-ar').forEach(function(b){
+              b.style.background = (b.dataset.ar===mode) ? '#0ea5e9' : '#222';
+            });
+            if (ar > 0) {
+              // Ajusta rect atual mantendo centro
+              var cx = rect.x + rect.w/2, cy = rect.y + rect.h/2;
+              var w = rect.w, h = w / ar;
+              if (h > dispH) { h = dispH; w = h * ar; }
+              if (w > dispW) { w = dispW; h = w / ar; }
+              rect = { x: cx - w/2, y: cy - h/2, w: w, h: h };
+              applyRect();
+            }
+          }
+          overlay.querySelectorAll('.dtf-ar').forEach(function(b){
+            b.addEventListener('click', function(){ setAR(b.dataset.ar); });
+          });
+          // Reforça aspect ratio ao redimensionar
+          var origApply = applyRect;
+          applyRect = function(){
+            if (ar > 0 && drag && drag.mode === 'resize') {
+              // Ajusta h a partir de w para manter proporção
+              rect.h = Math.max(10, rect.w / ar);
+            }
+            origApply();
+          };
+
+          overlay.querySelector('#dtf-crop-ok').onclick = function(){
+            var bbox = {
+              x: Math.round(rect.x / scale),
+              y: Math.round(rect.y / scale),
+              w: Math.round(rect.w / scale),
+              h: Math.round(rect.h / scale)
+            };
             window.__DTF_MANUAL_BBOX = bbox;
             window.__DTF_SKIP_PADDING = true;
             overlay.remove();
