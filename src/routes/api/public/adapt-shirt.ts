@@ -1,45 +1,57 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-// Endpoint público consumido pelo iframe da ferramenta DTFLEXPRO.
-// Recebe { prompt } e devolve { paper, margin, aspect, notes, shirtColor }
-// interpretado por IA a partir do pedido em linguagem natural do usuário
-// (ex.: "camisa preta gola redonda tamanho médio").
+// Recebe a arte gerada pela ferramenta + cor/descrição da camisa e
+// devolve a MESMA arte adaptada para ficar compatível com aquela cor
+// (contraste, halos, base branca implícita, iluminação), usando o
+// modelo de edição de imagem do Lovable AI Gateway.
+
+function hexToName(hex?: string | null): string {
+  if (!hex) return "";
+  const h = hex.replace("#", "").toLowerCase();
+  if (!/^[0-9a-f]{6}$/.test(h)) return hex;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  const tone = lum < 0.35 ? "escura" : lum > 0.75 ? "muito clara" : "média";
+  return `#${h} (tom ${tone}, RGB ${r},${g},${b})`;
+}
+
 export const Route = createFileRoute("/api/public/adapt-shirt")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         try {
-          const body = (await request.json().catch(() => ({}))) as { prompt?: string };
+          const body = (await request.json().catch(() => ({}))) as {
+            prompt?: string;
+            hexColor?: string;
+            imageDataUrl?: string;
+          };
           const prompt = (body?.prompt || "").toString().slice(0, 800).trim();
-          if (!prompt) {
-            return new Response(JSON.stringify({ error: "prompt vazio" }), {
-              status: 400,
-              headers: { "content-type": "application/json" },
-            });
+          const hex = (body?.hexColor || "").toString().trim();
+          const imageDataUrl = (body?.imageDataUrl || "").toString();
+
+          if (!imageDataUrl.startsWith("data:image/")) {
+            return json({ error: "imageDataUrl ausente/ inválido" }, 400);
           }
-          const key = process.env.LOVABLE_API_KEY;
-          if (!key) {
-            return new Response(JSON.stringify({ error: "LOVABLE_API_KEY ausente" }), {
-              status: 500,
-              headers: { "content-type": "application/json" },
-            });
+          if (!prompt && !hex) {
+            return json({ error: "informe a cor (hex) ou uma descrição" }, 400);
           }
 
-          const system = `Você é um assistente da ferramenta DTFLEXPRO (impressão DTF).
-Interprete o pedido do usuário sobre a camisa e o tamanho desejado, e devolva APENAS um JSON com o formato:
-{
- "paper": "A4" | "A3",
- "margin_mm": number (0-40, margem de segurança ao redor da arte),
- "aspect": "livre" | "1:1" | "3:4" | "4:3" | "A4" | "A3",
- "shirt_color": "preta"|"branca"|"cinza"|"colorida"|"clara"|"escura"|"desconhecida",
- "notes": string (curto, em português, dicas para o usuário)
-}
-Regras:
-- Camisas escuras (preta/marinho/cinza escuro) → recomende margem 10-15mm e note que a base branca do DTF é essencial.
-- Camisas claras (branca/bege/rosa claro) → margem 8-12mm; sem necessidade de base branca extra.
-- Se o usuário citar tamanhos ("pequeno/médio/grande/A4/A3/bolso/costas"): pequeno=A4 com margem 15mm; médio=A4 margem 10mm; grande/costas=A3 margem 10mm; bolso=A4 margem 20mm com aspect 1:1.
-- Se não citar tamanho, default paper=A4, margin_mm=10, aspect="livre".
-Responda SOMENTE o JSON, sem markdown, sem comentários.`;
+          const key = process.env.LOVABLE_API_KEY;
+          if (!key) return json({ error: "LOVABLE_API_KEY ausente" }, 500);
+
+          const colorInfo = hexToName(hex);
+          const instruction = `Você é um assistente de arte para impressão DTF.
+A imagem enviada é a arte final que será estampada em uma camisa da cor: ${colorInfo || "não informada"}.
+Descrição/pedido do cliente: ${prompt || "(sem observações extras)"}.
+
+Adapte a MESMA arte para ficar visualmente compatível com essa cor de camisa:
+- Se a camisa for ESCURA: aumente contraste, reforce bordas, remova halos escuros indesejados e simule uma base branca sólida por baixo dos elementos coloridos (o fundo da imagem DEVE permanecer TRANSPARENTE).
+- Se a camisa for CLARA: suavize halos brancos, mantenha bordas limpas, ajuste levemente a saturação. Fundo TRANSPARENTE.
+- Nunca acrescente uma camisa, mockup, textura de tecido ou fundo colorido — devolva SOMENTE a arte isolada em PNG com fundo transparente, mesmas proporções e mesmo enquadramento.
+- Preserve o assunto e a composição original. Apenas ajuste cores, contraste e bordas para ficar ideal naquela cor de camisa.
+Devolva a imagem editada.`;
 
           const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
@@ -48,62 +60,62 @@ Responda SOMENTE o JSON, sem markdown, sem comentários.`;
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-3-flash-preview",
+              model: "google/gemini-3.1-flash-image",
+              modalities: ["image", "text"],
               messages: [
-                { role: "system", content: system },
-                { role: "user", content: prompt },
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: instruction },
+                    { type: "image_url", image_url: { url: imageDataUrl } },
+                  ],
+                },
               ],
-              response_format: { type: "json_object" },
             }),
           });
 
           if (!res.ok) {
             const txt = await res.text().catch(() => "");
-            return new Response(
-              JSON.stringify({
-                error: `Gateway ${res.status}`,
-                detail: txt.slice(0, 300),
-              }),
-              { status: 502, headers: { "content-type": "application/json" } },
+            return json(
+              { error: `Gateway ${res.status}`, detail: txt.slice(0, 400) },
+              res.status === 429 || res.status === 402 ? res.status : 502,
             );
           }
-          const json: any = await res.json();
-          const raw = json?.choices?.[0]?.message?.content || "{}";
-          let parsed: any = {};
-          try {
-            parsed = JSON.parse(raw);
-          } catch {
-            const m = /\{[\s\S]*\}/.exec(raw);
-            if (m) {
-              try {
-                parsed = JSON.parse(m[0]);
-              } catch {
-                parsed = {};
+          const data: any = await res.json();
+          const msg = data?.choices?.[0]?.message;
+          // Procura a imagem na resposta (formato OpenAI-compatible)
+          let outUrl: string | null = null;
+          const images = msg?.images;
+          if (Array.isArray(images) && images.length > 0) {
+            outUrl = images[0]?.image_url?.url || images[0]?.url || null;
+          }
+          if (!outUrl && Array.isArray(msg?.content)) {
+            for (const p of msg.content) {
+              if (p?.type === "image_url" && p?.image_url?.url) {
+                outUrl = p.image_url.url;
+                break;
               }
             }
           }
-
-          // Sanitizar
-          const paper = parsed.paper === "A3" ? "A3" : "A4";
-          let margin = Number(parsed.margin_mm);
-          if (!Number.isFinite(margin)) margin = 10;
-          margin = Math.max(0, Math.min(40, margin));
-          const allowedAspect = new Set(["livre", "1:1", "3:4", "4:3", "A4", "A3"]);
-          const aspect = allowedAspect.has(parsed.aspect) ? parsed.aspect : "livre";
-          const shirtColor = String(parsed.shirt_color || "desconhecida").slice(0, 30);
-          const notes = String(parsed.notes || "").slice(0, 500);
-
-          return new Response(
-            JSON.stringify({ paper, margin_mm: margin, aspect, shirt_color: shirtColor, notes }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
+          if (!outUrl) {
+            return json(
+              { error: "IA não retornou imagem", detail: JSON.stringify(msg || {}).slice(0, 400) },
+              502,
+            );
+          }
+          const notes = typeof msg?.content === "string" ? msg.content.slice(0, 400) : "";
+          return json({ imageDataUrl: outUrl, notes, shirtColor: colorInfo });
         } catch (e: any) {
-          return new Response(JSON.stringify({ error: e?.message || "erro" }), {
-            status: 500,
-            headers: { "content-type": "application/json" },
-          });
+          return json({ error: e?.message || "erro" }, 500);
         }
       },
     },
   },
 });
+
+function json(payload: any, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
