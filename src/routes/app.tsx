@@ -274,16 +274,18 @@ function AppPage() {
 
 function AiShirtDialog({
   onClose,
-  onApply,
+  iframeRef,
 }: {
   onClose: () => void;
-  onApply: (p: { paper: "A4" | "A3"; margin_mm: number }) => void;
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
 }) {
   const [prompt, setPrompt] = useState("");
+  const [hexColor, setHexColor] = useState("#111111");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   function startMic() {
     const w = window as any;
@@ -307,28 +309,56 @@ function AiShirtDialog({
     }
   }
 
+  // Pede a arte atual à ferramenta (via postMessage)
+  function requestArt(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const win = iframeRef.current?.contentWindow;
+      if (!win) return reject(new Error("Ferramenta não carregada."));
+      const timeout = setTimeout(() => {
+        window.removeEventListener("message", handler);
+        reject(new Error("Timeout: sem resposta da ferramenta."));
+      }, 4000);
+      function handler(ev: MessageEvent) {
+        const d: any = ev.data;
+        if (!d || d.type !== "DTF_ART_DATA") return;
+        clearTimeout(timeout);
+        window.removeEventListener("message", handler);
+        if (d.error) reject(new Error(d.error));
+        else if (d.dataUrl) resolve(d.dataUrl as string);
+        else reject(new Error("Arte não disponível."));
+      }
+      window.addEventListener("message", handler);
+      win.postMessage({ type: "DTF_GET_ART" }, "*");
+    });
+  }
+
   async function run() {
-    const p = prompt.trim();
-    if (!p) {
-      setErr("Descreva a camisa (cor, tamanho, posição).");
-      return;
-    }
     setErr(null);
-    setMsg("⏳ Consultando IA…");
+    setPreviewUrl(null);
     setLoading(true);
     try {
+      setMsg("📸 Capturando arte da ferramenta…");
+      const imageDataUrl = await requestArt();
+      setMsg("🧠 IA adaptando para a cor da camisa…");
       const res = await fetch("/api/public/adapt-shirt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: p }),
+        body: JSON.stringify({ prompt: prompt.trim(), hexColor, imageDataUrl }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setMsg(
-        `✓ ${data.notes || ""} → ${data.paper}, margem ${data.margin_mm}mm, camisa ${data.shirt_color}. Aplicando e baixando…`,
+      if (!data.imageDataUrl) throw new Error("IA não retornou imagem.");
+      setPreviewUrl(data.imageDataUrl);
+      setMsg(`✓ Adaptada para camisa ${data.shirtColor || hexColor}. Baixando…`);
+      // Envia para a ferramenta baixar (mantém o fluxo dentro do iframe)
+      iframeRef.current?.contentWindow?.postMessage(
+        {
+          type: "DTF_DOWNLOAD_ADAPTED",
+          dataUrl: data.imageDataUrl,
+          filename: `dtflex-camisa-${hexColor.replace("#", "")}.png`,
+        },
+        "*",
       );
-      onApply({ paper: data.paper, margin_mm: data.margin_mm });
-      setTimeout(onClose, 1500);
     } catch (e: any) {
       setErr(e?.message || "falha na IA");
       setMsg(null);
@@ -350,32 +380,79 @@ function AiShirtDialog({
           </button>
         </div>
         <p className="mt-2 text-sm text-slate-300">
-          Descreva a camisa (cor, tamanho, posição) — a IA ajusta o papel e a margem e baixa o arquivo.
+          A IA pega a arte já gerada na ferramenta e adapta contraste, halos e base para ficar perfeita na cor da camisa escolhida.
         </p>
-        <div className="mt-4 flex gap-2">
-          <input
-            type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !loading && run()}
-            placeholder="Ex.: camisa preta tamanho médio nas costas"
-            className="flex-1 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
-            disabled={loading}
-          />
-          <button
-            type="button"
-            onClick={startMic}
-            title="Falar"
-            className={`rounded-lg border border-slate-600 px-3 ${recording ? "bg-red-500 text-white" : "bg-slate-950 text-slate-100 hover:bg-slate-800"}`}
-          >
-            <Mic className="h-4 w-4" />
-          </button>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase text-slate-400">Cor da camisa</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={hexColor}
+                onChange={(e) => setHexColor(e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded border border-slate-600 bg-slate-950"
+                disabled={loading}
+              />
+              <input
+                type="text"
+                value={hexColor}
+                onChange={(e) => setHexColor(e.target.value)}
+                placeholder="#111111"
+                className="w-32 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm font-mono text-slate-100"
+                disabled={loading}
+              />
+              <div className="ml-2 flex flex-wrap gap-1">
+                {["#000000", "#ffffff", "#6b7280", "#7f1d1d", "#1e3a8a", "#065f46", "#78350f"].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setHexColor(c)}
+                    className="h-7 w-7 rounded border-2 border-slate-600 hover:border-emerald-400"
+                    style={{ background: c }}
+                    title={c}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase text-slate-400">Observações (opcional)</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !loading && run()}
+                placeholder="Ex.: camisa preta algodão, reforçar contraste"
+                className="flex-1 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={startMic}
+                title="Falar"
+                className={`rounded-lg border border-slate-600 px-3 ${recording ? "bg-red-500 text-white" : "bg-slate-950 text-slate-100 hover:bg-slate-800"}`}
+              >
+                <Mic className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         </div>
+
         {msg && <div className="mt-3 rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{msg}</div>}
         {err && <div className="mt-3 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-300">✗ {err}</div>}
+
+        {previewUrl && (
+          <div className="mt-3 rounded-lg border border-slate-700 p-2" style={{ background: hexColor }}>
+            <img src={previewUrl} alt="Prévia adaptada" className="mx-auto max-h-64" />
+          </div>
+        )}
+
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} className="border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800">
-            Cancelar
+            Fechar
           </Button>
           <Button
             onClick={run}
@@ -383,13 +460,14 @@ function AiShirtDialog({
             className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold"
           >
             <Sparkles className="h-4 w-4" />
-            Aplicar e baixar
+            {loading ? "Processando…" : "Adaptar e baixar"}
           </Button>
         </div>
       </div>
     </div>
   );
 }
+
 
 
 function ExternalToolOverlay({
