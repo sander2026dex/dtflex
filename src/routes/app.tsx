@@ -259,6 +259,8 @@ function AppPage() {
           offsetTop={64}
           onClose={() => setShowVtracer(false)}
         />
+      )}
+
 
       {showAiShirt && (
         <AiShirtDialog
