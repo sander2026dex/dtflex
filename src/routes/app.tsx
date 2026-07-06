@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, Wand2 } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft, Wand2, Sparkles, Mic, X } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,8 @@ function AppPage() {
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
   const [showVtracer, setShowVtracer] = useState(false);
+  const [showAiShirt, setShowAiShirt] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   async function handleLogout() {
     try {
@@ -191,6 +193,7 @@ function AppPage() {
         </div>
       )}
       <iframe
+        ref={iframeRef}
         src="/dtflex-tool/index.html?v=dpi300-a3-v11"
         title="DTFLEXPRO Halftone Engine"
         style={{
@@ -207,6 +210,13 @@ function AppPage() {
       />
       {/* Botões flutuantes: ferramentas auxiliares */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-wrap items-center justify-end gap-2">
+        <Button
+          className="h-11 px-4 text-sm font-semibold shadow-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+          onClick={() => setShowAiShirt(true)}
+        >
+          <Sparkles className="h-5 w-5" />
+          IA por cor da camisa
+        </Button>
         <Button
           className="h-11 px-4 text-sm font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
           onClick={() => setShowRemover(true)}
@@ -250,9 +260,142 @@ function AppPage() {
           onClose={() => setShowVtracer(false)}
         />
       )}
+
+
+      {showAiShirt && (
+        <AiShirtDialog
+          onClose={() => setShowAiShirt(false)}
+          onApply={(payload) => {
+            iframeRef.current?.contentWindow?.postMessage(
+              { type: "DTF_APPLY_AI", ...payload },
+              "*",
+            );
+          }}
+        />
+      )}
     </>
   );
 }
+
+function AiShirtDialog({
+  onClose,
+  onApply,
+}: {
+  onClose: () => void;
+  onApply: (p: { paper: "A4" | "A3"; margin_mm: number }) => void;
+}) {
+  const [prompt, setPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+
+  function startMic() {
+    const w = window as any;
+    const Rec = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!Rec) {
+      setErr("Reconhecimento de voz não suportado neste navegador.");
+      return;
+    }
+    try {
+      const r = new Rec();
+      r.lang = "pt-BR";
+      r.interimResults = false;
+      r.maxAlternatives = 1;
+      setRecording(true);
+      r.onresult = (ev: any) => setPrompt(ev.results[0][0].transcript);
+      r.onend = () => setRecording(false);
+      r.onerror = () => setRecording(false);
+      r.start();
+    } catch {
+      setRecording(false);
+    }
+  }
+
+  async function run() {
+    const p = prompt.trim();
+    if (!p) {
+      setErr("Descreva a camisa (cor, tamanho, posição).");
+      return;
+    }
+    setErr(null);
+    setMsg("⏳ Consultando IA…");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/public/adapt-shirt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: p }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setMsg(
+        `✓ ${data.notes || ""} → ${data.paper}, margem ${data.margin_mm}mm, camisa ${data.shirt_color}. Aplicando e baixando…`,
+      );
+      onApply({ paper: data.paper, margin_mm: data.margin_mm });
+      setTimeout(onClose, 1500);
+    } catch (e: any) {
+      setErr(e?.message || "falha na IA");
+      setMsg(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-slate-100 shadow-2xl border border-slate-700">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-emerald-400" />
+            <h2 className="text-lg font-bold">IA por cor da camisa</h2>
+          </div>
+          <button onClick={onClose} className="rounded p-1 hover:bg-white/10">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="mt-2 text-sm text-slate-300">
+          Descreva a camisa (cor, tamanho, posição) — a IA ajusta o papel e a margem e baixa o arquivo.
+        </p>
+        <div className="mt-4 flex gap-2">
+          <input
+            type="text"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !loading && run()}
+            placeholder="Ex.: camisa preta tamanho médio nas costas"
+            className="flex-1 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+            disabled={loading}
+          />
+          <button
+            type="button"
+            onClick={startMic}
+            title="Falar"
+            className={`rounded-lg border border-slate-600 px-3 ${recording ? "bg-red-500 text-white" : "bg-slate-950 text-slate-100 hover:bg-slate-800"}`}
+          >
+            <Mic className="h-4 w-4" />
+          </button>
+        </div>
+        {msg && <div className="mt-3 rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{msg}</div>}
+        {err && <div className="mt-3 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-300">✗ {err}</div>}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} className="border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800">
+            Cancelar
+          </Button>
+          <Button
+            onClick={run}
+            disabled={loading}
+            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold"
+          >
+            <Sparkles className="h-4 w-4" />
+            Aplicar e baixar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function ExternalToolOverlay({
   title,
