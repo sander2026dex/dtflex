@@ -682,7 +682,38 @@
         // Ponte com o app externo (botão IA fora do iframe)
         window.addEventListener('message', function(ev){
           var d = ev.data || {};
-          if (d && d.type === 'DTF_APPLY_AI') {
+          if (!d || !d.type) return;
+
+          if (d.type === 'DTF_GET_ART') {
+            try {
+              var src = window.__flat;
+              if (!src) {
+                (ev.source || window.parent).postMessage({ type: 'DTF_ART_DATA', error: 'Gere a arte primeiro na ferramenta.' }, '*');
+                return;
+              }
+              var dataUrl = src.toDataURL('image/png');
+              (ev.source || window.parent).postMessage({
+                type: 'DTF_ART_DATA', dataUrl: dataUrl, width: src.width, height: src.height
+              }, '*');
+            } catch(e){
+              (ev.source || window.parent).postMessage({ type: 'DTF_ART_DATA', error: String(e && e.message || e) }, '*');
+            }
+            return;
+          }
+
+          if (d.type === 'DTF_DOWNLOAD_ADAPTED' && d.dataUrl) {
+            try {
+              var a = document.createElement('a');
+              a.href = d.dataUrl;
+              a.download = d.filename || ('dtflex-camisa-' + Date.now() + '.png');
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            } catch(e){}
+            return;
+          }
+
+          if (d.type === 'DTF_APPLY_AI') {
             try {
               var modeSel = document.getElementById('dtf-margin-mode');
               var valInp = document.getElementById('dtf-margin-value');
