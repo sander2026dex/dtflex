@@ -57,6 +57,8 @@ function AppPage() {
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
   const [showVtracer, setShowVtracer] = useState(false);
+  const [showAiShirt, setShowAiShirt] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   async function handleLogout() {
     try {
