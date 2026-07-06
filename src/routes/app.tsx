@@ -265,12 +265,7 @@ function AppPage() {
       {showAiShirt && (
         <AiShirtDialog
           onClose={() => setShowAiShirt(false)}
-          onApply={(payload) => {
-            iframeRef.current?.contentWindow?.postMessage(
-              { type: "DTF_APPLY_AI", ...payload },
-              "*",
-            );
-          }}
+          iframeRef={iframeRef}
         />
       )}
     </>
