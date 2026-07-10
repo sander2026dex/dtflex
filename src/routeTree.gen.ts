@@ -21,7 +21,6 @@ import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
 import { Route as ApiPublicInfinitepayWebhookRouteImport } from './routes/api/public/infinitepay-webhook'
-import { Route as ApiPublicAdaptShirtRouteImport } from './routes/api/public/adapt-shirt'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 
 const VerifyAdminRoute = VerifyAdminRouteImport.update({
@@ -85,11 +84,6 @@ const ApiPublicInfinitepayWebhookRoute =
     path: '/api/public/infinitepay-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicAdaptShirtRoute = ApiPublicAdaptShirtRouteImport.update({
-  id: '/api/public/adapt-shirt',
-  path: '/api/public/adapt-shirt',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -109,7 +103,6 @@ export interface FileRoutesByFullPath {
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
-  '/api/public/adapt-shirt': typeof ApiPublicAdaptShirtRoute
   '/api/public/infinitepay-webhook': typeof ApiPublicInfinitepayWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
@@ -125,7 +118,6 @@ export interface FileRoutesByTo {
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
-  '/api/public/adapt-shirt': typeof ApiPublicAdaptShirtRoute
   '/api/public/infinitepay-webhook': typeof ApiPublicInfinitepayWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
@@ -142,7 +134,6 @@ export interface FileRoutesById {
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
-  '/api/public/adapt-shirt': typeof ApiPublicAdaptShirtRoute
   '/api/public/infinitepay-webhook': typeof ApiPublicInfinitepayWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
@@ -160,7 +151,6 @@ export interface FileRouteTypes {
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
-    | '/api/public/adapt-shirt'
     | '/api/public/infinitepay-webhook'
     | '/lovable/email/queue/process'
   fileRoutesByTo: FileRoutesByTo
@@ -176,7 +166,6 @@ export interface FileRouteTypes {
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
-    | '/api/public/adapt-shirt'
     | '/api/public/infinitepay-webhook'
     | '/lovable/email/queue/process'
   id:
@@ -192,7 +181,6 @@ export interface FileRouteTypes {
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
-    | '/api/public/adapt-shirt'
     | '/api/public/infinitepay-webhook'
     | '/lovable/email/queue/process'
   fileRoutesById: FileRoutesById
@@ -209,7 +197,6 @@ export interface RootRouteChildren {
   ValidateAccessCodeRoute: typeof ValidateAccessCodeRoute
   VerifyAdminRoute: typeof VerifyAdminRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
-  ApiPublicAdaptShirtRoute: typeof ApiPublicAdaptShirtRoute
   ApiPublicInfinitepayWebhookRoute: typeof ApiPublicInfinitepayWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
@@ -300,13 +287,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicInfinitepayWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/adapt-shirt': {
-      id: '/api/public/adapt-shirt'
-      path: '/api/public/adapt-shirt'
-      fullPath: '/api/public/adapt-shirt'
-      preLoaderRoute: typeof ApiPublicAdaptShirtRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -329,19 +309,9 @@ const rootRouteChildren: RootRouteChildren = {
   ValidateAccessCodeRoute: ValidateAccessCodeRoute,
   VerifyAdminRoute: VerifyAdminRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
-  ApiPublicAdaptShirtRoute: ApiPublicAdaptShirtRoute,
   ApiPublicInfinitepayWebhookRoute: ApiPublicInfinitepayWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
