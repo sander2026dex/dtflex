@@ -592,152 +592,19 @@
             master.parentElement.appendChild(bc3);
           }
 
-          // Painel de IA: descreva a camisa e a IA ajusta o export
-          if (!document.getElementById('dtf-ai-shirt-wrap')) {
-            var ai = document.createElement('div');
-            ai.id = 'dtf-ai-shirt-wrap';
-            ai.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;padding:10px 12px;border-radius:10px;background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid #334155;color:#e2e8f0;font:600 12px system-ui;';
-            ai.innerHTML = ''
-              + '<span style="font-size:14px;">🤖</span>'
-              + '<label style="color:#e2e8f0;">IA por cor da camisa:</label>'
-              + '<input id="dtf-ai-shirt-input" type="text" placeholder="Ex.: camisa preta tamanho médio nas costas" '
-              + '  style="flex:1;min-width:220px;padding:6px 10px;border-radius:6px;border:1px solid #475569;background:#0b1220;color:#e2e8f0;font-weight:500;" />'
-              + '<button id="dtf-ai-mic" type="button" title="Falar" '
-              + '  style="padding:6px 10px;border-radius:6px;border:1px solid #475569;background:#0b1220;color:#e2e8f0;cursor:pointer;">🎤</button>'
-              + '<button id="dtf-ai-run" type="button" '
-              + '  style="padding:6px 14px;border-radius:6px;border:0;background:#10b981;color:#052e2b;font-weight:800;cursor:pointer;">Aplicar e baixar</button>'
-              + '<div id="dtf-ai-out" style="flex-basis:100%;color:#94a3b8;font-weight:500;"></div>';
-            master.parentElement.appendChild(ai);
+          // (Painel de IA por cor da camisa removido — usar os presets de camisa dentro da própria ferramenta)
 
-            var inp = ai.querySelector('#dtf-ai-shirt-input');
-            var out = ai.querySelector('#dtf-ai-out');
-            var run = ai.querySelector('#dtf-ai-run');
-            var mic = ai.querySelector('#dtf-ai-mic');
-
-            // Ditado por voz (Web Speech API), quando suportado
-            var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (Rec) {
-              mic.addEventListener('click', function(){
-                try {
-                  var r = new Rec();
-                  r.lang = 'pt-BR'; r.interimResults = false; r.maxAlternatives = 1;
-                  mic.textContent = '🎙️';
-                  r.onresult = function(ev){ inp.value = ev.results[0][0].transcript; };
-                  r.onend = function(){ mic.textContent = '🎤'; };
-                  r.onerror = function(){ mic.textContent = '🎤'; };
-                  r.start();
-                } catch(e){ mic.textContent = '🎤'; }
-              });
-            } else {
-              mic.style.display = 'none';
-            }
-
-            run.addEventListener('click', async function(){
-              var prompt = (inp.value || '').trim();
-              if (!prompt) { out.textContent = 'Descreva a camisa (cor, tamanho, posição).'; return; }
-              if (!window.__flat) { out.textContent = 'Gere a arte primeiro.'; return; }
-              out.style.color = '#fbbf24';
-              out.textContent = '⏳ Consultando IA…';
-              run.disabled = true;
-              try {
-                var res = await fetch('/api/public/adapt-shirt', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ prompt: prompt })
-                });
-                var data = await res.json();
-                if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
-                // Aplica configurações
-                var modeSel = document.getElementById('dtf-margin-mode');
-                var valInp = document.getElementById('dtf-margin-value');
-                if (modeSel && valInp) {
-                  modeSel.value = 'mm';
-                  valInp.value = String(data.margin_mm);
-                  modeSel.dispatchEvent(new Event('change'));
-                  valInp.dispatchEvent(new Event('input'));
-                }
-                out.style.color = '#34d399';
-                out.textContent = '✓ ' + (data.notes || '') + ' → ' + data.paper + ', margem ' + data.margin_mm + 'mm, camisa ' + data.shirt_color + '. Baixando…';
-                // Dispara export
-                setTimeout(function(){
-                  if (data.paper === 'A3') { window.__DTF_EXPORT_A3_NEXT = true; }
-                  else { window.__DTF_EXPORT_A4_NEXT = true; }
-                  master.click();
-                }, 400);
-              } catch(err){
-                out.style.color = '#f87171';
-                out.textContent = '✗ ' + (err.message || 'falha na IA');
-              } finally {
-                run.disabled = false;
-              }
-            });
-            inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') run.click(); });
-          }
         }
 
         document.addEventListener('DOMContentLoaded', installSizeButtons);
         new MutationObserver(installSizeButtons).observe(document.documentElement, { childList: true, subtree: true });
         window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT], a3: [A3_WIDTH, A3_HEIGHT] };
 
-        // Ponte com o app externo (botão IA fora do iframe)
-        window.addEventListener('message', function(ev){
-          var d = ev.data || {};
-          if (!d || !d.type) return;
+        // (Bridge de IA externa removida — presets de camisa ficam dentro da própria ferramenta)
 
-          if (d.type === 'DTF_GET_ART') {
-            try {
-              var src = window.__flat;
-              if (!src) {
-                (ev.source || window.parent).postMessage({ type: 'DTF_ART_DATA', error: 'Gere a arte primeiro na ferramenta.' }, '*');
-                return;
-              }
-              var dataUrl = src.toDataURL('image/png');
-              (ev.source || window.parent).postMessage({
-                type: 'DTF_ART_DATA', dataUrl: dataUrl, width: src.width, height: src.height
-              }, '*');
-            } catch(e){
-              (ev.source || window.parent).postMessage({ type: 'DTF_ART_DATA', error: String(e && e.message || e) }, '*');
-            }
-            return;
-          }
-
-          if (d.type === 'DTF_DOWNLOAD_ADAPTED' && d.dataUrl) {
-            try {
-              var a = document.createElement('a');
-              a.href = d.dataUrl;
-              a.download = d.filename || ('dtflex-camisa-' + Date.now() + '.png');
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-            } catch(e){}
-            return;
-          }
-
-          if (d.type === 'DTF_APPLY_AI') {
-            try {
-              var modeSel = document.getElementById('dtf-margin-mode');
-              var valInp = document.getElementById('dtf-margin-value');
-              if (modeSel && valInp && typeof d.margin_mm === 'number') {
-                modeSel.value = 'mm';
-                valInp.value = String(d.margin_mm);
-                modeSel.dispatchEvent(new Event('change'));
-                valInp.dispatchEvent(new Event('input'));
-              }
-              var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
-              var master = buttons.find(function(b){ return /Exportar Master/i.test(b.textContent||''); });
-              if (master) {
-                setTimeout(function(){
-                  if (d.paper === 'A3') window.__DTF_EXPORT_A3_NEXT = true;
-                  else window.__DTF_EXPORT_A4_NEXT = true;
-                  master.click();
-                }, 300);
-              }
-            } catch(e){}
-          }
-        });
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v12"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v13"></script>
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
   <body>
