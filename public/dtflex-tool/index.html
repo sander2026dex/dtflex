@@ -594,11 +594,219 @@
         new MutationObserver(installSizeButtons).observe(document.documentElement, { childList: true, subtree: true });
         window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT], a3: [A3_WIDTH, A3_HEIGHT] };
 
-        // (Bridge de IA externa removida — presets de camisa ficam dentro da própria ferramenta)
+        // ============================================================
+        // Corte no UPLOAD: abre modal ao subir imagem, permite recortar
+        // livre / 1:1 / 3:4 / 4:3 / A4 / A3 e substitui o arquivo antes
+        // de entrar no pipeline. A escolha se propaga até o arquivo final.
+        // ============================================================
+        function openUploadCropModal(bitmap, onConfirm, onCancel){
+          var overlay = document.createElement('div');
+          overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;';
+          overlay.innerHTML = ''
+            + '<div style="color:#fff;font:600 14px system-ui;text-align:center;max-width:640px;">Enquadre a imagem antes de gerar a arte. A proporção escolhida (A4/A3) será mantida no arquivo final.</div>'
+            + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font:600 12px system-ui;color:#fff;align-items:center;">'
+            + '  <span style="opacity:.85;">Proporção:</span>'
+            + '  <button data-ar="free" class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#0ea5e9;color:#fff;font-weight:700;cursor:pointer;">Livre</button>'
+            + '  <button data-ar="1:1"  class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">1:1</button>'
+            + '  <button data-ar="3:4"  class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">3:4</button>'
+            + '  <button data-ar="4:3"  class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">4:3</button>'
+            + '  <button data-ar="A4"   class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#f59e0b;color:#1a1a1a;font-weight:700;cursor:pointer;">A4</button>'
+            + '  <button data-ar="A3"   class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#f59e0b;color:#1a1a1a;font-weight:700;cursor:pointer;">A3</button>'
+            + '</div>'
+            + '<div id="dtf-upcrop-stage" style="position:relative;background:#222;border:1px solid #444;max-width:90vw;max-height:60vh;overflow:hidden;"></div>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">'
+            + '  <button id="dtf-upcrop-reset" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Selecionar tudo</button>'
+            + '  <button id="dtf-upcrop-skip"  style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Usar imagem original</button>'
+            + '  <button id="dtf-upcrop-cancel" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Cancelar</button>'
+            + '  <button id="dtf-upcrop-ok"     style="padding:8px 14px;border-radius:8px;border:0;background:#22c55e;color:#062;font-weight:700;cursor:pointer;">Confirmar recorte</button>'
+            + '</div>';
+          document.body.appendChild(overlay);
+
+          var stage = overlay.querySelector('#dtf-upcrop-stage');
+          var maxW = Math.min(window.innerWidth * 0.9, 1100);
+          var maxH = Math.min(window.innerHeight * 0.6, 640);
+          var scale = Math.min(maxW / bitmap.width, maxH / bitmap.height, 1);
+          var dispW = Math.max(20, Math.round(bitmap.width * scale));
+          var dispH = Math.max(20, Math.round(bitmap.height * scale));
+          var preview = document.createElement('canvas');
+          preview.width = dispW; preview.height = dispH;
+          preview.style.cssText = 'display:block;background:#111;';
+          preview.getContext('2d').drawImage(bitmap, 0, 0, dispW, dispH);
+          stage.style.width = dispW + 'px'; stage.style.height = dispH + 'px';
+          stage.appendChild(preview);
+
+          var sel = document.createElement('div');
+          sel.style.cssText = 'position:absolute;border:2px dashed #22c55e;background:rgba(34,197,94,.12);cursor:move;box-sizing:border-box;';
+          stage.appendChild(sel);
+
+          var rect = { x: 0, y: 0, w: dispW, h: dispH };
+          var ar = 0;
+          function applyRect(){
+            if (ar > 0 && drag && drag.mode === 'resize') {
+              rect.h = Math.max(10, rect.w / ar);
+            }
+            rect.x = Math.max(0, Math.min(rect.x, dispW - 10));
+            rect.y = Math.max(0, Math.min(rect.y, dispH - 10));
+            rect.w = Math.max(10, Math.min(rect.w, dispW - rect.x));
+            rect.h = Math.max(10, Math.min(rect.h, dispH - rect.y));
+            sel.style.left = rect.x + 'px'; sel.style.top = rect.y + 'px';
+            sel.style.width = rect.w + 'px'; sel.style.height = rect.h + 'px';
+          }
+
+          ['nw','ne','sw','se'].forEach(function(pos){
+            var h = document.createElement('div');
+            h.dataset.pos = pos;
+            var corner = {nw:'top:-6px;left:-6px;cursor:nwse-resize;',
+                          ne:'top:-6px;right:-6px;cursor:nesw-resize;',
+                          sw:'bottom:-6px;left:-6px;cursor:nesw-resize;',
+                          se:'bottom:-6px;right:-6px;cursor:nwse-resize;'}[pos];
+            h.style.cssText = 'position:absolute;width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:50%;'+corner;
+            sel.appendChild(h);
+          });
+
+          var drag = null;
+          stage.addEventListener('mousedown', function(e){
+            var r = stage.getBoundingClientRect();
+            var px = e.clientX - r.left, py = e.clientY - r.top;
+            var t = e.target;
+            if (t.dataset && t.dataset.pos) {
+              drag = { mode:'resize', pos:t.dataset.pos, sx:px, sy:py, ox:rect.x, oy:rect.y, ow:rect.w, oh:rect.h };
+            } else if (t === sel) {
+              drag = { mode:'move', sx:px, sy:py, ox:rect.x, oy:rect.y };
+            } else {
+              drag = { mode:'new', sx:px, sy:py };
+              rect = { x:px, y:py, w:1, h:1 }; applyRect();
+            }
+            e.preventDefault();
+          });
+          window.addEventListener('mousemove', function(e){
+            if (!drag) return;
+            var r = stage.getBoundingClientRect();
+            var px = e.clientX - r.left, py = e.clientY - r.top;
+            var dx = px - drag.sx, dy = py - drag.sy;
+            if (drag.mode === 'move') { rect.x = drag.ox + dx; rect.y = drag.oy + dy; }
+            else if (drag.mode === 'new') {
+              rect.x = Math.min(drag.sx, px); rect.y = Math.min(drag.sy, py);
+              rect.w = Math.abs(dx); rect.h = Math.abs(dy);
+            } else {
+              if (drag.pos.indexOf('e')>-1) rect.w = drag.ow + dx;
+              if (drag.pos.indexOf('s')>-1) rect.h = drag.oh + dy;
+              if (drag.pos.indexOf('w')>-1) { rect.x = drag.ox + dx; rect.w = drag.ow - dx; }
+              if (drag.pos.indexOf('n')>-1) { rect.y = drag.oy + dy; rect.h = drag.oh - dy; }
+            }
+            applyRect();
+          });
+          window.addEventListener('mouseup', function(){ drag = null; });
+
+          function setAR(mode){
+            if (mode === 'free') ar = 0;
+            else if (mode === '1:1') ar = 1;
+            else if (mode === '3:4') ar = 3/4;
+            else if (mode === '4:3') ar = 4/3;
+            else if (mode === 'A4') ar = A4_WIDTH / A4_HEIGHT;
+            else if (mode === 'A3') ar = A3_WIDTH / A3_HEIGHT;
+            overlay.querySelectorAll('.dtf-ar-up').forEach(function(b){
+              var isFree = b.dataset.ar === 'free';
+              var isPaper = b.dataset.ar === 'A4' || b.dataset.ar === 'A3';
+              if (b.dataset.ar === mode) b.style.background = isPaper ? '#f59e0b' : '#0ea5e9';
+              else b.style.background = isPaper ? '#5b3f0d' : '#222';
+            });
+            window.__DTF_UPLOAD_PAPER = (mode === 'A4' || mode === 'A3') ? mode : null;
+            if (ar > 0) {
+              var cx = rect.x + rect.w/2, cy = rect.y + rect.h/2;
+              var w = rect.w, h = w / ar;
+              if (h > dispH) { h = dispH; w = h * ar; }
+              if (w > dispW) { w = dispW; h = w / ar; }
+              rect = { x: cx - w/2, y: cy - h/2, w: w, h: h };
+              applyRect();
+            }
+          }
+          overlay.querySelectorAll('.dtf-ar-up').forEach(function(b){
+            b.addEventListener('click', function(){ setAR(b.dataset.ar); });
+          });
+          applyRect();
+
+          overlay.querySelector('#dtf-upcrop-reset').onclick = function(){
+            rect = { x:0, y:0, w:dispW, h:dispH }; applyRect();
+          };
+          overlay.querySelector('#dtf-upcrop-cancel').onclick = function(){
+            overlay.remove(); if (onCancel) onCancel();
+          };
+          overlay.querySelector('#dtf-upcrop-skip').onclick = function(){
+            overlay.remove(); onConfirm(null, null);
+          };
+          overlay.querySelector('#dtf-upcrop-ok').onclick = function(){
+            var sx = Math.round(rect.x / scale);
+            var sy = Math.round(rect.y / scale);
+            var sw = Math.round(rect.w / scale);
+            var sh = Math.round(rect.h / scale);
+            var out = document.createElement('canvas');
+            out.width = sw; out.height = sh;
+            out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
+            overlay.remove();
+            onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
+          };
+        }
+
+        function installUploadHook(){
+          var inputs = document.querySelectorAll('input[type=file]');
+          inputs.forEach(function(inp){
+            if (inp.__dtfUploadHooked) return;
+            inp.__dtfUploadHooked = true;
+            inp.addEventListener('change', function(ev){
+              var file = inp.files && inp.files[0];
+              if (!file || !/^image\//.test(file.type)) return;
+              if (window.__DTF_UPLOAD_CROP_DONE) { window.__DTF_UPLOAD_CROP_DONE = false; return; }
+              ev.preventDefault(); ev.stopImmediatePropagation();
+              var url = URL.createObjectURL(file);
+              var img = new Image();
+              img.onload = function(){
+                openUploadCropModal(img, function(cropCanvas, paper){
+                  URL.revokeObjectURL(url);
+                  function finish(newFile){
+                    try {
+                      var dt = new DataTransfer();
+                      dt.items.add(newFile);
+                      inp.files = dt.files;
+                    } catch(e){}
+                    window.__DTF_UPLOAD_CROP_DONE = true;
+                    if (paper === 'A4') window.__DTF_EXPORT_A4_NEXT_STICKY = true;
+                    else if (paper === 'A3') window.__DTF_EXPORT_A3_NEXT_STICKY = true;
+                    else { window.__DTF_EXPORT_A4_NEXT_STICKY = false; window.__DTF_EXPORT_A3_NEXT_STICKY = false; }
+                    inp.dispatchEvent(new Event('change', { bubbles: true }));
+                  }
+                  if (!cropCanvas) { finish(file); return; }
+                  cropCanvas.toBlob(function(blob){
+                    var name = (file.name || 'upload.png').replace(/\.[^.]+$/, '') + '_crop.png';
+                    var newFile = new File([blob], name, { type: 'image/png' });
+                    finish(newFile);
+                  }, 'image/png');
+                }, function(){
+                  URL.revokeObjectURL(url);
+                  try { inp.value = ''; } catch(e){}
+                });
+              };
+              img.src = url;
+            }, true);
+          });
+        }
+        document.addEventListener('DOMContentLoaded', installUploadHook);
+        new MutationObserver(installUploadHook).observe(document.documentElement, { childList: true, subtree: true });
+
+        // Propaga a escolha A4/A3 do upload até o clique final em "Exportar Master"
+        // — sem exigir que o usuário use os botões separados de tamanho.
+        document.addEventListener('click', function(e){
+          var btn = e.target && e.target.closest ? e.target.closest('button') : null;
+          if (!btn) return;
+          if (!/Exportar Master/i.test(btn.textContent || '')) return;
+          if (window.__DTF_EXPORT_A4_NEXT_STICKY) window.__DTF_EXPORT_A4_NEXT = true;
+          else if (window.__DTF_EXPORT_A3_NEXT_STICKY) window.__DTF_EXPORT_A3_NEXT = true;
+        }, true);
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v13"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v14"></script>
+
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
   <body>
