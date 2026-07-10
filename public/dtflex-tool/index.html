@@ -329,12 +329,6 @@
           }
         }, true);
 
-        function installSizeButtons(){
-          var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
-          var master = buttons.find(function(btn){ return /Exportar Master/i.test(btn.textContent || ''); });
-          if (!master || !master.parentElement) return;
-          master.style.display = 'none';
-
         function openManualCropModal(onConfirm){
           if (!window.__flat) { alert('Gere a arte primeiro.'); return; }
           var src = window.__flat;
