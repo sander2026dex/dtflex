@@ -210,13 +210,6 @@ function AppPage() {
       {/* Botões flutuantes: ferramentas auxiliares */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-wrap items-center justify-end gap-2">
         <Button
-          className="h-11 px-4 text-sm font-semibold shadow-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
-          onClick={() => setShowAiShirt(true)}
-        >
-          <Sparkles className="h-5 w-5" />
-          IA por cor da camisa
-        </Button>
-        <Button
           className="h-11 px-4 text-sm font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
           onClick={() => setShowRemover(true)}
         >
@@ -259,19 +252,11 @@ function AppPage() {
           onClose={() => setShowVtracer(false)}
         />
       )}
-
-
-      {showAiShirt && (
-        <AiShirtDialog
-          onClose={() => setShowAiShirt(false)}
-          iframeRef={iframeRef}
-        />
-      )}
     </>
   );
 }
 
-function AiShirtDialog({
+
   onClose,
   iframeRef,
 }: {
