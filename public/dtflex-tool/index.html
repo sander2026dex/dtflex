@@ -600,62 +600,8 @@
         new MutationObserver(installSizeButtons).observe(document.documentElement, { childList: true, subtree: true });
         window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT], a3: [A3_WIDTH, A3_HEIGHT] };
 
-        // Ponte com o app externo (botão IA fora do iframe)
-        window.addEventListener('message', function(ev){
-          var d = ev.data || {};
-          if (!d || !d.type) return;
+        // (Bridge de IA externa removida — presets de camisa ficam dentro da própria ferramenta)
 
-          if (d.type === 'DTF_GET_ART') {
-            try {
-              var src = window.__flat;
-              if (!src) {
-                (ev.source || window.parent).postMessage({ type: 'DTF_ART_DATA', error: 'Gere a arte primeiro na ferramenta.' }, '*');
-                return;
-              }
-              var dataUrl = src.toDataURL('image/png');
-              (ev.source || window.parent).postMessage({
-                type: 'DTF_ART_DATA', dataUrl: dataUrl, width: src.width, height: src.height
-              }, '*');
-            } catch(e){
-              (ev.source || window.parent).postMessage({ type: 'DTF_ART_DATA', error: String(e && e.message || e) }, '*');
-            }
-            return;
-          }
-
-          if (d.type === 'DTF_DOWNLOAD_ADAPTED' && d.dataUrl) {
-            try {
-              var a = document.createElement('a');
-              a.href = d.dataUrl;
-              a.download = d.filename || ('dtflex-camisa-' + Date.now() + '.png');
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-            } catch(e){}
-            return;
-          }
-
-          if (d.type === 'DTF_APPLY_AI') {
-            try {
-              var modeSel = document.getElementById('dtf-margin-mode');
-              var valInp = document.getElementById('dtf-margin-value');
-              if (modeSel && valInp && typeof d.margin_mm === 'number') {
-                modeSel.value = 'mm';
-                valInp.value = String(d.margin_mm);
-                modeSel.dispatchEvent(new Event('change'));
-                valInp.dispatchEvent(new Event('input'));
-              }
-              var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
-              var master = buttons.find(function(b){ return /Exportar Master/i.test(b.textContent||''); });
-              if (master) {
-                setTimeout(function(){
-                  if (d.paper === 'A3') window.__DTF_EXPORT_A3_NEXT = true;
-                  else window.__DTF_EXPORT_A4_NEXT = true;
-                  master.click();
-                }, 300);
-              }
-            } catch(e){}
-          }
-        });
       })();
     </script>
     <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v12"></script>
