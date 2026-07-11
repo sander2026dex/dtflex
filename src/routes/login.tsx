@@ -121,7 +121,10 @@ function LoginPage() {
         data: { email: trimmedEmail, code: trimmedCode },
       });
       if (!result.ok) {
-        if ((result as any).revoked) {
+        if ((result as any).expired) {
+          toast.error(result.error ?? "Seu acesso expirou", { duration: 10000 });
+          window.location.href = `/login?expired=1&email=${encodeURIComponent(trimmedEmail)}`;
+        } else if ((result as any).revoked) {
           setRevoked(result.error ?? "Seu acesso foi revogado.");
           toast.error(result.error, { duration: 10000 });
         } else if (result.error && /dispositivo/i.test(result.error)) {
@@ -132,6 +135,7 @@ function LoginPage() {
         }
         return;
       }
+
       window.location.href = result.redirectTo;
     } catch (error) {
       console.error(error);
