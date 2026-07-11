@@ -488,6 +488,7 @@ export const getAccessSession = createServerFn({ method: "GET" }).handler(async 
   const stillActive =
     row &&
     row.status !== "deleted" &&
+    row.status !== "revoked" &&
     row.active_session_token === sessionToken;
 
 
@@ -496,12 +497,19 @@ export const getAccessSession = createServerFn({ method: "GET" }).handler(async 
     return { authenticated: false, email: null, expiresAt: null };
   }
 
+  // Se o plano expirou, encerra a sessão e força renovação pelo admin
+  if (row?.expires_at && new Date(row.expires_at).getTime() <= Date.now()) {
+    await clearSession(getAccessSessionConfig());
+    return { authenticated: false, email: session.data?.email ?? null, expiresAt: row.expires_at, expired: true };
+  }
+
   return {
     authenticated: true,
     email: session.data?.email ?? null,
     expiresAt: expiresAt ?? null,
   };
 });
+
 
 export const logoutAccessSession = createServerFn({ method: "POST" }).handler(async () => {
   const session = await useSession<AccessSessionData>(getAccessSessionConfig());
