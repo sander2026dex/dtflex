@@ -403,15 +403,8 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       };
     }
 
-    // Bloqueia acessos revogados/deletados pelo admin
-    if (accessRow.status === "revoked" || accessRow.status === "deleted") {
-      await logSecurity("access_code_revoked", false);
-      return {
-        ok: false,
-        revoked: true,
-        error: "Seu acesso foi revogado pelo administrador. Entre em contato pelo WhatsApp para reativar.",
-      };
-    }
+
+
 
 
 
