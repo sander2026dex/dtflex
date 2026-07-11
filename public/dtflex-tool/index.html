@@ -758,6 +758,29 @@
               if (!file || !/^image\//.test(file.type)) return;
               if (window.__DTF_UPLOAD_CROP_DONE) { window.__DTF_UPLOAD_CROP_DONE = false; return; }
               ev.preventDefault(); ev.stopImmediatePropagation();
+              // Detecta transparência: PNG com alpha < 255 → mantém fundo, só reticula (inclui preto).
+              window.__DTF_HAS_TRANSPARENCY = false;
+              try {
+                if (/png/i.test(file.type)) {
+                  var _img = new Image();
+                  _img.onload = function(){
+                    try {
+                      var _c = document.createElement('canvas');
+                      var _w = Math.min(_img.naturalWidth, 400);
+                      var _h = Math.round(_img.naturalHeight * (_w / _img.naturalWidth));
+                      _c.width = _w; _c.height = _h;
+                      var _ctx = _c.getContext('2d');
+                      _ctx.drawImage(_img, 0, 0, _w, _h);
+                      var _d = _ctx.getImageData(0, 0, _w, _h).data;
+                      for (var _i = 3; _i < _d.length; _i += 4) {
+                        if (_d[_i] < 250) { window.__DTF_HAS_TRANSPARENCY = true; break; }
+                      }
+                    } catch(e){}
+                  };
+                  _img.src = URL.createObjectURL(file);
+                }
+              } catch(e){}
+
               var url = URL.createObjectURL(file);
               var img = new Image();
               img.onload = function(){
@@ -805,7 +828,7 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v14"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v15"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
