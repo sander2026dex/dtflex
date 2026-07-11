@@ -27,9 +27,12 @@ export const Route = createFileRoute("/app")({
   beforeLoad: async () => {
     const session = await getAccessSession();
     if (!session?.authenticated) {
-      throw redirect({ to: "/login", search: { code: "", email: "" } });
+      const expired = (session as any)?.expired ? "1" : "";
+      const email = session?.email ?? "";
+      throw redirect({ to: "/login", search: { code: "", email, expired } });
     }
   },
+
   errorComponent: AppError,
   notFoundComponent: AppError,
   component: AppPage,
