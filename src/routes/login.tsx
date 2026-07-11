@@ -151,6 +151,29 @@ function LoginPage() {
             Use o e-mail da compra e o código enviado após a confirmação do pagamento.
           </p>
         </div>
+        {search.expired === "1" && (
+          <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+            <div className="flex gap-2">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">Seu acesso expirou</p>
+                <p className="mt-1 text-amber-100/80">
+                  Seu plano venceu. Para continuar usando a plataforma, entre em contato com o administrador
+                  pelo WhatsApp para renovar. Apenas o admin pode liberar o acesso novamente.
+                </p>
+                <a
+                  href={`https://wa.me/5511943152441?text=${encodeURIComponent(`Olá! Meu acesso ao DTFlexPRO expirou (${email || "meu e-mail"}) e quero renovar.`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-black hover:bg-emerald-400"
+                >
+                  Renovar pelo WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {conflict && (
           <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
