@@ -393,6 +393,28 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       return { ok: false, error: genericAccessError };
     }
 
+    // Bloqueia acesso expirado — só admin pode renovar
+    if (accessRow.expires_at && new Date(accessRow.expires_at).getTime() <= Date.now()) {
+      await logSecurity("access_code_expired", false);
+      return {
+        ok: false,
+        expired: true,
+        error: "Seu acesso expirou. Entre em contato com o administrador pelo WhatsApp para renovar.",
+      };
+    }
+
+    // Bloqueia acessos revogados/deletados pelo admin
+    if (accessRow.status === "revoked" || accessRow.status === "deleted") {
+      await logSecurity("access_code_revoked", false);
+      return {
+        ok: false,
+        revoked: true,
+        error: "Seu acesso foi revogado pelo administrador. Entre em contato pelo WhatsApp para reativar.",
+      };
+    }
+
+
+
     // Controle de sessão única por dispositivo
     // Regra: abrir várias abas / re-logar no MESMO navegador (mesmo IP) NÃO é outro dispositivo.
     // Só bloqueia quando o IP de origem é diferente do IP da sessão ativa.
