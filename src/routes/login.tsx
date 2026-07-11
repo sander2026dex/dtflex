@@ -13,6 +13,7 @@ export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
     code: typeof search.code === "string" ? search.code : "",
     email: typeof search.email === "string" ? search.email : "",
+    expired: typeof search.expired === "string" ? search.expired : "",
   }),
   head: () => ({
     meta: [
@@ -22,6 +23,7 @@ export const Route = createFileRoute("/login")({
   }),
   component: LoginPage,
 });
+
 
 function LoginPage() {
   const search = Route.useSearch();
