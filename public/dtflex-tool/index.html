@@ -559,12 +559,29 @@
             + '  <button data-ar="A3"   class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#f59e0b;color:#1a1a1a;font-weight:700;cursor:pointer;">A3</button>'
             + '</div>'
             + '<div id="dtf-upcrop-stage" style="position:relative;background:#222;border:1px solid #444;max-width:90vw;max-height:60vh;overflow:hidden;"></div>'
+            + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font:600 12px system-ui;color:#fff;align-items:center;max-width:720px;">'
+            + '  <span style="opacity:.85;">Cor da camisa (remove esse fundo):</span>'
+            + '  <button data-shirt=""        class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#0ea5e9;color:#fff;font-weight:700;cursor:pointer;">Nenhuma</button>'
+            + '  <button data-shirt="#FFFFFF" class="dtf-shirt" title="Branco"    style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#FFFFFF;color:#111;font-weight:600;cursor:pointer;">Branca</button>'
+            + '  <button data-shirt="#000000" class="dtf-shirt" title="Preto"     style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#000000;color:#fff;font-weight:600;cursor:pointer;">Preta</button>'
+            + '  <button data-shirt="#7C3AED" class="dtf-shirt" title="Roxo"      style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#7C3AED;color:#fff;font-weight:600;cursor:pointer;">Roxa</button>'
+            + '  <button data-shirt="#DC2626" class="dtf-shirt" title="Vermelho"  style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#DC2626;color:#fff;font-weight:600;cursor:pointer;">Vermelha</button>'
+            + '  <button data-shirt="#1D4ED8" class="dtf-shirt" title="Azul"      style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#1D4ED8;color:#fff;font-weight:600;cursor:pointer;">Azul</button>'
+            + '  <button data-shirt="#10B981" class="dtf-shirt" title="Verde"     style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#10B981;color:#fff;font-weight:600;cursor:pointer;">Verde</button>'
+            + '  <button data-shirt="#EAB308" class="dtf-shirt" title="Amarelo"   style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#EAB308;color:#111;font-weight:600;cursor:pointer;">Amarela</button>'
+            + '  <button data-shirt="#F97316" class="dtf-shirt" title="Laranja"   style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#F97316;color:#111;font-weight:600;cursor:pointer;">Laranja</button>'
+            + '  <button data-shirt="#EC4899" class="dtf-shirt" title="Rosa"      style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#EC4899;color:#fff;font-weight:600;cursor:pointer;">Rosa</button>'
+            + '  <button data-shirt="#6B7280" class="dtf-shirt" title="Cinza"     style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#6B7280;color:#fff;font-weight:600;cursor:pointer;">Cinza</button>'
+            + '  <button data-shirt="#78350F" class="dtf-shirt" title="Marrom"    style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#78350F;color:#fff;font-weight:600;cursor:pointer;">Marrom</button>'
+            + '  <input id="dtf-shirt-hex" type="color" value="#000000" style="width:32px;height:28px;border:1px solid #888;border-radius:6px;background:#222;cursor:pointer;" title="Cor personalizada" />'
+            + '</div>'
             + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">'
             + '  <button id="dtf-upcrop-reset" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Selecionar tudo</button>'
             + '  <button id="dtf-upcrop-skip"  style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Usar imagem original</button>'
             + '  <button id="dtf-upcrop-cancel" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Cancelar</button>'
             + '  <button id="dtf-upcrop-ok"     style="padding:8px 14px;border-radius:8px;border:0;background:#22c55e;color:#062;font-weight:700;cursor:pointer;">Confirmar recorte</button>'
             + '</div>';
+
           document.body.appendChild(overlay);
 
           var stage = overlay.querySelector('#dtf-upcrop-stage');
@@ -680,6 +697,55 @@
           overlay.querySelector('#dtf-upcrop-skip').onclick = function(){
             overlay.remove(); onConfirm(null, null);
           };
+
+          // Shirt color selection
+          var shirtColor = '';
+          overlay.querySelectorAll('.dtf-shirt').forEach(function(b){
+            b.addEventListener('click', function(){
+              shirtColor = b.dataset.shirt || '';
+              overlay.querySelectorAll('.dtf-shirt').forEach(function(o){
+                o.style.outline = ''; o.style.transform = '';
+              });
+              b.style.outline = '3px solid #22c55e';
+              b.style.transform = 'scale(1.05)';
+              window.__DTF_SHIRT_COLOR = shirtColor;
+            });
+          });
+          var shirtHex = overlay.querySelector('#dtf-shirt-hex');
+          if (shirtHex) {
+            shirtHex.addEventListener('input', function(){
+              shirtColor = shirtHex.value || '';
+              overlay.querySelectorAll('.dtf-shirt').forEach(function(o){
+                o.style.outline = ''; o.style.transform = '';
+              });
+              shirtHex.style.outline = '3px solid #22c55e';
+              window.__DTF_SHIRT_COLOR = shirtColor;
+            });
+          }
+
+          // Remove pixels within tolerance of the target color (set alpha=0)
+          function removeShirtColor(canvas, hex, tolerance){
+            if (!hex) return canvas;
+            var m = /^#?([0-9a-f]{6})$/i.exec(hex);
+            if (!m) return canvas;
+            var v = parseInt(m[1], 16);
+            var tr = (v >> 16) & 255, tg = (v >> 8) & 255, tb = v & 255;
+            var tol2 = tolerance * tolerance * 3;
+            var ctx = canvas.getContext('2d');
+            var img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            var d = img.data;
+            for (var i = 0; i < d.length; i += 4) {
+              if (d[i+3] === 0) continue;
+              var dr = d[i] - tr, dg = d[i+1] - tg, db = d[i+2] - tb;
+              var dist2 = dr*dr + dg*dg + db*db;
+              if (dist2 <= tol2) {
+                d[i+3] = 0;
+              }
+            }
+            ctx.putImageData(img, 0, 0);
+            return canvas;
+          }
+
           overlay.querySelector('#dtf-upcrop-ok').onclick = function(){
             var sx = Math.round(rect.x / scale);
             var sy = Math.round(rect.y / scale);
@@ -688,9 +754,16 @@
             var out = document.createElement('canvas');
             out.width = sw; out.height = sh;
             out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
+            // Se o cliente escolheu uma cor de camisa, remove essa cor exata
+            // (tolerância 20) — deixa alpha=0 nos pixels que batem, preservando
+            // o restante da arte, inclusive preto e outras cores.
+            if (shirtColor) {
+              try { removeShirtColor(out, shirtColor, 20); window.__DTF_HAS_TRANSPARENCY = true; } catch(e){}
+            }
             overlay.remove();
             onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
           };
+
         }
 
         function installUploadHook(){
@@ -773,7 +846,7 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v16"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v17"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
