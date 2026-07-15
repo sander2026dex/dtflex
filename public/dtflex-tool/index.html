@@ -754,11 +754,19 @@
             var out = document.createElement('canvas');
             out.width = sw; out.height = sh;
             out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
-            // Se o cliente escolheu uma cor de camisa, remove essa cor exata
-            // (tolerância 20) — deixa alpha=0 nos pixels que batem, preservando
-            // o restante da arte, inclusive preto e outras cores.
+            // Mesma lógica do preset de tecido do halftone:
+            //  • Branca  → tolerância 24 (vaza fundo branco preservando arte)
+            //  • Preta   → tolerância 10 (vaza fundo preto sem comer detalhes escuros)
+            //  • Coloridas → tolerância 45 (vaza a base do tecido com folga p/ variação de luz)
             if (shirtColor) {
-              try { removeShirtColor(out, shirtColor, 20); window.__DTF_HAS_TRANSPARENCY = true; } catch(e){}
+              try {
+                var up = String(shirtColor).toUpperCase();
+                var tol = 45;
+                if (up === '#FFFFFF') tol = 24;
+                else if (up === '#000000') tol = 10;
+                removeShirtColor(out, shirtColor, tol);
+                window.__DTF_HAS_TRANSPARENCY = true;
+              } catch(e){}
             }
             overlay.remove();
             onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
