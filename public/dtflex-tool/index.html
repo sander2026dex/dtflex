@@ -559,12 +559,29 @@
             + '  <button data-ar="A3"   class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#f59e0b;color:#1a1a1a;font-weight:700;cursor:pointer;">A3</button>'
             + '</div>'
             + '<div id="dtf-upcrop-stage" style="position:relative;background:#222;border:1px solid #444;max-width:90vw;max-height:60vh;overflow:hidden;"></div>'
+            + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font:600 12px system-ui;color:#fff;align-items:center;max-width:720px;">'
+            + '  <span style="opacity:.85;">Cor da camisa (remove esse fundo):</span>'
+            + '  <button data-shirt=""        class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#0ea5e9;color:#fff;font-weight:700;cursor:pointer;">Nenhuma</button>'
+            + '  <button data-shirt="#FFFFFF" class="dtf-shirt" title="Branco"    style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#FFFFFF;color:#111;font-weight:600;cursor:pointer;">Branca</button>'
+            + '  <button data-shirt="#000000" class="dtf-shirt" title="Preto"     style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#000000;color:#fff;font-weight:600;cursor:pointer;">Preta</button>'
+            + '  <button data-shirt="#7C3AED" class="dtf-shirt" title="Roxo"      style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#7C3AED;color:#fff;font-weight:600;cursor:pointer;">Roxa</button>'
+            + '  <button data-shirt="#DC2626" class="dtf-shirt" title="Vermelho"  style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#DC2626;color:#fff;font-weight:600;cursor:pointer;">Vermelha</button>'
+            + '  <button data-shirt="#1D4ED8" class="dtf-shirt" title="Azul"      style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#1D4ED8;color:#fff;font-weight:600;cursor:pointer;">Azul</button>'
+            + '  <button data-shirt="#10B981" class="dtf-shirt" title="Verde"     style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#10B981;color:#fff;font-weight:600;cursor:pointer;">Verde</button>'
+            + '  <button data-shirt="#EAB308" class="dtf-shirt" title="Amarelo"   style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#EAB308;color:#111;font-weight:600;cursor:pointer;">Amarela</button>'
+            + '  <button data-shirt="#F97316" class="dtf-shirt" title="Laranja"   style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#F97316;color:#111;font-weight:600;cursor:pointer;">Laranja</button>'
+            + '  <button data-shirt="#EC4899" class="dtf-shirt" title="Rosa"      style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#EC4899;color:#fff;font-weight:600;cursor:pointer;">Rosa</button>'
+            + '  <button data-shirt="#6B7280" class="dtf-shirt" title="Cinza"     style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#6B7280;color:#fff;font-weight:600;cursor:pointer;">Cinza</button>'
+            + '  <button data-shirt="#78350F" class="dtf-shirt" title="Marrom"    style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#78350F;color:#fff;font-weight:600;cursor:pointer;">Marrom</button>'
+            + '  <input id="dtf-shirt-hex" type="color" value="#000000" style="width:32px;height:28px;border:1px solid #888;border-radius:6px;background:#222;cursor:pointer;" title="Cor personalizada" />'
+            + '</div>'
             + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">'
             + '  <button id="dtf-upcrop-reset" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Selecionar tudo</button>'
             + '  <button id="dtf-upcrop-skip"  style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Usar imagem original</button>'
             + '  <button id="dtf-upcrop-cancel" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Cancelar</button>'
             + '  <button id="dtf-upcrop-ok"     style="padding:8px 14px;border-radius:8px;border:0;background:#22c55e;color:#062;font-weight:700;cursor:pointer;">Confirmar recorte</button>'
             + '</div>';
+
           document.body.appendChild(overlay);
 
           var stage = overlay.querySelector('#dtf-upcrop-stage');
