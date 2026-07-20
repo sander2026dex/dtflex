@@ -367,7 +367,18 @@ function AdminPage() {
               toast.error("Falha ao renovar acesso.");
             }
           }}
+          onDelete={async (item) => {
+            if (!confirm(`Excluir a conta de ${item.email}? Ele não conseguirá mais entrar e verá a mensagem para renovar com o admin.`)) return;
+            try {
+              await removeAccount({ data: { accessId: item.id } });
+              toast.success(`Conta ${item.email} encerrada. Ao tentar entrar, verá o convite de renovação.`);
+              await loadDashboard();
+            } catch {
+              toast.error("Falha ao excluir conta.");
+            }
+          }}
         />
+
 
         <DataCard title="Registrar compra (envia senha provisória ao cliente)">
           <p className="mb-3 text-xs text-muted-foreground">
@@ -947,13 +958,15 @@ function buildBillingMessage(item: {
 function ExpiringMonthlySection({
   codes,
   onRenew,
+  onDelete,
 }: {
   codes: DashboardPayload["codes"];
   onRenew: (item: DashboardPayload["codes"][number]) => Promise<void>;
+  onDelete: (item: DashboardPayload["codes"][number]) => Promise<void>;
 }) {
   const now = Date.now();
   const items = codes
-    .filter((c) => (c.plan_code === "mensal" || c.plan_code === "anual") && c.status !== "revoked")
+    .filter((c) => (c.plan_code === "mensal" || c.plan_code === "anual") && c.status !== "revoked" && c.status !== "deleted")
     .map((c) => {
       const exp = new Date(c.expires_at).getTime();
       const days = Math.ceil((exp - now) / 86400000);
@@ -1071,6 +1084,17 @@ function ExpiringMonthlySection({
                   >
                     Renovar
                   </Button>
+                  {isExpired && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => onDelete(item)}
+                      title="Encerrar conta — ao tentar entrar, verá o convite para renovar"
+                    >
+                      Excluir conta
+                    </Button>
+                  )}
+
                 </div>
               </div>
             );

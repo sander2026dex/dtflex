@@ -393,6 +393,16 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       return { ok: false, error: genericAccessError };
     }
 
+    // Conta excluída pelo admin (plano vencido não renovado) — mostra convite de renovação
+    if (accessRow.status === "deleted") {
+      await logSecurity("access_code_deleted", false);
+      return {
+        ok: false,
+        expired: true,
+        error: "Sua conta foi encerrada. Vamos renovar? Entre em contato com o administrador pelo WhatsApp.",
+      };
+    }
+
     // Bloqueia acesso expirado — só admin pode renovar
     if (accessRow.expires_at && new Date(accessRow.expires_at).getTime() <= Date.now()) {
       await logSecurity("access_code_expired", false);
@@ -642,7 +652,17 @@ export const deleteAccess = createServerFn({ method: "POST" })
     await requireAdminSession();
     const db = getDb();
 
-    const { error } = await db.from("user_access").delete().eq("id", data.accessId);
+    // Soft-delete: mantém o registro para bloquear futuros logins com mensagem de renovação
+    const { error } = await db
+      .from("user_access")
+      .update({
+        status: "deleted",
+        active_session_token: null,
+        active_session_started_at: null,
+        active_session_ip: null,
+        active_session_user_agent: null,
+      })
+      .eq("id", data.accessId);
     if (error) throw new Error("Não foi possível excluir a conta");
 
     await logSecurity("admin_delete_access", true);
