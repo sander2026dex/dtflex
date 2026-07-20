@@ -393,6 +393,16 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       return { ok: false, error: genericAccessError };
     }
 
+    // Conta excluída pelo admin (plano vencido não renovado) — mostra convite de renovação
+    if (accessRow.status === "deleted") {
+      await logSecurity("access_code_deleted", false);
+      return {
+        ok: false,
+        expired: true,
+        error: "Sua conta foi encerrada. Vamos renovar? Entre em contato com o administrador pelo WhatsApp.",
+      };
+    }
+
     // Bloqueia acesso expirado — só admin pode renovar
     if (accessRow.expires_at && new Date(accessRow.expires_at).getTime() <= Date.now()) {
       await logSecurity("access_code_expired", false);
