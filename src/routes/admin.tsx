@@ -1084,6 +1084,17 @@ function ExpiringMonthlySection({
                   >
                     Renovar
                   </Button>
+                  {isExpired && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => onDelete(item)}
+                      title="Encerrar conta — ao tentar entrar, verá o convite para renovar"
+                    >
+                      Excluir conta
+                    </Button>
+                  )}
+
                 </div>
               </div>
             );
