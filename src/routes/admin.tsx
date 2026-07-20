@@ -966,7 +966,7 @@ function ExpiringMonthlySection({
 }) {
   const now = Date.now();
   const items = codes
-    .filter((c) => (c.plan_code === "mensal" || c.plan_code === "anual") && c.status !== "revoked")
+    .filter((c) => (c.plan_code === "mensal" || c.plan_code === "anual") && c.status !== "revoked" && c.status !== "deleted")
     .map((c) => {
       const exp = new Date(c.expires_at).getTime();
       const days = Math.ceil((exp - now) / 86400000);
