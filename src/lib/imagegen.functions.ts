@@ -8,6 +8,8 @@ const schema = z.object({
 export const generateImageFromPrompt = createServerFn({ method: "POST" })
   .inputValidator((d) => schema.parse(d))
   .handler(async ({ data }) => {
+    const { assertAccessAuthenticated } = await import("./access-guard.server");
+    await assertAccessAuthenticated();
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY ausente");
 

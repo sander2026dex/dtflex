@@ -403,6 +403,16 @@ export const validateAccessCode = createServerFn({ method: "POST" })
       };
     }
 
+    // Conta revogada pelo admin — bloqueia login e exige reativação explícita via fluxo próprio
+    if (accessRow.status === "revoked") {
+      await logSecurity("access_code_revoked", false);
+      return {
+        ok: false,
+        revoked: true,
+        error: "Seu acesso foi revogado pelo administrador. Use a opção de reativação ou fale com o suporte.",
+      };
+    }
+
     // Bloqueia acesso expirado — só admin pode renovar
     if (accessRow.expires_at && new Date(accessRow.expires_at).getTime() <= Date.now()) {
       await logSecurity("access_code_expired", false);

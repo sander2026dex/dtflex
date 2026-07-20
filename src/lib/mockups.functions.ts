@@ -75,6 +75,8 @@ async function generateOne(prompt: string, dataUrl: string, apiKey: string): Pro
 export const generateShirtMockups = createServerFn({ method: "POST" })
   .inputValidator((d) => inputSchema.parse(d))
   .handler(async ({ data }) => {
+    const { assertAccessAuthenticated } = await import("./access-guard.server");
+    await assertAccessAuthenticated();
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY ausente");
     const dataUrl = `data:${data.imageMime};base64,${data.imageBase64}`;
