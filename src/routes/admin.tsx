@@ -367,7 +367,18 @@ function AdminPage() {
               toast.error("Falha ao renovar acesso.");
             }
           }}
+          onDelete={async (item) => {
+            if (!confirm(`Excluir a conta de ${item.email}? Ele não conseguirá mais entrar e verá a mensagem para renovar com o admin.`)) return;
+            try {
+              await removeAccount({ data: { accessId: item.id } });
+              toast.success(`Conta ${item.email} encerrada. Ao tentar entrar, verá o convite de renovação.`);
+              await loadDashboard();
+            } catch {
+              toast.error("Falha ao excluir conta.");
+            }
+          }}
         />
+
 
         <DataCard title="Registrar compra (envia senha provisória ao cliente)">
           <p className="mb-3 text-xs text-muted-foreground">
