@@ -958,9 +958,11 @@ function buildBillingMessage(item: {
 function ExpiringMonthlySection({
   codes,
   onRenew,
+  onDelete,
 }: {
   codes: DashboardPayload["codes"];
   onRenew: (item: DashboardPayload["codes"][number]) => Promise<void>;
+  onDelete: (item: DashboardPayload["codes"][number]) => Promise<void>;
 }) {
   const now = Date.now();
   const items = codes
