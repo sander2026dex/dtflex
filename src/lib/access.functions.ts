@@ -50,7 +50,7 @@ const manualAccessSchema = z.object({
 const trialSignupSchema = z.object({
   email: z.string().trim().email().max(255),
   phone: z.string().trim().min(8).max(32),
-  deviceFp: z.string().trim().min(8).max(128),
+  deviceFp: z.string().trim().min(8).max(2048),
 });
 
 const activateTrialSchema = z.object({
