@@ -47,6 +47,18 @@ const manualAccessSchema = z.object({
   deviceLimit: z.number().int().min(1).max(20).optional(),
 });
 
+const trialSignupSchema = z.object({
+  email: z.string().trim().email().max(255),
+  phone: z.string().trim().min(8).max(32),
+  deviceFp: z.string().trim().min(8).max(128),
+});
+
+const activateTrialSchema = z.object({
+  accessId: z.string().uuid(),
+  planCode: z.enum(["mensal", "anual", "vitalicia"]),
+  durationDays: z.number().int().min(1).max(36500).optional(),
+});
+
 const provisionalAccessSchema = z.object({
   email: z.string().trim().email().max(255),
   planCode: z.enum(["mensal", "anual", "vitalicia"]),
