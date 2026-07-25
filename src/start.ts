@@ -27,16 +27,16 @@ const securityHeaders = createMiddleware().server(async ({ next }) => {
   ].join("; ");
 
   setResponseHeaders({
-    "Content-Security-Policy": csp,
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "X-Frame-Options": "SAMEORIGIN",
-    "X-DNS-Prefetch-Control": "off",
-    "X-Permitted-Cross-Domain-Policies": "none",
-    "Cross-Origin-Opener-Policy": "same-origin",
-    "Cross-Origin-Resource-Policy": "same-site",
-    "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-    "Permissions-Policy": [
+    "content-security-policy": csp,
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "x-frame-options": "SAMEORIGIN",
+    "x-dns-prefetch-control": "off",
+    "x-permitted-cross-domain-policies": "none",
+    "cross-origin-opener-policy": "same-origin",
+    "cross-origin-resource-policy": "same-site",
+    "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+    "permissions-policy": [
       "camera=()",
       "microphone=()",
       "geolocation=()",
@@ -47,7 +47,7 @@ const securityHeaders = createMiddleware().server(async ({ next }) => {
       "accelerometer=()",
       "interest-cohort=()",
     ].join(", "),
-  });
+  } as Record<string, string>);
 
   return next();
 });
