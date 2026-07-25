@@ -65,6 +65,43 @@ function RootShell({ children }: { children: React.ReactNode }) {
     <html lang="pt-BR">
       <head>
         <HeadContent />
+        {/* Anti-print / anti-captura global — não altera layout */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @media print { html, body { display: none !important; visibility: hidden !important; background: #000 !important; } }
+              html, body { -webkit-touch-callout: none; }
+              img, video, canvas { -webkit-user-drag: none; user-select: none; }
+            `,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(){
+                try {
+                  var block = function(e){ e.preventDefault(); };
+                  document.addEventListener('contextmenu', block);
+                  document.addEventListener('dragstart', block);
+                  document.addEventListener('copy', function(e){
+                    var t = e.target; var tag = (t && t.tagName) || '';
+                    if (tag === 'INPUT' || tag === 'TEXTAREA' || (t && t.isContentEditable)) return;
+                    e.preventDefault();
+                  });
+                  document.addEventListener('keydown', function(e){
+                    var k = e.key;
+                    if (k === 'PrintScreen') { try{navigator.clipboard.writeText('')}catch(_){}; e.preventDefault(); return; }
+                    if (k === 'F12') { e.preventDefault(); return; }
+                    if ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i','I','j','J','c','C'].indexOf(k) !== -1) { e.preventDefault(); return; }
+                    if ((e.ctrlKey || e.metaKey) && (k === 'p' || k === 'P' || k === 's' || k === 'S' || k === 'u' || k === 'U')) { e.preventDefault(); return; }
+                  }, true);
+                  window.addEventListener('beforeprint', function(){ document.body.style.visibility='hidden'; });
+                  window.addEventListener('afterprint', function(){ document.body.style.visibility=''; });
+                } catch(_) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body>
         {children}
