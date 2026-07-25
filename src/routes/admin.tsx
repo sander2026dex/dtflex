@@ -303,6 +303,17 @@ function AdminPage() {
           </button>
           <button
             type="button"
+            onClick={() => setTab("testes")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              tab === "testes"
+                ? "border-emerald-400 text-emerald-300"
+                : "border-transparent text-muted-foreground hover:text-emerald-200"
+            }`}
+          >
+            Testes 7 dias ({dashboard.codes.filter((c) => c.is_trial).length})
+          </button>
+          <button
+            type="button"
             onClick={() => setTab("afiliados")}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               tab === "afiliados"
@@ -315,6 +326,31 @@ function AdminPage() {
         </nav>
 
         {tab === "halftone" && <HalftoneOrdersAdmin />}
+
+        {tab === "testes" && (
+          <TrialSignupsSection
+            codes={dashboard.codes.filter((c) => c.is_trial)}
+            onActivate={async (item, planCode) => {
+              try {
+                await activateTrial({ data: { accessId: item.id, planCode } });
+                toast.success(`Plano ${planCode} ativado para ${item.email}`);
+                await loadDashboard();
+              } catch {
+                toast.error("Não foi possível ativar o plano");
+              }
+            }}
+            onDelete={async (item) => {
+              if (!confirm(`Excluir o teste de ${item.email}?`)) return;
+              try {
+                await removeAccount({ data: { accessId: item.id } });
+                toast.success("Teste excluído");
+                await loadDashboard();
+              } catch {
+                toast.error("Não foi possível excluir");
+              }
+            }}
+          />
+        )}
 
         {tab === "geral" && (
           <>
