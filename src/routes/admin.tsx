@@ -44,12 +44,15 @@ interface DashboardPayload {
   codes: Array<{
     id: string;
     email: string;
+    phone?: string | null;
     access_code: string;
     status: string;
     expires_at: string;
     created_at: string;
     plan_code: string | null;
     device_limit: number | null;
+    is_trial?: boolean | null;
+    trial_device_fp?: string | null;
     active_session_token: string | null;
     active_session_started_at: string | null;
     active_session_ip: string | null;
