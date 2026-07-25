@@ -9,58 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as VerifyAdminRouteImport } from './routes/verify-admin'
-import { Route as ValidateAccessCodeRouteImport } from './routes/validate-access-code'
-import { Route as SobreHalftoneRouteImport } from './routes/sobre-halftone'
-import { Route as PedidoRouteImport } from './routes/pedido'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AppRouteImport } from './routes/app'
-import { Route as AfiliadoRouteImport } from './routes/afiliado'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SlugRouteImport } from './routes/$slug'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AfiliadoRouteImport } from './routes/afiliado'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PedidoRouteImport } from './routes/pedido'
+import { Route as SobreHalftoneRouteImport } from './routes/sobre-halftone'
+import { Route as ValidateAccessCodeRouteImport } from './routes/validate-access-code'
+import { Route as VerifyAdminRouteImport } from './routes/verify-admin'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
 import { Route as ApiPublicInfinitepayWebhookRouteImport } from './routes/api/public/infinitepay-webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 
-const VerifyAdminRoute = VerifyAdminRouteImport.update({
-  id: '/verify-admin',
-  path: '/verify-admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ValidateAccessCodeRoute = ValidateAccessCodeRouteImport.update({
-  id: '/validate-access-code',
-  path: '/validate-access-code',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SobreHalftoneRoute = SobreHalftoneRouteImport.update({
-  id: '/sobre-halftone',
-  path: '/sobre-halftone',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PedidoRoute = PedidoRouteImport.update({
-  id: '/pedido',
-  path: '/pedido',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppRoute = AppRouteImport.update({
-  id: '/app',
-  path: '/app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AfiliadoRoute = AfiliadoRouteImport.update({
-  id: '/afiliado',
-  path: '/afiliado',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SlugRoute = SlugRouteImport.update({
@@ -68,9 +33,44 @@ const SlugRoute = SlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AfiliadoRoute = AfiliadoRouteImport.update({
+  id: '/afiliado',
+  path: '/afiliado',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PedidoRoute = PedidoRouteImport.update({
+  id: '/pedido',
+  path: '/pedido',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SobreHalftoneRoute = SobreHalftoneRouteImport.update({
+  id: '/sobre-halftone',
+  path: '/sobre-halftone',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ValidateAccessCodeRoute = ValidateAccessCodeRouteImport.update({
+  id: '/validate-access-code',
+  path: '/validate-access-code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyAdminRoute = VerifyAdminRouteImport.update({
+  id: '/verify-admin',
+  path: '/verify-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
@@ -203,60 +203,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/verify-admin': {
-      id: '/verify-admin'
-      path: '/verify-admin'
-      fullPath: '/verify-admin'
-      preLoaderRoute: typeof VerifyAdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/validate-access-code': {
-      id: '/validate-access-code'
-      path: '/validate-access-code'
-      fullPath: '/validate-access-code'
-      preLoaderRoute: typeof ValidateAccessCodeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sobre-halftone': {
-      id: '/sobre-halftone'
-      path: '/sobre-halftone'
-      fullPath: '/sobre-halftone'
-      preLoaderRoute: typeof SobreHalftoneRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pedido': {
-      id: '/pedido'
-      path: '/pedido'
-      fullPath: '/pedido'
-      preLoaderRoute: typeof PedidoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app': {
-      id: '/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/afiliado': {
-      id: '/afiliado'
-      path: '/afiliado'
-      fullPath: '/afiliado'
-      preLoaderRoute: typeof AfiliadoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$slug': {
@@ -266,11 +217,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/afiliado': {
+      id: '/afiliado'
+      path: '/afiliado'
+      fullPath: '/afiliado'
+      preLoaderRoute: typeof AfiliadoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedido': {
+      id: '/pedido'
+      path: '/pedido'
+      fullPath: '/pedido'
+      preLoaderRoute: typeof PedidoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sobre-halftone': {
+      id: '/sobre-halftone'
+      path: '/sobre-halftone'
+      fullPath: '/sobre-halftone'
+      preLoaderRoute: typeof SobreHalftoneRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/validate-access-code': {
+      id: '/validate-access-code'
+      path: '/validate-access-code'
+      fullPath: '/validate-access-code'
+      preLoaderRoute: typeof ValidateAccessCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-admin': {
+      id: '/verify-admin'
+      path: '/verify-admin'
+      fullPath: '/verify-admin'
+      preLoaderRoute: typeof VerifyAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/stripe-webhook': {
