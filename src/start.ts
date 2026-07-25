@@ -26,7 +26,7 @@ const securityHeaders = createMiddleware().server(async ({ next }) => {
     "upgrade-insecure-requests",
   ].join("; ");
 
-  setResponseHeaders({
+  const headers: Record<string, string> = {
     "content-security-policy": csp,
     "x-content-type-options": "nosniff",
     "referrer-policy": "strict-origin-when-cross-origin",
@@ -47,7 +47,8 @@ const securityHeaders = createMiddleware().server(async ({ next }) => {
       "accelerometer=()",
       "interest-cohort=()",
     ].join(", "),
-  } as Record<string, string>);
+  };
+  for (const [k, v] of Object.entries(headers)) setResponseHeader(k, v);
 
   return next();
 });
