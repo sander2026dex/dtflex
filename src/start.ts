@@ -1,5 +1,5 @@
 import { createStart, createMiddleware } from "@tanstack/react-start";
-import { setResponseHeaders } from "@tanstack/react-start/server";
+import { setResponseHeader } from "@tanstack/react-start/server";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 
 // Security headers aplicados em toda resposta SSR / server route / server fn.
