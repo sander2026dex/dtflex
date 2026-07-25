@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Sparkles, Users, MessageCircle } from "lucide-react";
+import { ArrowUpRight, Sparkles, Users, MessageCircle, Gift } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { TrialSignupDialog } from "@/components/landing/TrialSignupDialog";
 import logo from "@/assets/dtflexpro-logo.png.asset.json";
 
 export function Header({ affiliateMode = false }: { affiliateMode?: boolean } = {}) {
