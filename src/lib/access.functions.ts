@@ -47,6 +47,18 @@ const manualAccessSchema = z.object({
   deviceLimit: z.number().int().min(1).max(20).optional(),
 });
 
+const trialSignupSchema = z.object({
+  email: z.string().trim().email().max(255),
+  phone: z.string().trim().min(8).max(32),
+  deviceFp: z.string().trim().min(8).max(128),
+});
+
+const activateTrialSchema = z.object({
+  accessId: z.string().uuid(),
+  planCode: z.enum(["mensal", "anual", "vitalicia"]),
+  durationDays: z.number().int().min(1).max(36500).optional(),
+});
+
 const provisionalAccessSchema = z.object({
   email: z.string().trim().email().max(255),
   planCode: z.enum(["mensal", "anual", "vitalicia"]),
@@ -558,10 +570,10 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
     db
       .from("user_access")
       .select(
-        "id, email, access_code, status, expires_at, created_at, plan_code, device_limit, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent, last_activity_at",
+        "id, email, phone, access_code, status, expires_at, created_at, plan_code, device_limit, is_trial, trial_device_fp, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent, last_activity_at",
       )
       .order("created_at", { ascending: false })
-      .limit(200),
+      .limit(400),
     db
       .from("payments")
       .select("id, email, stripe_session_id, amount, status, created_at")
@@ -1074,4 +1086,158 @@ export const sendDeviceWarning = createServerFn({ method: "POST" })
 
     await logSecurity(`admin_device_${data.kind}`, true);
     return { ok: true };
+  });
+
+// ============ Teste grátis 7 dias ============
+async function sendTrialWelcomeEmail({ email, accessCode, expiresAt }: { email: string; accessCode: string; expiresAt: string }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+  const baseUrl = process.env.APP_URL ?? process.env.URL ?? new URL(getRequestUrl()).origin;
+  const accessUrl = `${baseUrl}/login?email=${encodeURIComponent(email)}&code=${encodeURIComponent(accessCode)}`;
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "DTFLEXPRO <onboarding@resend.dev>",
+        to: [email],
+        subject: "🎁 Seu teste grátis de 7 dias no DTFLEXPRO",
+        html: `
+          <div style="background:#fff;padding:32px;font-family:Arial,sans-serif;color:#111827">
+            <div style="max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;padding:32px">
+              <p style="font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:#6b7280;margin:0 0 12px">DTFLEXPRO · Teste grátis</p>
+              <h1 style="font-size:26px;line-height:1.2;margin:0 0 16px">Você tem 7 dias grátis!</h1>
+              <p style="font-size:15px;line-height:1.7;color:#4b5563;margin:0 0 16px">Aproveite todos os recursos da plataforma. Após 7 dias, escolha um plano para continuar usando.</p>
+              <div style="margin:20px 0;padding:20px;border-radius:10px;background:#111827;color:#f9fafb;text-align:center;font-family:monospace;font-size:28px;letter-spacing:.18em">${accessCode}</div>
+              <a href="${accessUrl}" style="display:inline-block;background:#f2c94c;color:#111827;text-decoration:none;padding:14px 20px;border-radius:10px;font-weight:700">Acessar Plataforma</a>
+              <p style="font-size:12px;color:#6b7280;margin:20px 0 0">Válido até: ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(expiresAt))}</p>
+            </div>
+          </div>
+        `,
+      }),
+    });
+  } catch { /* best-effort */ }
+}
+
+export const registerTrialAccess = createServerFn({ method: "POST" })
+  .inputValidator(trialSignupSchema)
+  .handler(async ({ data }) => {
+    const db = getDb();
+    const email = normalizeEmail(data.email);
+    const phone = data.phone.replace(/[^\d+]/g, "");
+    const currentIp = getRequestIP({ xForwardedFor: true }) ?? "unknown";
+    const currentUa = getRequestHeader("user-agent") ?? "unknown";
+    // Fingerprint combina impressão do navegador com IP para dificultar burlas
+    const deviceFp = createHmac("sha256", getSessionSecret())
+      .update(`${data.deviceFp}|${currentIp}`)
+      .digest("hex")
+      .slice(0, 48);
+
+    // Bloqueia se já existe conta ativa/expirada para este e-mail
+    const { data: existingEmail } = await db
+      .from("user_access")
+      .select("id, is_trial, status")
+      .eq("email", email)
+      .limit(1)
+      .maybeSingle();
+    if (existingEmail) {
+      return { ok: false, error: "Este e-mail já possui cadastro. Faça login ou use outro e-mail." };
+    }
+
+    // Bloqueia se este dispositivo já criou um teste
+    const { data: existingFp } = await db
+      .from("user_access")
+      .select("id")
+      .eq("trial_device_fp", deviceFp)
+      .limit(1)
+      .maybeSingle();
+    if (existingFp) {
+      return { ok: false, error: "Este dispositivo já usou o teste grátis. Escolha um plano para continuar." };
+    }
+
+    const accessCode = generateAccessCode();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const sessionToken = randomUUID();
+
+    const { data: inserted, error } = await db
+      .from("user_access")
+      .insert({
+        email,
+        phone,
+        access_code: accessCode,
+        status: "active",
+        expires_at: expiresAt,
+        plan_code: "trial",
+        device_limit: 1,
+        is_trial: true,
+        trial_device_fp: deviceFp,
+        active_session_token: sessionToken,
+        active_session_started_at: new Date().toISOString(),
+        active_session_ip: currentIp,
+        active_session_user_agent: currentUa,
+      })
+      .select("id")
+      .single();
+
+    if (error || !inserted) {
+      await logSecurity("trial_signup_error", false);
+      // Race condition — outro insert bateu no índice único
+      if ((error as any)?.code === "23505") {
+        return { ok: false, error: "Este dispositivo ou e-mail já foi cadastrado." };
+      }
+      return { ok: false, error: "Não foi possível criar seu teste. Tente novamente." };
+    }
+
+    const session = await useSession<AccessSessionData>(getAccessSessionConfig());
+    await session.update({
+      authenticated: true,
+      email,
+      code: accessCode,
+      accessId: inserted.id,
+      sessionToken,
+      expiresAt,
+    });
+
+    await sendTrialWelcomeEmail({ email, accessCode, expiresAt });
+    await logSecurity("trial_signup", true);
+    return { ok: true, redirectTo: "/app", accessCode, expiresAt };
+  });
+
+export const activateTrialAsPaid = createServerFn({ method: "POST" })
+  .inputValidator(activateTrialSchema)
+  .handler(async ({ data }) => {
+    await requireAdminSession();
+    const db = getDb();
+    const days = data.durationDays ?? planDurationDays(data.planCode);
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: row, error: readError } = await db
+      .from("user_access")
+      .select("id, email, access_code, plan_code, is_trial")
+      .eq("id", data.accessId)
+      .maybeSingle();
+    if (readError || !row) throw new Error("Conta não encontrada");
+
+    const { error } = await db
+      .from("user_access")
+      .update({
+        is_trial: false,
+        plan_code: data.planCode,
+        status: "active",
+        expires_at: expiresAt,
+      })
+      .eq("id", data.accessId);
+    if (error) throw new Error("Não foi possível ativar o plano");
+
+    try {
+      await sendAccessEmail({
+        email: row.email,
+        accessCode: row.access_code,
+        expiresAt,
+        planLabel: planLabel(data.planCode),
+      });
+    } catch { /* best-effort */ }
+
+    await logSecurity("admin_activate_trial_paid", true);
+    return { ok: true, expiresAt };
   });

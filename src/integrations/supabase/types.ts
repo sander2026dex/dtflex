@@ -598,9 +598,12 @@ export type Database = {
           email: string
           expires_at: string
           id: string
+          is_trial: boolean
           last_activity_at: string | null
+          phone: string | null
           plan_code: string | null
           status: string
+          trial_device_fp: string | null
         }
         Insert: {
           access_code: string
@@ -613,9 +616,12 @@ export type Database = {
           email: string
           expires_at: string
           id?: string
+          is_trial?: boolean
           last_activity_at?: string | null
+          phone?: string | null
           plan_code?: string | null
           status?: string
+          trial_device_fp?: string | null
         }
         Update: {
           access_code?: string
@@ -628,9 +634,12 @@ export type Database = {
           email?: string
           expires_at?: string
           id?: string
+          is_trial?: boolean
           last_activity_at?: string | null
+          phone?: string | null
           plan_code?: string | null
           status?: string
+          trial_device_fp?: string | null
         }
         Relationships: []
       }

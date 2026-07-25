@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
+  activateTrialAsPaid,
   deleteAccess,
   generateManualAccessCode,
   getAdminDashboardData,
@@ -43,12 +44,15 @@ interface DashboardPayload {
   codes: Array<{
     id: string;
     email: string;
+    phone?: string | null;
     access_code: string;
     status: string;
     expires_at: string;
     created_at: string;
     plan_code: string | null;
     device_limit: number | null;
+    is_trial?: boolean | null;
+    trial_device_fp?: string | null;
     active_session_token: string | null;
     active_session_started_at: string | null;
     active_session_ip: string | null;
@@ -142,7 +146,8 @@ function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardPayload>(EMPTY);
-  const [tab, setTab] = useState<"geral" | "afiliados" | "halftone">("geral");
+  const [tab, setTab] = useState<"geral" | "afiliados" | "halftone" | "testes">("geral");
+  const activateTrial = useServerFn(activateTrialAsPaid);
 
   async function loadDashboard() {
     try {
@@ -298,6 +303,17 @@ function AdminPage() {
           </button>
           <button
             type="button"
+            onClick={() => setTab("testes")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              tab === "testes"
+                ? "border-emerald-400 text-emerald-300"
+                : "border-transparent text-muted-foreground hover:text-emerald-200"
+            }`}
+          >
+            Testes 7 dias ({dashboard.codes.filter((c) => c.is_trial).length})
+          </button>
+          <button
+            type="button"
             onClick={() => setTab("afiliados")}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               tab === "afiliados"
@@ -310,6 +326,31 @@ function AdminPage() {
         </nav>
 
         {tab === "halftone" && <HalftoneOrdersAdmin />}
+
+        {tab === "testes" && (
+          <TrialSignupsSection
+            codes={dashboard.codes.filter((c) => c.is_trial)}
+            onActivate={async (item, planCode) => {
+              try {
+                await activateTrial({ data: { accessId: item.id, planCode } });
+                toast.success(`Plano ${planCode} ativado para ${item.email}`);
+                await loadDashboard();
+              } catch {
+                toast.error("Não foi possível ativar o plano");
+              }
+            }}
+            onDelete={async (item) => {
+              if (!confirm(`Excluir o teste de ${item.email}?`)) return;
+              try {
+                await removeAccount({ data: { accessId: item.id } });
+                toast.success("Teste excluído");
+                await loadDashboard();
+              } catch {
+                toast.error("Não foi possível excluir");
+              }
+            }}
+          />
+        )}
 
         {tab === "geral" && (
           <>
@@ -1397,3 +1438,138 @@ function AffiliateAdminSection({ forceOpen = false }: { forceOpen?: boolean }) {
   );
 }
 
+
+function TrialSignupsSection({
+  codes,
+  onActivate,
+  onDelete,
+}: {
+  codes: DashboardPayload["codes"];
+  onActivate: (item: DashboardPayload["codes"][number], planCode: "mensal" | "anual") => Promise<void>;
+  onDelete: (item: DashboardPayload["codes"][number]) => Promise<void>;
+}) {
+  const now = Date.now();
+  const sorted = [...codes].sort(
+    (a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime(),
+  );
+
+  if (sorted.length === 0) {
+    return (
+      <Card className="rounded-lg bg-card/70 p-6 backdrop-blur">
+        <p className="text-sm text-muted-foreground">Nenhum cadastro de teste ainda.</p>
+      </Card>
+    );
+  }
+
+  function daysLeft(expiresAt: string) {
+    return Math.ceil((new Date(expiresAt).getTime() - now) / (24 * 60 * 60 * 1000));
+  }
+
+  return (
+    <Card className="rounded-lg bg-card/70 p-6 backdrop-blur">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">Cadastros de teste (7 dias)</h2>
+          <p className="text-sm text-muted-foreground">
+            Total: {sorted.length}. Ative manualmente o plano mensal ou anual quando o cliente pagar.
+          </p>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>E-mail</TableHead>
+              <TableHead>WhatsApp</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Criado</TableHead>
+              <TableHead>Expira em</TableHead>
+              <TableHead>IP / Dispositivo</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sorted.map((item) => {
+              const days = daysLeft(item.expires_at);
+              const expired = days <= 0;
+              const phone = (item.phone ?? "").replace(/\D/g, "");
+              const waNumber = phone.length >= 10 ? (phone.startsWith("55") ? phone : `55${phone}`) : "";
+              const waMsg = encodeURIComponent(
+                `Olá! Aqui é da DTFLEXPRO 👋 Vi seu teste grátis (${item.email}). Posso liberar seu plano completo? Mensal R$47 ou Anual R$47/mês. Me avisa qual quer!`,
+              );
+              return (
+                <TableRow key={item.id} className={expired ? "bg-red-500/5" : ""}>
+                  <TableCell className="font-mono text-xs">{item.email}</TableCell>
+                  <TableCell className="font-mono text-xs">{item.phone ?? "-"}</TableCell>
+                  <TableCell className="font-mono text-xs">{item.access_code}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {new Date(item.created_at).toLocaleDateString("pt-BR")}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {expired ? (
+                      <span className="rounded bg-red-500/20 px-2 py-0.5 font-semibold text-red-300">
+                        Expirado
+                      </span>
+                    ) : (
+                      <span className={`rounded px-2 py-0.5 font-semibold ${days <= 2 ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/15 text-emerald-300"}`}>
+                        {days} dia{days === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-[10px] text-muted-foreground max-w-[200px] truncate">
+                    {item.active_session_ip ?? "-"}
+                    <br />
+                    {(item.active_session_user_agent ?? "").slice(0, 40)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-wrap justify-end gap-1">
+                      {waNumber && (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="h-7 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+                        >
+                          <a
+                            href={`https://wa.me/${waNumber}?text=${waMsg}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                            WhatsApp
+                          </a>
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        className="h-7 bg-emerald-500 text-black hover:bg-emerald-400"
+                        onClick={() => onActivate(item, "mensal")}
+                      >
+                        Ativar mensal
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 bg-amber-400 text-black hover:bg-amber-300"
+                        onClick={() => onActivate(item, "anual")}
+                      >
+                        Ativar anual
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7"
+                        onClick={() => onDelete(item)}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
