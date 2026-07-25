@@ -571,9 +571,13 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
       .from("user_access")
       .select(
         "id, email, access_code, status, expires_at, created_at, plan_code, device_limit, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent, last_activity_at",
+    db
+      .from("user_access")
+      .select(
+        "id, email, phone, access_code, status, expires_at, created_at, plan_code, device_limit, is_trial, trial_device_fp, active_session_token, active_session_started_at, active_session_ip, active_session_user_agent, last_activity_at",
       )
       .order("created_at", { ascending: false })
-      .limit(200),
+      .limit(400),
     db
       .from("payments")
       .select("id, email, stripe_session_id, amount, status, created_at")
