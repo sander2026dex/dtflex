@@ -717,7 +717,7 @@
           // Flood fill APENAS a partir das bordas: preserva integridade da arte.
           // Nunca apaga pixel interno mesmo que tenha a mesma cor do fundo,
           // porque só remove o que está conectado às bordas.
-          function removeBackgroundByEdges(canvas, mode){
+          function removeBackgroundByEdges(canvas, mode, hex){
             var ctx = canvas.getContext('2d');
             var W = canvas.width, H = canvas.height;
             var img = ctx.getImageData(0, 0, W, H);
@@ -725,6 +725,11 @@
             var br, bg, bb, tol;
             if (mode === 'white') { br = 255; bg = 255; bb = 255; tol = 55; }
             else if (mode === 'black') { br = 0; bg = 0; bb = 0; tol = 50; }
+            else if (mode === 'color' && hex) {
+              var h = hex.replace('#',''); if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+              br = parseInt(h.substr(0,2),16); bg = parseInt(h.substr(2,2),16); bb = parseInt(h.substr(4,2),16);
+              tol = 60;
+            }
             else {
               // amostragem da borda como fallback
               var sr = 0, sg = 0, sbb = 0, n = 0;
