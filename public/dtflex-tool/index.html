@@ -688,49 +688,70 @@
             overlay.remove(); onConfirm(null, null);
           };
 
-          // Shirt color selection
-          var shirtColor = '';
+          // Destino da impressão: 'white' (camisa branca), 'black' (camisa preta) ou '' (nenhuma)
+          var shirtMode = '';
           overlay.querySelectorAll('.dtf-shirt').forEach(function(b){
             b.addEventListener('click', function(){
-              shirtColor = b.dataset.shirt || '';
+              shirtMode = b.dataset.shirt || '';
               overlay.querySelectorAll('.dtf-shirt').forEach(function(o){
                 o.style.outline = ''; o.style.transform = '';
               });
               b.style.outline = '3px solid #22c55e';
               b.style.transform = 'scale(1.05)';
-              window.__DTF_SHIRT_COLOR = shirtColor;
+              window.__DTF_SHIRT_COLOR = shirtMode;
             });
           });
-          var shirtHex = overlay.querySelector('#dtf-shirt-hex');
-          if (shirtHex) {
-            shirtHex.addEventListener('input', function(){
-              shirtColor = shirtHex.value || '';
-              overlay.querySelectorAll('.dtf-shirt').forEach(function(o){
-                o.style.outline = ''; o.style.transform = '';
-              });
-              shirtHex.style.outline = '3px solid #22c55e';
-              window.__DTF_SHIRT_COLOR = shirtColor;
-            });
-          }
 
-          // Remove pixels within tolerance of the target color (set alpha=0)
-          function removeShirtColor(canvas, hex, tolerance){
-            if (!hex) return canvas;
-            var m = /^#?([0-9a-f]{6})$/i.exec(hex);
-            if (!m) return canvas;
-            var v = parseInt(m[1], 16);
-            var tr = (v >> 16) & 255, tg = (v >> 8) & 255, tb = v & 255;
-            var tol2 = tolerance * tolerance * 3;
+          // Flood fill a partir das bordas: tudo conectado às bordas dentro da
+          // tolerância vira transparente. Preto interno da arte é preservado
+          // porque não está conectado à borda.
+          // mode: 'white' remove branco/claro; 'black' remove preto/escuro.
+          function removeBackgroundByEdges(canvas, mode){
             var ctx = canvas.getContext('2d');
-            var img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            var W = canvas.width, H = canvas.height;
+            var img = ctx.getImageData(0, 0, W, H);
             var d = img.data;
-            for (var i = 0; i < d.length; i += 4) {
-              if (d[i+3] === 0) continue;
-              var dr = d[i] - tr, dg = d[i+1] - tg, db = d[i+2] - tb;
-              var dist2 = dr*dr + dg*dg + db*db;
-              if (dist2 <= tol2) {
-                d[i+3] = 0;
+            // Amostra pixels da borda para estimar cor média do fundo.
+            var sr = 0, sg = 0, sb = 0, n = 0;
+            function sample(x, y){
+              var i = (y * W + x) * 4;
+              if (d[i+3] === 0) return;
+              sr += d[i]; sg += d[i+1]; sb += d[i+2]; n++;
+            }
+            for (var x = 0; x < W; x++) { sample(x, 0); sample(x, H-1); }
+            for (var y = 0; y < H; y++) { sample(0, y); sample(W-1, y); }
+            if (n === 0) return canvas;
+            var br = sr/n, bg = sg/n, bb = sb/n;
+            // Se o modo pedido não bate com a cor média da borda, avisa mas
+            // ainda respeita a intenção (usa referência do modo escolhido).
+            if (mode === 'white') { br = 255; bg = 255; bb = 255; }
+            else if (mode === 'black') { br = 0; bg = 0; bb = 0; }
+            var tol = (mode === 'black') ? 55 : 60;
+            var tol2 = tol * tol * 3;
+
+            // BFS flood fill a partir de todos os pixels de borda que casam.
+            var visited = new Uint8Array(W * H);
+            var stack = [];
+            function tryPush(x, y){
+              if (x < 0 || y < 0 || x >= W || y >= H) return;
+              var p = y * W + x;
+              if (visited[p]) return;
+              var i = p * 4;
+              if (d[i+3] === 0) { visited[p] = 1; return; }
+              var dr = d[i] - br, dg = d[i+1] - bg, db = d[i+2] - bb;
+              if (dr*dr + dg*dg + db*db <= tol2) {
+                visited[p] = 1;
+                stack.push(x, y);
               }
+            }
+            for (var x2 = 0; x2 < W; x2++) { tryPush(x2, 0); tryPush(x2, H-1); }
+            for (var y2 = 0; y2 < H; y2++) { tryPush(0, y2); tryPush(W-1, y2); }
+            while (stack.length) {
+              var cy = stack.pop(), cx = stack.pop();
+              var ci = (cy * W + cx) * 4;
+              d[ci+3] = 0;
+              tryPush(cx+1, cy); tryPush(cx-1, cy);
+              tryPush(cx, cy+1); tryPush(cx, cy-1);
             }
             ctx.putImageData(img, 0, 0);
             return canvas;
@@ -744,17 +765,12 @@
             var out = document.createElement('canvas');
             out.width = sw; out.height = sh;
             out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
-            // Mesma lógica do preset de tecido do halftone:
-            //  • Branca  → tolerância 24 (vaza fundo branco preservando arte)
-            //  • Preta   → tolerância 10 (vaza fundo preto sem comer detalhes escuros)
-            //  • Coloridas → tolerância 45 (vaza a base do tecido com folga p/ variação de luz)
-            if (shirtColor) {
+            // Novo fluxo: separa FUNDO (por conectividade a partir das bordas)
+            // de ARTE — não remove pixels só por cor. O preto interno da arte
+            // é sempre preservado porque não está conectado à borda.
+            if (shirtMode === 'white' || shirtMode === 'black') {
               try {
-                var up = String(shirtColor).toUpperCase();
-                var tol = 45;
-                if (up === '#FFFFFF') tol = 24;
-                else if (up === '#000000') tol = 10;
-                removeShirtColor(out, shirtColor, tol);
+                removeBackgroundByEdges(out, shirtMode);
                 window.__DTF_HAS_TRANSPARENCY = true;
               } catch(e){}
             }
