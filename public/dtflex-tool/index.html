@@ -703,16 +703,10 @@
             });
           });
 
-          function hexToRgb(hex){
-            var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
-            if (!m) return { r: 30, g: 64, b: 175 };
-            return { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) };
-          }
-
           // Flood fill APENAS a partir das bordas: preserva integridade da arte.
           // Nunca apaga pixel interno mesmo que tenha a mesma cor do fundo,
           // porque só remove o que está conectado às bordas.
-          function removeBackgroundByEdges(canvas, mode, hex){
+          function removeBackgroundByEdges(canvas, mode){
             var ctx = canvas.getContext('2d');
             var W = canvas.width, H = canvas.height;
             var img = ctx.getImageData(0, 0, W, H);
@@ -720,10 +714,7 @@
             var br, bg, bb, tol;
             if (mode === 'white') { br = 255; bg = 255; bb = 255; tol = 55; }
             else if (mode === 'black') { br = 0; bg = 0; bb = 0; tol = 50; }
-            else if (mode === 'color') {
-              var rgb = hexToRgb(hex);
-              br = rgb.r; bg = rgb.g; bb = rgb.b; tol = 55;
-            } else {
+            else {
               // amostragem da borda como fallback
               var sr = 0, sg = 0, sbb = 0, n = 0;
               function sample(x, y){
