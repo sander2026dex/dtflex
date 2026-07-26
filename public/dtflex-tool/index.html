@@ -564,11 +564,6 @@
             + '  <button data-shirt=""      class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#0ea5e9;color:#fff;font-weight:700;cursor:pointer;">Nenhuma</button>'
             + '  <button data-shirt="white" class="dtf-shirt" title="Camisa branca — remove fundo branco" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#FFFFFF;color:#111;font-weight:600;cursor:pointer;">Camisa Branca</button>'
             + '  <button data-shirt="black" class="dtf-shirt" title="Camisa preta — remove fundo escuro" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#000000;color:#fff;font-weight:600;cursor:pointer;">Camisa Preta</button>'
-            + '  <label style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;border:1px solid #888;background:#222;cursor:pointer;" title="Camisa colorida — escolha a cor do tecido">'
-            + '    <span>Camisa Colorida:</span>'
-            + '    <input id="dtf-shirt-color" type="color" value="#1e40af" style="width:34px;height:26px;border:0;background:transparent;cursor:pointer;padding:0;" />'
-            + '    <button data-shirt="color" class="dtf-shirt" style="padding:4px 8px;border-radius:6px;border:1px solid #888;background:#1e40af;color:#fff;font-weight:700;cursor:pointer;">Usar cor</button>'
-            + '  </label>'
             + '</div>'
             + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">'
             + '  <button id="dtf-upcrop-reset" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Selecionar tudo</button>'
@@ -693,17 +688,8 @@
             overlay.remove(); onConfirm(null, null);
           };
 
-          // Destino da impressão: 'white' | 'black' | 'color' | ''
+          // Destino da impressão: 'white' | 'black' | ''
           var shirtMode = '';
-          var shirtColorHex = '#1e40af';
-          var colorInput = overlay.querySelector('#dtf-shirt-color');
-          if (colorInput) {
-            colorInput.addEventListener('input', function(){
-              shirtColorHex = colorInput.value || '#1e40af';
-              var btn = overlay.querySelector('.dtf-shirt[data-shirt="color"]');
-              if (btn) btn.style.background = shirtColorHex;
-            });
-          }
           overlay.querySelectorAll('.dtf-shirt').forEach(function(b){
             b.addEventListener('click', function(ev){
               ev.preventDefault();
@@ -714,20 +700,13 @@
               b.style.outline = '3px solid #22c55e';
               b.style.transform = 'scale(1.05)';
               window.__DTF_SHIRT_COLOR = shirtMode;
-              if (shirtMode === 'color') window.__DTF_SHIRT_HEX = shirtColorHex;
             });
           });
-
-          function hexToRgb(hex){
-            var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
-            if (!m) return { r: 30, g: 64, b: 175 };
-            return { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) };
-          }
 
           // Flood fill APENAS a partir das bordas: preserva integridade da arte.
           // Nunca apaga pixel interno mesmo que tenha a mesma cor do fundo,
           // porque só remove o que está conectado às bordas.
-          function removeBackgroundByEdges(canvas, mode, hex){
+          function removeBackgroundByEdges(canvas, mode){
             var ctx = canvas.getContext('2d');
             var W = canvas.width, H = canvas.height;
             var img = ctx.getImageData(0, 0, W, H);
@@ -735,10 +714,7 @@
             var br, bg, bb, tol;
             if (mode === 'white') { br = 255; bg = 255; bb = 255; tol = 55; }
             else if (mode === 'black') { br = 0; bg = 0; bb = 0; tol = 50; }
-            else if (mode === 'color') {
-              var rgb = hexToRgb(hex);
-              br = rgb.r; bg = rgb.g; bb = rgb.b; tol = 55;
-            } else {
+            else {
               // amostragem da borda como fallback
               var sr = 0, sg = 0, sbb = 0, n = 0;
               function sample(x, y){
@@ -788,9 +764,9 @@
             var out = document.createElement('canvas');
             out.width = sw; out.height = sh;
             out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
-            if (shirtMode === 'white' || shirtMode === 'black' || shirtMode === 'color') {
+            if (shirtMode === 'white' || shirtMode === 'black') {
               try {
-                removeBackgroundByEdges(out, shirtMode, shirtColorHex);
+                removeBackgroundByEdges(out, shirtMode);
                 window.__DTF_HAS_TRANSPARENCY = true;
               } catch(e){}
             }
