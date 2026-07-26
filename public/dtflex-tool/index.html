@@ -693,6 +693,7 @@
           // Destino da impressão: 'white' | 'black' | 'color' | ''
           var shirtMode = '';
           var shirtHex = '#ff0000';
+          window.__DTF_SHIRT_HEX = shirtHex;
           var colorPicker = overlay.querySelector('#dtf-shirt-color');
           if (colorPicker) {
             colorPicker.addEventListener('input', function(){
@@ -710,6 +711,7 @@
               b.style.outline = '3px solid #22c55e';
               b.style.transform = 'scale(1.05)';
               window.__DTF_SHIRT_COLOR = shirtMode;
+              window.__DTF_SHIRT_HEX = shirtHex;
               if (colorPicker) colorPicker.style.display = (shirtMode === 'color') ? 'inline-block' : 'none';
             });
           });
@@ -729,9 +731,10 @@
             else if (mode === 'color' && hex) {
               var h = hex.replace('#',''); if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
               br = parseInt(h.substr(0,2),16); bg = parseInt(h.substr(2,2),16); bb = parseInt(h.substr(4,2),16);
-              // Camisa colorida: remove QUALQUER cor escolhida só quando ela está ligada às bordas.
-              // Isso permite remover fundo preto externo, mas preserva preto/cor interna isolada na arte.
-              tol = 26;
+              // Camisa colorida: remove somente o FUNDO EXTERNO da cor escolhida.
+              // Cabelo, olhos, acessórios, traços pretos e qualquer detalhe interno ficam na arte
+              // porque o preenchimento só nasce nas bordas e para em pixels com detalhe/contraste.
+              tol = 24;
               edgeOnlyColor = true;
             }
             else {
@@ -747,6 +750,44 @@
               br = sr/n; bg = sg/n; bb = sbb/n; tol = 45;
             }
             var tol2 = tol * tol * 3;
+            var bgLum = br * 0.299 + bg * 0.587 + bb * 0.114;
+            var darkBackground = bgLum < 95;
+            function isSimilarToBackgroundAt(i, loose){
+              var pr = d[i], pgc = d[i+1], pbc = d[i+2];
+              var extra = loose ? 8 : 0;
+              var maxCh = Math.max(Math.abs(pr-br), Math.abs(pgc-bg), Math.abs(pbc-bb));
+              if (maxCh > tol + extra) return false;
+              var dr = pr - br, dgv = pgc - bg, dbv = pbc - bb;
+              return dr*dr + dgv*dgv + dbv*dbv <= (tol + extra) * (tol + extra) * 3;
+            }
+            function hasArtworkNeighbor(x, y){
+              // Detecta fronteira de arte perto do pixel. Em camisa colorida isso impede
+              // que o flood-fill invada cabelo/olhos/contornos pretos conectados por engano.
+              var radius = 2;
+              var different = 0;
+              var opaque = 0;
+              for (var ny = Math.max(0, y - radius); ny <= Math.min(H - 1, y + radius); ny++) {
+                for (var nx = Math.max(0, x - radius); nx <= Math.min(W - 1, x + radius); nx++) {
+                  if (nx === x && ny === y) continue;
+                  var ni = (ny * W + nx) * 4;
+                  if (d[ni+3] === 0) continue;
+                  opaque++;
+                  if (!isSimilarToBackgroundAt(ni, true)) different++;
+                }
+              }
+              return opaque > 0 && different >= 2;
+            }
+            function isProtectedInternalArtwork(x, y, i){
+              if (!edgeOnlyColor) return false;
+              if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return false;
+              var lum = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+              // Preto/cinza escuro interno é sempre tratado como detalhe de arte quando há
+              // contraste ao redor. Assim o fundo preto externo sai, mas cabelo/olhos/linhas ficam.
+              if (lum < 115 && hasArtworkNeighbor(x, y)) return true;
+              // Também protege pixels da cor do fundo que estejam misturados dentro da arte.
+              if (hasArtworkNeighbor(x, y) && lum < bgLum + 35) return true;
+              return false;
+            }
 
             var visited = new Uint8Array(W * H);
             var stack = [];
@@ -757,10 +798,10 @@
               var i = p * 4;
               if (d[i+3] === 0) { visited[p] = 1; return; }
               var pr = d[i], pgc = d[i+1], pbc = d[i+2];
-              // No modo colorido, NÃO existe remoção global de preto.
-              // O preto interno é preservado pela regra principal: só removemos pixels da cor escolhida
-              // que estejam conectados às bordas do arquivo/corte.
               if (edgeOnlyColor) {
+                // No modo colorido, NÃO existe remoção global de preto nem de cores internas.
+                // Remove só o componente externo conectado às bordas, preservando detalhes internos.
+                if (isProtectedInternalArtwork(x, y, i)) return;
                 var maxCh = Math.max(Math.abs(pr-br), Math.abs(pgc-bg), Math.abs(pbc-bb));
                 if (maxCh > tol) return;
               }
@@ -775,13 +816,19 @@
             while (stack.length) {
               var cy = stack.pop(), cx = stack.pop();
               var ci = (cy * W + cx) * 4;
+              if (edgeOnlyColor && isProtectedInternalArtwork(cx, cy, ci)) continue;
               d[ci+3] = 0;
               tryPush(cx+1, cy); tryPush(cx-1, cy);
               tryPush(cx, cy+1); tryPush(cx, cy-1);
+              if (edgeOnlyColor) {
+                tryPush(cx+1, cy+1); tryPush(cx-1, cy-1);
+                tryPush(cx+1, cy-1); tryPush(cx-1, cy+1);
+              }
             }
             ctx.putImageData(img, 0, 0);
             return canvas;
           }
+          window.__DTF_REMOVE_BG_BY_EDGES = removeBackgroundByEdges;
 
           overlay.querySelector('#dtf-upcrop-ok').onclick = function(){
             var sx = Math.round(rect.x / scale);
@@ -793,7 +840,7 @@
             out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
             if (shirtMode === 'white' || shirtMode === 'black' || shirtMode === 'color') {
               try {
-                removeBackgroundByEdges(out, shirtMode, window.__DTF_SHIRT_HEX);
+                removeBackgroundByEdges(out, shirtMode, window.__DTF_SHIRT_HEX || shirtHex);
                 window.__DTF_HAS_TRANSPARENCY = true;
               } catch(e){}
             }
