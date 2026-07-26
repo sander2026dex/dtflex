@@ -729,7 +729,7 @@
             else if (mode === 'color' && hex) {
               var h = hex.replace('#',''); if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
               br = parseInt(h.substr(0,2),16); bg = parseInt(h.substr(2,2),16); bb = parseInt(h.substr(4,2),16);
-              tol = 42;
+              tol = 32;
               protectDark = true;
             }
             else {
@@ -755,10 +755,14 @@
               var i = p * 4;
               if (d[i+3] === 0) { visited[p] = 1; return; }
               var pr = d[i], pgc = d[i+1], pbc = d[i+2];
-              // Camisa colorida: nunca remove pixel escuro (preto, olhos, traços).
+              // Camisa colorida: preserva qualquer pixel que não seja quase idêntico ao fundo
+              // (protege preto, olhos, traços e qualquer cor da arte).
               if (protectDark) {
                 var lum = 0.299*pr + 0.587*pgc + 0.114*pbc;
-                if (lum < 80) return;
+                if (lum < 110) return;
+                // se o pixel diverge muito do fundo em qualquer canal, é arte — não remove
+                var maxCh = Math.max(Math.abs(pr-br), Math.abs(pgc-bg), Math.abs(pbc-bb));
+                if (maxCh > 40) return;
               }
               var dr = pr - br, dgv = pgc - bg, dbv = pbc - bb;
               if (dr*dr + dgv*dgv + dbv*dbv <= tol2) {
