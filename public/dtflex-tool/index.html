@@ -688,17 +688,8 @@
             overlay.remove(); onConfirm(null, null);
           };
 
-          // Destino da impressão: 'white' | 'black' | 'color' | ''
+          // Destino da impressão: 'white' | 'black' | ''
           var shirtMode = '';
-          var shirtColorHex = '#1e40af';
-          var colorInput = overlay.querySelector('#dtf-shirt-color');
-          if (colorInput) {
-            colorInput.addEventListener('input', function(){
-              shirtColorHex = colorInput.value || '#1e40af';
-              var btn = overlay.querySelector('.dtf-shirt[data-shirt="color"]');
-              if (btn) btn.style.background = shirtColorHex;
-            });
-          }
           overlay.querySelectorAll('.dtf-shirt').forEach(function(b){
             b.addEventListener('click', function(ev){
               ev.preventDefault();
@@ -709,7 +700,6 @@
               b.style.outline = '3px solid #22c55e';
               b.style.transform = 'scale(1.05)';
               window.__DTF_SHIRT_COLOR = shirtMode;
-              if (shirtMode === 'color') window.__DTF_SHIRT_HEX = shirtColorHex;
             });
           });
 
