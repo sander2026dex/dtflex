@@ -693,10 +693,20 @@
             overlay.remove(); onConfirm(null, null);
           };
 
-          // Destino da impressão: 'white' (camisa branca), 'black' (camisa preta) ou '' (nenhuma)
+          // Destino da impressão: 'white' | 'black' | 'color' | ''
           var shirtMode = '';
+          var shirtColorHex = '#1e40af';
+          var colorInput = overlay.querySelector('#dtf-shirt-color');
+          if (colorInput) {
+            colorInput.addEventListener('input', function(){
+              shirtColorHex = colorInput.value || '#1e40af';
+              var btn = overlay.querySelector('.dtf-shirt[data-shirt="color"]');
+              if (btn) btn.style.background = shirtColorHex;
+            });
+          }
           overlay.querySelectorAll('.dtf-shirt').forEach(function(b){
-            b.addEventListener('click', function(){
+            b.addEventListener('click', function(ev){
+              ev.preventDefault();
               shirtMode = b.dataset.shirt || '';
               overlay.querySelectorAll('.dtf-shirt').forEach(function(o){
                 o.style.outline = ''; o.style.transform = '';
@@ -704,37 +714,45 @@
               b.style.outline = '3px solid #22c55e';
               b.style.transform = 'scale(1.05)';
               window.__DTF_SHIRT_COLOR = shirtMode;
+              if (shirtMode === 'color') window.__DTF_SHIRT_HEX = shirtColorHex;
             });
           });
 
-          // Flood fill a partir das bordas: tudo conectado às bordas dentro da
-          // tolerância vira transparente. Preto interno da arte é preservado
-          // porque não está conectado à borda.
-          // mode: 'white' remove branco/claro; 'black' remove preto/escuro.
-          function removeBackgroundByEdges(canvas, mode){
+          function hexToRgb(hex){
+            var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+            if (!m) return { r: 30, g: 64, b: 175 };
+            return { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) };
+          }
+
+          // Flood fill APENAS a partir das bordas: preserva integridade da arte.
+          // Nunca apaga pixel interno mesmo que tenha a mesma cor do fundo,
+          // porque só remove o que está conectado às bordas.
+          function removeBackgroundByEdges(canvas, mode, hex){
             var ctx = canvas.getContext('2d');
             var W = canvas.width, H = canvas.height;
             var img = ctx.getImageData(0, 0, W, H);
             var d = img.data;
-            // Amostra pixels da borda para estimar cor média do fundo.
-            var sr = 0, sg = 0, sb = 0, n = 0;
-            function sample(x, y){
-              var i = (y * W + x) * 4;
-              if (d[i+3] === 0) return;
-              sr += d[i]; sg += d[i+1]; sb += d[i+2]; n++;
+            var br, bg, bb, tol;
+            if (mode === 'white') { br = 255; bg = 255; bb = 255; tol = 55; }
+            else if (mode === 'black') { br = 0; bg = 0; bb = 0; tol = 50; }
+            else if (mode === 'color') {
+              var rgb = hexToRgb(hex);
+              br = rgb.r; bg = rgb.g; bb = rgb.b; tol = 55;
+            } else {
+              // amostragem da borda como fallback
+              var sr = 0, sg = 0, sbb = 0, n = 0;
+              function sample(x, y){
+                var i = (y * W + x) * 4;
+                if (d[i+3] === 0) return;
+                sr += d[i]; sg += d[i+1]; sbb += d[i+2]; n++;
+              }
+              for (var xx = 0; xx < W; xx++) { sample(xx, 0); sample(xx, H-1); }
+              for (var yy = 0; yy < H; yy++) { sample(0, yy); sample(W-1, yy); }
+              if (n === 0) return canvas;
+              br = sr/n; bg = sg/n; bb = sbb/n; tol = 45;
             }
-            for (var x = 0; x < W; x++) { sample(x, 0); sample(x, H-1); }
-            for (var y = 0; y < H; y++) { sample(0, y); sample(W-1, y); }
-            if (n === 0) return canvas;
-            var br = sr/n, bg = sg/n, bb = sb/n;
-            // Se o modo pedido não bate com a cor média da borda, avisa mas
-            // ainda respeita a intenção (usa referência do modo escolhido).
-            if (mode === 'white') { br = 255; bg = 255; bb = 255; }
-            else if (mode === 'black') { br = 0; bg = 0; bb = 0; }
-            var tol = (mode === 'black') ? 55 : 60;
             var tol2 = tol * tol * 3;
 
-            // BFS flood fill a partir de todos os pixels de borda que casam.
             var visited = new Uint8Array(W * H);
             var stack = [];
             function tryPush(x, y){
@@ -743,8 +761,8 @@
               if (visited[p]) return;
               var i = p * 4;
               if (d[i+3] === 0) { visited[p] = 1; return; }
-              var dr = d[i] - br, dg = d[i+1] - bg, db = d[i+2] - bb;
-              if (dr*dr + dg*dg + db*db <= tol2) {
+              var dr = d[i] - br, dgv = d[i+1] - bg, dbv = d[i+2] - bb;
+              if (dr*dr + dgv*dgv + dbv*dbv <= tol2) {
                 visited[p] = 1;
                 stack.push(x, y);
               }
@@ -770,12 +788,9 @@
             var out = document.createElement('canvas');
             out.width = sw; out.height = sh;
             out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
-            // Novo fluxo: separa FUNDO (por conectividade a partir das bordas)
-            // de ARTE — não remove pixels só por cor. O preto interno da arte
-            // é sempre preservado porque não está conectado à borda.
-            if (shirtMode === 'white' || shirtMode === 'black') {
+            if (shirtMode === 'white' || shirtMode === 'black' || shirtMode === 'color') {
               try {
-                removeBackgroundByEdges(out, shirtMode);
+                removeBackgroundByEdges(out, shirtMode, shirtColorHex);
                 window.__DTF_HAS_TRANSPARENCY = true;
               } catch(e){}
             }
