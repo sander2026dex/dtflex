@@ -723,14 +723,16 @@
             var img = ctx.getImageData(0, 0, W, H);
             var d = img.data;
             var br, bg, bb, tol;
-            var protectDark = false; // protege pretos/olhos/traços em camisas coloridas
+            var edgeOnlyColor = false;
             if (mode === 'white') { br = 255; bg = 255; bb = 255; tol = 55; }
             else if (mode === 'black') { br = 0; bg = 0; bb = 0; tol = 50; }
             else if (mode === 'color' && hex) {
               var h = hex.replace('#',''); if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
               br = parseInt(h.substr(0,2),16); bg = parseInt(h.substr(2,2),16); bb = parseInt(h.substr(4,2),16);
-              tol = 32;
-              protectDark = true;
+              // Camisa colorida: remove QUALQUER cor escolhida só quando ela está ligada às bordas.
+              // Isso permite remover fundo preto externo, mas preserva preto/cor interna isolada na arte.
+              tol = 26;
+              edgeOnlyColor = true;
             }
             else {
               var sr = 0, sg = 0, sbb = 0, n = 0;
@@ -755,14 +757,12 @@
               var i = p * 4;
               if (d[i+3] === 0) { visited[p] = 1; return; }
               var pr = d[i], pgc = d[i+1], pbc = d[i+2];
-              // Camisa colorida: preserva qualquer pixel que não seja quase idêntico ao fundo
-              // (protege preto, olhos, traços e qualquer cor da arte).
-              if (protectDark) {
-                var lum = 0.299*pr + 0.587*pgc + 0.114*pbc;
-                if (lum < 110) return;
-                // se o pixel diverge muito do fundo em qualquer canal, é arte — não remove
+              // No modo colorido, NÃO existe remoção global de preto.
+              // O preto interno é preservado pela regra principal: só removemos pixels da cor escolhida
+              // que estejam conectados às bordas do arquivo/corte.
+              if (edgeOnlyColor) {
                 var maxCh = Math.max(Math.abs(pr-br), Math.abs(pgc-bg), Math.abs(pbc-bb));
-                if (maxCh > 40) return;
+                if (maxCh > tol) return;
               }
               var dr = pr - br, dgv = pgc - bg, dbv = pbc - bb;
               if (dr*dr + dgv*dgv + dbv*dbv <= tol2) {
