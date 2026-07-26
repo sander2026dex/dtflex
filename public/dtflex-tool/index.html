@@ -690,8 +690,16 @@
             overlay.remove(); onConfirm(null, null);
           };
 
-          // Destino da impressão: 'white' | 'black' | ''
+          // Destino da impressão: 'white' | 'black' | 'color' | ''
           var shirtMode = '';
+          var shirtHex = '#ff0000';
+          var colorPicker = overlay.querySelector('#dtf-shirt-color');
+          if (colorPicker) {
+            colorPicker.addEventListener('input', function(){
+              shirtHex = colorPicker.value;
+              window.__DTF_SHIRT_HEX = shirtHex;
+            });
+          }
           overlay.querySelectorAll('.dtf-shirt').forEach(function(b){
             b.addEventListener('click', function(ev){
               ev.preventDefault();
@@ -702,6 +710,7 @@
               b.style.outline = '3px solid #22c55e';
               b.style.transform = 'scale(1.05)';
               window.__DTF_SHIRT_COLOR = shirtMode;
+              if (colorPicker) colorPicker.style.display = (shirtMode === 'color') ? 'inline-block' : 'none';
             });
           });
 
