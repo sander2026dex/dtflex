@@ -764,9 +764,9 @@
             var out = document.createElement('canvas');
             out.width = sw; out.height = sh;
             out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
-            if (shirtMode === 'white' || shirtMode === 'black' || shirtMode === 'color') {
+            if (shirtMode === 'white' || shirtMode === 'black') {
               try {
-                removeBackgroundByEdges(out, shirtMode, shirtColorHex);
+                removeBackgroundByEdges(out, shirtMode);
                 window.__DTF_HAS_TRANSPARENCY = true;
               } catch(e){}
             }
