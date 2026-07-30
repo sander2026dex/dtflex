@@ -559,14 +559,30 @@
             + '  <button data-ar="A3"   class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#f59e0b;color:#1a1a1a;font-weight:700;cursor:pointer;">A3</button>'
             + '</div>'
             + '<div id="dtf-upcrop-stage" style="position:relative;background:#222;border:1px solid #444;max-width:90vw;max-height:60vh;overflow:hidden;"></div>'
-            + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font:600 12px system-ui;color:#fff;align-items:center;max-width:760px;">'
-            + '  <span style="opacity:.85;">Cor da camiseta (preset de tecido) — remove só o fundo conectado às bordas, preserva a arte:</span>'
-            + '  <button data-shirt=""      class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#0ea5e9;color:#fff;font-weight:700;cursor:pointer;">Nenhuma</button>'
-            + '  <button data-shirt="white" class="dtf-shirt" title="Camisa branca — remove fundo branco" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#FFFFFF;color:#111;font-weight:600;cursor:pointer;">Camisa Branca</button>'
-            + '  <button data-shirt="black" class="dtf-shirt" title="Camisa preta — remove fundo escuro" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#000000;color:#fff;font-weight:600;cursor:pointer;">Camisa Preta</button>'
-            + '  <button data-shirt="color" class="dtf-shirt" title="Camisa colorida — escolha a cor do tecido" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:linear-gradient(90deg,#ef4444,#f59e0b,#22c55e,#3b82f6,#a855f7);color:#fff;font-weight:600;cursor:pointer;">Camisa Colorida</button>'
-            + '  <input id="dtf-shirt-color" type="color" value="#ff0000" style="width:38px;height:32px;border:1px solid #888;border-radius:6px;background:#222;cursor:pointer;display:none;" title="Cor da camiseta" />'
+            + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font:600 12px system-ui;color:#fff;align-items:center;max-width:820px;">'
+            + '  <span style="opacity:.85;width:100%;text-align:center;">Cor da camiseta — usada apenas na retícula e no preview. Nunca define o que é removido.</span>'
+            + '  <button data-hex="#000000" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#000;color:#fff;font-weight:600;cursor:pointer;">Preto</button>'
+            + '  <button data-hex="#FFFFFF" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff;color:#111;font-weight:600;cursor:pointer;">Branco</button>'
+            + '  <button data-hex="#DC2626" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#DC2626;color:#fff;font-weight:600;cursor:pointer;">Vermelho</button>'
+            + '  <button data-hex="#1D4ED8" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#1D4ED8;color:#fff;font-weight:600;cursor:pointer;">Azul</button>'
+            + '  <button data-hex="#15803D" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#15803D;color:#fff;font-weight:600;cursor:pointer;">Verde</button>'
+            + '  <button data-hex="#FACC15" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#FACC15;color:#111;font-weight:600;cursor:pointer;">Amarelo</button>'
+            + '  <button data-hex="#EA580C" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#EA580C;color:#fff;font-weight:600;cursor:pointer;">Laranja</button>'
+            + '  <button data-hex="#EC4899" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#EC4899;color:#fff;font-weight:600;cursor:pointer;">Rosa</button>'
+            + '  <button data-hex="#7C3AED" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#7C3AED;color:#fff;font-weight:600;cursor:pointer;">Roxo</button>'
+            + '  <button data-hex="#6B7280" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#6B7280;color:#fff;font-weight:600;cursor:pointer;">Cinza</button>'
+            + '  <button data-hex="#78350F" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#78350F;color:#fff;font-weight:600;cursor:pointer;">Marrom</button>'
+            + '  <input id="dtf-shirt-color" type="color" value="#ff0000" style="width:38px;height:32px;border:1px solid #888;border-radius:6px;background:#222;cursor:pointer;" title="Cor personalizada" />'
             + '</div>'
+            + '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;font:600 12px system-ui;color:#fff;max-width:820px;">'
+            + '  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input id="dtf-rmbg" type="checkbox" checked style="width:16px;height:16px;" /> Remover fundo (só o conectado às bordas)</label>'
+            + '  <span style="opacity:.85;">Tamanho (300 DPI):</span>'
+            + '  <label style="display:flex;align-items:center;gap:4px;">L <input id="dtf-size-w" type="number" min="1" step="0.1" style="width:70px;padding:4px;border-radius:5px;border:1px solid #888;background:#111;color:#fff;" /> cm</label>'
+            + '  <label style="display:flex;align-items:center;gap:4px;">A <input id="dtf-size-h" type="number" min="1" step="0.1" style="width:70px;padding:4px;border-radius:5px;border:1px solid #888;background:#111;color:#fff;" /> cm</label>'
+            + '  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input id="dtf-size-lock" type="checkbox" checked style="width:16px;height:16px;" /> manter proporção</label>'
+            + '  <span id="dtf-size-px" style="opacity:.7;"></span>'
+            + '</div>'
+
             + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">'
             + '  <button id="dtf-upcrop-reset" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Selecionar tudo</button>'
             + '  <button id="dtf-upcrop-skip"  style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Usar imagem original</button>'
@@ -690,145 +706,141 @@
             overlay.remove(); onConfirm(null, null);
           };
 
-          // Destino da impressão: 'white' | 'black' | 'color' | ''
-          var shirtMode = '';
-          var shirtHex = '#ff0000';
+          // ------------------------------------------------------------------
+          // Cor da camiseta: SOMENTE preview + parâmetro de retícula.
+          // Nunca é usada como critério de remoção de fundo.
+          // ------------------------------------------------------------------
+          var shirtHex = '#000000';
           window.__DTF_SHIRT_HEX = shirtHex;
           var colorPicker = overlay.querySelector('#dtf-shirt-color');
-          if (colorPicker) {
-            colorPicker.addEventListener('input', function(){
-              shirtHex = colorPicker.value;
-              window.__DTF_SHIRT_HEX = shirtHex;
-            });
+
+          function applyShirtPreview(hex){
+            shirtHex = hex;
+            window.__DTF_SHIRT_HEX = hex;
+            var lum = (function(){
+              var h = hex.replace('#',''); if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+              return parseInt(h.substr(0,2),16)*0.299 + parseInt(h.substr(2,2),16)*0.587 + parseInt(h.substr(4,2),16)*0.114;
+            })();
+            // Simulação da camisa: a arte aparece sobre a cor escolhida.
+            window.__DTF_SHIRT_COLOR = lum < 60 ? 'black' : (lum > 200 ? 'white' : 'colorida');
+            stage.style.background = hex;
+            preview.style.background = hex;
           }
           overlay.querySelectorAll('.dtf-shirt').forEach(function(b){
             b.addEventListener('click', function(ev){
               ev.preventDefault();
-              shirtMode = b.dataset.shirt || '';
-              overlay.querySelectorAll('.dtf-shirt').forEach(function(o){
-                o.style.outline = ''; o.style.transform = '';
-              });
+              overlay.querySelectorAll('.dtf-shirt').forEach(function(o){ o.style.outline = ''; o.style.transform = ''; });
               b.style.outline = '3px solid #22c55e';
               b.style.transform = 'scale(1.05)';
-              window.__DTF_SHIRT_COLOR = shirtMode;
-              window.__DTF_SHIRT_HEX = shirtHex;
-              if (colorPicker) colorPicker.style.display = (shirtMode === 'color') ? 'inline-block' : 'none';
+              applyShirtPreview(b.dataset.hex);
+              if (colorPicker) colorPicker.value = b.dataset.hex;
             });
           });
+          if (colorPicker) {
+            colorPicker.addEventListener('input', function(){
+              overlay.querySelectorAll('.dtf-shirt').forEach(function(o){ o.style.outline = ''; o.style.transform = ''; });
+              applyShirtPreview(colorPicker.value);
+            });
+          }
+          applyShirtPreview('#000000');
 
-          // Flood fill APENAS a partir das bordas: preserva integridade da arte.
-          // Nunca apaga pixel interno mesmo que tenha a mesma cor do fundo,
-          // porque só remove o que está conectado às bordas.
-          function removeBackgroundByEdges(canvas, mode, hex){
+          // ------------------------------------------------------------------
+          // Painel de tamanho em cm, sempre 300 DPI (px = cm / 2.54 * 300).
+          // ------------------------------------------------------------------
+          var DPI = 300;
+          var inW = overlay.querySelector('#dtf-size-w');
+          var inH = overlay.querySelector('#dtf-size-h');
+          var lockEl = overlay.querySelector('#dtf-size-lock');
+          var pxLabel = overlay.querySelector('#dtf-size-px');
+          function cmToPx(cm){ return Math.max(1, Math.round(cm / 2.54 * DPI)); }
+          function currentAR(){ return (rect.w / rect.h) || (bitmap.width / bitmap.height); }
+          function syncPxLabel(){
+            var w = parseFloat(inW.value), h = parseFloat(inH.value);
+            if (!(w > 0) || !(h > 0)) { pxLabel.textContent = 'tamanho original • 300 DPI'; return; }
+            pxLabel.textContent = cmToPx(w) + ' x ' + cmToPx(h) + ' px @ 300 DPI';
+          }
+          inW.addEventListener('input', function(){
+            if (lockEl.checked && parseFloat(inW.value) > 0) inH.value = (parseFloat(inW.value) / currentAR()).toFixed(1);
+            syncPxLabel();
+          });
+          inH.addEventListener('input', function(){
+            if (lockEl.checked && parseFloat(inH.value) > 0) inW.value = (parseFloat(inH.value) * currentAR()).toFixed(1);
+            syncPxLabel();
+          });
+          syncPxLabel();
+
+          // ------------------------------------------------------------------
+          // SEGMENTAÇÃO DE FUNDO POR CONECTIVIDADE COM AS BORDAS.
+          // Não existe chroma key: preto, branco, azul ou qualquer cor interna
+          // (olhos, boca, dentes, cabelo, óculos, correntes, contornos, sombras)
+          // é preservado porque não é alcançável a partir da borda da imagem.
+          // O crescimento para em qualquer fronteira de contraste (borda de arte).
+          // ------------------------------------------------------------------
+          function removeBackgroundAuto(canvas){
             var ctx = canvas.getContext('2d');
             var W = canvas.width, H = canvas.height;
             var img = ctx.getImageData(0, 0, W, H);
             var d = img.data;
-            var br, bg, bb, tol;
-            var edgeOnlyColor = false;
-            if (mode === 'white') { br = 255; bg = 255; bb = 255; tol = 55; }
-            else if (mode === 'black') { br = 0; bg = 0; bb = 0; tol = 50; }
-            else if (mode === 'color' && hex) {
-              var h = hex.replace('#',''); if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
-              br = parseInt(h.substr(0,2),16); bg = parseInt(h.substr(2,2),16); bb = parseInt(h.substr(4,2),16);
-              // Camisa colorida: remove somente o FUNDO EXTERNO da cor escolhida.
-              // Cabelo, olhos, acessórios, traços pretos e qualquer detalhe interno ficam na arte
-              // porque o preenchimento só nasce nas bordas e para em pixels com detalhe/contraste.
-              tol = 24;
-              edgeOnlyColor = true;
-            }
-            else {
-              var sr = 0, sg = 0, sbb = 0, n = 0;
-              function sample(x, y){
-                var i = (y * W + x) * 4;
-                if (d[i+3] === 0) return;
-                sr += d[i]; sg += d[i+1]; sbb += d[i+2]; n++;
-              }
-              for (var xx = 0; xx < W; xx++) { sample(xx, 0); sample(xx, H-1); }
-              for (var yy = 0; yy < H; yy++) { sample(0, yy); sample(W-1, yy); }
-              if (n === 0) return canvas;
-              br = sr/n; bg = sg/n; bb = sbb/n; tol = 45;
-            }
-            var tol2 = tol * tol * 3;
-            var bgLum = br * 0.299 + bg * 0.587 + bb * 0.114;
-            var darkBackground = bgLum < 95;
-            function isSimilarToBackgroundAt(i, loose){
-              var pr = d[i], pgc = d[i+1], pbc = d[i+2];
-              var extra = loose ? 8 : 0;
-              var maxCh = Math.max(Math.abs(pr-br), Math.abs(pgc-bg), Math.abs(pbc-bb));
-              if (maxCh > tol + extra) return false;
-              var dr = pr - br, dgv = pgc - bg, dbv = pbc - bb;
-              return dr*dr + dgv*dgv + dbv*dbv <= (tol + extra) * (tol + extra) * 3;
-            }
-            function hasArtworkNeighbor(x, y){
-              // Detecta fronteira de arte perto do pixel. Em camisa colorida isso impede
-              // que o flood-fill invada cabelo/olhos/contornos pretos conectados por engano.
-              var radius = 2;
-              var different = 0;
-              var opaque = 0;
-              for (var ny = Math.max(0, y - radius); ny <= Math.min(H - 1, y + radius); ny++) {
-                for (var nx = Math.max(0, x - radius); nx <= Math.min(W - 1, x + radius); nx++) {
-                  if (nx === x && ny === y) continue;
-                  var ni = (ny * W + nx) * 4;
-                  if (d[ni+3] === 0) continue;
-                  opaque++;
-                  if (!isSimilarToBackgroundAt(ni, true)) different++;
-                }
-              }
-              return opaque > 0 && different >= 2;
-            }
-            function isProtectedInternalArtwork(x, y, i){
-              if (!edgeOnlyColor) return false;
-              if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return false;
-              var lum = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
-              // Preto/cinza escuro interno é sempre tratado como detalhe de arte quando há
-              // contraste ao redor. Assim o fundo preto externo sai, mas cabelo/olhos/linhas ficam.
-              if (lum < 115 && hasArtworkNeighbor(x, y)) return true;
-              // Também protege pixels da cor do fundo que estejam misturados dentro da arte.
-              if (hasArtworkNeighbor(x, y) && lum < bgLum + 35) return true;
-              return false;
+            var N = W * H;
+            var state = new Uint8Array(N); // 0 = não visto, 1 = fundo
+            var seedR = new Float32Array(N), seedG = new Float32Array(N), seedB = new Float32Array(N);
+
+            var LOCAL_TOL = 16;   // variação permitida entre pixels vizinhos (gradiente suave do fundo)
+            var GLOBAL_TOL = 52;  // desvio máximo em relação à cor de origem da região de fundo
+            var EDGE_STOP = 34;   // contraste que caracteriza fronteira da arte
+
+            function gradAt(x, y){
+              var i = (y * W + x) * 4;
+              var g = 0;
+              if (x + 1 < W) { var j = i + 4; g = Math.max(g, Math.abs(d[i]-d[j]), Math.abs(d[i+1]-d[j+1]), Math.abs(d[i+2]-d[j+2])); }
+              if (y + 1 < H) { var k = i + W * 4; g = Math.max(g, Math.abs(d[i]-d[k]), Math.abs(d[i+1]-d[k+1]), Math.abs(d[i+2]-d[k+2])); }
+              return g;
             }
 
-            var visited = new Uint8Array(W * H);
-            var stack = [];
-            function tryPush(x, y){
+            var qx = new Int32Array(N), qy = new Int32Array(N), head = 0, tail = 0;
+            function seed(x, y){
+              var p = y * W + x;
+              if (state[p]) return;
+              var i = p * 4;
+              state[p] = 1;
+              seedR[p] = d[i]; seedG[p] = d[i+1]; seedB[p] = d[i+2];
+              qx[tail] = x; qy[tail] = y; tail++;
+            }
+            for (var x0 = 0; x0 < W; x0++) { seed(x0, 0); seed(x0, H-1); }
+            for (var y0 = 0; y0 < H; y0++) { seed(0, y0); seed(W-1, y0); }
+
+            function visit(x, y, from){
               if (x < 0 || y < 0 || x >= W || y >= H) return;
               var p = y * W + x;
-              if (visited[p]) return;
+              if (state[p]) return;
               var i = p * 4;
-              if (d[i+3] === 0) { visited[p] = 1; return; }
-              var pr = d[i], pgc = d[i+1], pbc = d[i+2];
-              if (edgeOnlyColor) {
-                // No modo colorido, NÃO existe remoção global de preto nem de cores internas.
-                // Remove só o componente externo conectado às bordas, preservando detalhes internos.
-                if (isProtectedInternalArtwork(x, y, i)) return;
-                var maxCh = Math.max(Math.abs(pr-br), Math.abs(pgc-bg), Math.abs(pbc-bb));
-                if (maxCh > tol) return;
-              }
-              var dr = pr - br, dgv = pgc - bg, dbv = pbc - bb;
-              if (dr*dr + dgv*dgv + dbv*dbv <= tol2) {
-                visited[p] = 1;
-                stack.push(x, y);
-              }
+              if (d[i+3] === 0) { state[p] = 1; seedR[p] = seedR[from]; seedG[p] = seedG[from]; seedB[p] = seedB[from]; qx[tail]=x; qy[tail]=y; tail++; return; }
+              var fi = from * 4;
+              var localDiff = Math.max(Math.abs(d[i]-d[fi]), Math.abs(d[i+1]-d[fi+1]), Math.abs(d[i+2]-d[fi+2]));
+              if (localDiff > LOCAL_TOL) return;                      // fronteira de arte
+              if (gradAt(x, y) > EDGE_STOP) return;                   // contorno / detalhe
+              var gd = Math.max(Math.abs(d[i]-seedR[from]), Math.abs(d[i+1]-seedG[from]), Math.abs(d[i+2]-seedB[from]));
+              if (gd > GLOBAL_TOL) return;                            // deriva demais da cor de fundo
+              state[p] = 1;
+              seedR[p] = seedR[from]; seedG[p] = seedG[from]; seedB[p] = seedB[from];
+              qx[tail] = x; qy[tail] = y; tail++;
             }
-            for (var x2 = 0; x2 < W; x2++) { tryPush(x2, 0); tryPush(x2, H-1); }
-            for (var y2 = 0; y2 < H; y2++) { tryPush(0, y2); tryPush(W-1, y2); }
-            while (stack.length) {
-              var cy = stack.pop(), cx = stack.pop();
-              var ci = (cy * W + cx) * 4;
-              if (edgeOnlyColor && isProtectedInternalArtwork(cx, cy, ci)) continue;
-              d[ci+3] = 0;
-              tryPush(cx+1, cy); tryPush(cx-1, cy);
-              tryPush(cx, cy+1); tryPush(cx, cy-1);
-              if (edgeOnlyColor) {
-                tryPush(cx+1, cy+1); tryPush(cx-1, cy-1);
-                tryPush(cx+1, cy-1); tryPush(cx-1, cy+1);
-              }
+
+            while (head < tail) {
+              var cx = qx[head], cy = qy[head]; head++;
+              var cp = cy * W + cx;
+              visit(cx+1, cy, cp); visit(cx-1, cy, cp);
+              visit(cx, cy+1, cp); visit(cx, cy-1, cp);
             }
+
+            var removed = 0;
+            for (var p2 = 0; p2 < N; p2++) if (state[p2]) { d[p2*4+3] = 0; removed++; }
+            // Segurança: se quase tudo seria apagado, a detecção falhou — não altera nada.
+            if (removed > N * 0.97) return canvas;
             ctx.putImageData(img, 0, 0);
             return canvas;
           }
-          window.__DTF_REMOVE_BG_BY_EDGES = removeBackgroundByEdges;
+          window.__DTF_REMOVE_BG_BY_EDGES = function(canvas){ return removeBackgroundAuto(canvas); };
 
           overlay.querySelector('#dtf-upcrop-ok').onclick = function(){
             var sx = Math.round(rect.x / scale);
@@ -838,15 +850,32 @@
             var out = document.createElement('canvas');
             out.width = sw; out.height = sh;
             out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
-            if (shirtMode === 'white' || shirtMode === 'black' || shirtMode === 'color') {
-              try {
-                removeBackgroundByEdges(out, shirtMode, window.__DTF_SHIRT_HEX || shirtHex);
-                window.__DTF_HAS_TRANSPARENCY = true;
-              } catch(e){}
+
+            var rmBg = overlay.querySelector('#dtf-rmbg');
+            if (rmBg && rmBg.checked) {
+              try { removeBackgroundAuto(out); window.__DTF_HAS_TRANSPARENCY = true; } catch(e){}
             }
+
+            // Reamostra para o tamanho em cm escolhido (300 DPI reais).
+            var wCm = parseFloat(inW.value), hCm = parseFloat(inH.value);
+            if (wCm > 0 && hCm > 0) {
+              var tw = cmToPx(wCm), th = cmToPx(hCm);
+              var scaled = document.createElement('canvas');
+              scaled.width = tw; scaled.height = th;
+              var sctx = scaled.getContext('2d');
+              sctx.imageSmoothingEnabled = true;
+              sctx.imageSmoothingQuality = 'high';
+              sctx.drawImage(out, 0, 0, tw, th);
+              out = scaled;
+              window.__DTF_TARGET_PX = [tw, th];
+            } else {
+              window.__DTF_TARGET_PX = null;
+            }
+
             overlay.remove();
             onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
           };
+
 
         }
 
@@ -930,7 +959,7 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v18"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v30"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
