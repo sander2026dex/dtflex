@@ -724,6 +724,15 @@
             })();
             // Simulação da camisa: a arte aparece sobre a cor escolhida.
             window.__DTF_SHIRT_COLOR = lum < 60 ? 'black' : (lum > 200 ? 'white' : 'colorida');
+            // Camisa colorida: arquivo deve vir em PNG sem fundo. Nada é removido, só reticula.
+            var isColorida = window.__DTF_SHIRT_COLOR === 'colorida';
+            var msgEl = overlay.querySelector('#dtf-colorida-msg');
+            var rmbgEl = overlay.querySelector('#dtf-rmbg');
+            if (msgEl) msgEl.style.display = isColorida ? 'block' : 'none';
+            if (rmbgEl) {
+              if (isColorida) { rmbgEl.checked = false; rmbgEl.disabled = true; }
+              else { rmbgEl.disabled = false; }
+            }
             stage.style.background = hex;
             preview.style.background = hex;
           }
