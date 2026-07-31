@@ -35,6 +35,48 @@
         }, true);
         window.addEventListener('beforeprint', function () { document.body.style.visibility = 'hidden'; });
         window.addEventListener('afterprint', function () { document.body.style.visibility = ''; });
+        // ============================================================
+        // ZOOM MANUAL no preview principal (não altera o arquivo final)
+        // ============================================================
+        (function(){
+          var z = 1;
+          function stageCanvas(){
+            var best = null, area = 0;
+            document.querySelectorAll('canvas, #root img').forEach(function(el){
+              if (el.closest('#dtf-upcrop-stage')) return;
+              var r = el.getBoundingClientRect();
+              var a = r.width * r.height;
+              if (a > area) { area = a; best = el; }
+            });
+            return best;
+          }
+          function apply(){
+            var el = stageCanvas();
+            if (!el) return;
+            el.style.transformOrigin = 'center center';
+            el.style.transform = 'scale(' + z + ')';
+            var p = el.parentElement;
+            if (p) p.style.overflow = z > 1 ? 'auto' : '';
+            lbl.textContent = Math.round(z * 100) + '%';
+          }
+          var bar = document.createElement('div');
+          bar.style.cssText = 'position:fixed;left:12px;top:12px;z-index:99998;display:flex;align-items:center;gap:6px;background:rgba(10,12,16,.92);border:1px solid #334;border-radius:999px;padding:5px 8px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 4px 14px rgba(0,0,0,.5);';
+          function mk(t){ var b=document.createElement('button'); b.textContent=t; b.style.cssText='width:26px;height:26px;border-radius:999px;border:1px solid #445;background:#1b2230;color:#fff;font-weight:800;cursor:pointer;'; return b; }
+          var minus = mk('−'), plus = mk('+'), reset = mk('1x');
+          reset.style.width = '34px';
+          var lbl = document.createElement('span');
+          lbl.style.cssText = 'min-width:42px;text-align:center;';
+          lbl.textContent = '100%';
+          bar.appendChild(document.createTextNode('Zoom'));
+          bar.appendChild(minus); bar.appendChild(lbl); bar.appendChild(plus); bar.appendChild(reset);
+          minus.onclick = function(){ z = Math.max(0.25, +(z - 0.25).toFixed(2)); apply(); };
+          plus.onclick  = function(){ z = Math.min(6, +(z + 0.25).toFixed(2)); apply(); };
+          reset.onclick = function(){ z = 1; apply(); };
+          function mount(){ if (document.body) document.body.appendChild(bar); else setTimeout(mount, 200); }
+          mount();
+          setInterval(function(){ if (z !== 1) apply(); }, 800);
+        })();
+
       })();
     </script>
     <script>
@@ -574,7 +616,7 @@
             + '  <button data-hex="#78350F" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#78350F;color:#fff;font-weight:600;cursor:pointer;">Marrom</button>'
             + '  <input id="dtf-shirt-color" type="color" value="#ff0000" style="width:38px;height:32px;border:1px solid #888;border-radius:6px;background:#222;cursor:pointer;" title="Cor personalizada" />'
             + '</div>'
-            + '<div id="dtf-colorida-msg" style="display:none;max-width:820px;text-align:center;font:600 12px system-ui;color:#111;background:#fbbf24;border-radius:8px;padding:8px 12px;">⚠️ Camisas coloridas: envie o arquivo em PNG sem fundo. Nenhuma cor é removida (o preto é preservado) — a arte é apenas reticulada.</div>'
+            + '<div id="dtf-colorida-msg" style="display:none;max-width:820px;text-align:center;font:600 12px system-ui;color:#111;background:#fbbf24;border-radius:8px;padding:8px 12px;">⚠️ Camisas coloridas: envie o arquivo em PNG sem fundo. Nenhuma cor é removida (preto e branco são preservados) — as cores intermediárias são reticuladas conforme o tecido escolhido.</div>'
             + '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;font:600 12px system-ui;color:#fff;max-width:820px;">'
             + '  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input id="dtf-rmbg" type="checkbox" checked style="width:16px;height:16px;" /> Remover fundo (só o conectado às bordas)</label>'
             + '  <span style="opacity:.85;">Tamanho (300 DPI):</span>'
@@ -970,7 +1012,7 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v30"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v32"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
