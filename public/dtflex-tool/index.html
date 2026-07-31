@@ -862,7 +862,8 @@
             out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
 
             var rmBg = overlay.querySelector('#dtf-rmbg');
-            if (rmBg && rmBg.checked) {
+            var coloridaNow = window.__DTF_SHIRT_COLOR === 'colorida';
+            if (rmBg && rmBg.checked && !coloridaNow) {
               try { removeBackgroundAuto(out); window.__DTF_HAS_TRANSPARENCY = true; } catch(e){}
             }
 
