@@ -55,10 +55,25 @@
             if (!el) return;
             el.style.transformOrigin = 'center center';
             el.style.transform = 'scale(' + z + ')';
+            // Retículas nítidas: sem suavização ao ampliar
+            el.style.imageRendering = z > 1 ? 'pixelated' : '';
+            el.style.setProperty('image-rendering', z > 1 ? 'pixelated' : '', '');
+            if (z > 1) {
+              el.style.setProperty('image-rendering', '-moz-crisp-edges');
+              el.style.setProperty('image-rendering', 'crisp-edges');
+              el.style.setProperty('image-rendering', 'pixelated');
+            }
+            try {
+              if (el.tagName === 'CANVAS') {
+                var ctx = el.getContext('2d');
+                if (ctx) { ctx.imageSmoothingEnabled = false; ctx.imageSmoothingQuality = 'high'; }
+              }
+            } catch (_) {}
             var p = el.parentElement;
             if (p) p.style.overflow = z > 1 ? 'auto' : '';
             lbl.textContent = Math.round(z * 100) + '%';
           }
+
           var bar = document.createElement('div');
           bar.style.cssText = 'position:fixed;left:12px;top:12px;z-index:99998;display:flex;align-items:center;gap:6px;background:rgba(10,12,16,.92);border:1px solid #334;border-radius:999px;padding:5px 8px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 4px 14px rgba(0,0,0,.5);';
           function mk(t){ var b=document.createElement('button'); b.textContent=t; b.style.cssText='width:26px;height:26px;border-radius:999px;border:1px solid #445;background:#1b2230;color:#fff;font-weight:800;cursor:pointer;'; return b; }
