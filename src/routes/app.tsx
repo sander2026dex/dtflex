@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, Wand2 } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft, Wand2, ChevronDown, ChevronUp } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,8 @@ function AppPage() {
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
   const [showVtracer, setShowVtracer] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   async function handleLogout() {
@@ -85,6 +87,17 @@ function AppPage() {
       .catch(() => {});
   }, [readSession]);
 
+
+  // Esconde os botões flutuantes enquanto o modal de recorte da ferramenta está aberto
+  useEffect(() => {
+    const id = setInterval(() => {
+      try {
+        const doc = iframeRef.current?.contentDocument;
+        setCropOpen(!!doc?.querySelector("#dtf-upcrop-stage"));
+      } catch {}
+    }, 600);
+    return () => clearInterval(id);
+  }, []);
 
   // Proteção anti-print: bloqueia PrintScreen, contexto, atalhos de captura
   // e esconde a tela quando o usuário tenta imprimir.
