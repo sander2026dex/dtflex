@@ -210,31 +210,47 @@ function AppPage() {
           background: "#0a0c10",
         }}
       />
-      {/* Botões flutuantes: ferramentas auxiliares */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-wrap items-center justify-end gap-2">
-        <Button
-          className="h-11 px-4 text-sm font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
-          onClick={() => setShowRemover(true)}
-        >
-          <Scissors className="h-5 w-5" />
-          Removedor de fundos
-        </Button>
-        <Button
-          className="h-11 px-4 text-sm font-semibold shadow-lg bg-[oklch(0.55_0.18_260)] hover:bg-[oklch(0.48_0.18_260)] text-white"
-          onClick={() => setShowVtracer(true)}
-        >
-          <Wand2 className="h-5 w-5" />
-          Vetorizar (VTracer)
-        </Button>
-        <DTFCalculatorDialog
-          trigger={
-            <Button variant="secondary" className="h-11 px-4 text-sm font-semibold shadow-lg">
-              <Calculator className="h-5 w-5" />
-              Calculadora DTF
-            </Button>
-          }
-        />
-      </div>
+      {/* Ferramentas auxiliares: recolhíveis e no canto inferior esquerdo,
+          escondidas enquanto o modal de recorte estiver aberto. */}
+      {!cropOpen && (
+        <div className="fixed bottom-4 left-4 z-50 flex flex-col items-start gap-2">
+          {toolsOpen && (
+            <div className="flex flex-col items-start gap-2">
+              <Button
+                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
+                onClick={() => setShowRemover(true)}
+              >
+                <Scissors className="h-4 w-4" />
+                Removedor de fundos
+              </Button>
+              <Button
+                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.55_0.18_260)] hover:bg-[oklch(0.48_0.18_260)] text-white"
+                onClick={() => setShowVtracer(true)}
+              >
+                <Wand2 className="h-4 w-4" />
+                Vetorizar (VTracer)
+              </Button>
+              <DTFCalculatorDialog
+                trigger={
+                  <Button variant="secondary" className="h-10 px-3 text-xs font-semibold shadow-lg">
+                    <Calculator className="h-4 w-4" />
+                    Calculadora DTF
+                  </Button>
+                }
+              />
+            </div>
+          )}
+          <Button
+            variant="secondary"
+            className="h-9 px-3 text-xs font-semibold shadow-lg"
+            onClick={() => setToolsOpen((v) => !v)}
+          >
+            {toolsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            Ferramentas
+          </Button>
+        </div>
+      )}
+
 
       {/* Overlay do Removedor de Fundos */}
       {showRemover && (
