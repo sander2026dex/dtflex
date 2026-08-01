@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Sparkles, Users, MessageCircle, Gift } from "lucide-react";
+import { ArrowUpRight, Users, MessageCircle, Gift } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { TrialSignupDialog } from "@/components/landing/TrialSignupDialog";
@@ -48,17 +48,6 @@ export function Header({ affiliateMode = false }: { affiliateMode?: boolean } = 
               <span className="hidden sm:inline">Entre no nosso grupo</span>
               <span className="sm:hidden">Grupo</span>
             </a>
-          </Button>
-          <Button
-            asChild
-            size="sm"
-            className="bg-[oklch(0.86_0.18_92)] text-black hover:bg-[oklch(0.80_0.18_92)] shadow-[0_0_18px_oklch(0.86_0.18_92/0.45)]"
-          >
-            <Link to="/pedido">
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">Pedir Halftone — R$ 5</span>
-              <span className="sm:hidden">R$ 5</span>
-            </Link>
           </Button>
           {!affiliateMode && (
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
