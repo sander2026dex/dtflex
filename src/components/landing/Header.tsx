@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Sparkles, Users, MessageCircle, Gift } from "lucide-react";
+import { ArrowUpRight, Users, MessageCircle, Gift } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { TrialSignupDialog } from "@/components/landing/TrialSignupDialog";
