@@ -6,6 +6,7 @@ import { Features } from "@/components/landing/Features";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { MarketingPitch } from "@/components/landing/MarketingPitch";
 import { Pricing } from "@/components/landing/Pricing";
+import { ShirtStudio } from "@/components/landing/ShirtStudio";
 import { SocialProof } from "@/components/landing/SocialProof";
 import { WhatsAppFloat } from "@/components/landing/WhatsAppFloat";
 
