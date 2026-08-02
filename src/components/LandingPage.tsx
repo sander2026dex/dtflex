@@ -38,6 +38,7 @@ export function LandingPage({
         <MarketingPitch />
         <Features />
         <SocialProof />
+        <ShirtStudio />
         <HowItWorks />
         <Pricing affiliateMode={affiliateMode} />
         <FAQ />
