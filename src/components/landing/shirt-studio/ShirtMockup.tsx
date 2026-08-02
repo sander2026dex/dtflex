@@ -48,7 +48,7 @@ export function ShirtMockup({ model, side, color }: Props) {
 
   return (
     <div
-      className="relative h-full w-full select-none"
+      className="relative h-full w-full select-none [isolation:isolate]"
       style={{ transform: flipped ? "scaleX(-1)" : undefined }}
     >
       <div className="absolute inset-0" style={maskStyle} />
