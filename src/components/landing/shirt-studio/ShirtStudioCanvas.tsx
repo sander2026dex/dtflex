@@ -118,7 +118,7 @@ export default function ShirtStudioCanvas() {
       const saved = statesRef.current[side];
       if (saved) {
         void canvas.loadFromJSON(saved).then((c) => {
-          c.getObjects().forEach((o) => applyClip(o, PRINT_AREAS[side]));
+          c.getObjects().forEach((o) => applyClip(o, AREAS[modelRef.current][side]));
           c.requestRenderAll();
           setHasArt(c.getObjects().length > 0);
         });
@@ -153,7 +153,7 @@ export default function ShirtStudioCanvas() {
       const url = URL.createObjectURL(file);
       try {
         const img = await fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" });
-        const a = PRINT_AREAS[sideRef.current];
+        const a = AREAS[modelRef.current][sideRef.current];
         const scale = Math.min(a.width / (img.width || 1), a.height / (img.height || 1)) * 0.9;
         img.set({
           originX: "center",
@@ -190,7 +190,7 @@ export default function ShirtStudioCanvas() {
     canvas.discardActiveObject();
     canvas.requestRenderAll();
 
-    const a = PRINT_AREAS[sideRef.current];
+    const a = AREAS[modelRef.current][sideRef.current];
     const watermark = new fabric.FabricText("DTFLEXPRO", {
       fontSize: Math.round(a.width / 7),
       fontFamily: "Inter, sans-serif",
@@ -237,7 +237,7 @@ export default function ShirtStudioCanvas() {
       >
         <div className="relative w-full max-w-[420px]" style={{ aspectRatio: "5 / 6" }}>
           <div className="absolute inset-0">
-            <ShirtSvg model={model} side={side} color={shirtColor} />
+            <ShirtMockup model={model} side={side} color={shirtColor} />
           </div>
           <div
             className="pointer-events-none absolute rounded-sm border border-dashed border-primary/50"
