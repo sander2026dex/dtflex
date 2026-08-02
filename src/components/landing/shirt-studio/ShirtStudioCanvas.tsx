@@ -79,8 +79,11 @@ export default function ShirtStudioCanvas() {
   const [studioBg, setStudioBg] = useState("#0e1116");
   const [hasArt, setHasArt] = useState(false);
   const sideRef = useRef<ShirtSide>(side);
+  const modelRef = useRef<ShirtModel>(model);
+  modelRef.current = model;
 
-  const area = PRINT_AREAS[side];
+  const area = AREAS[model][side];
+
 
   // init fabric
   useEffect(() => {
