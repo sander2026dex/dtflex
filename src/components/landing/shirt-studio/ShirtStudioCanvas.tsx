@@ -2,18 +2,43 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
 import { Download, Image as ImageIcon, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ShirtSvg, type ShirtModel, type ShirtSide } from "./ShirtSvg";
+import { ShirtMockup, type ShirtModel, type ShirtSide } from "./ShirtMockup";
 import { cn } from "@/lib/utils";
 
 const STAGE_W = 500;
 const STAGE_H = 600;
 
-const PRINT_AREAS: Record<ShirtSide, { left: number; top: number; width: number; height: number }> = {
-  frente: { left: 165, top: 155, width: 170, height: 230 },
-  costas: { left: 165, top: 135, width: 170, height: 260 },
-  "manga-esq": { left: 175, top: 200, width: 150, height: 190 },
-  "manga-dir": { left: 175, top: 200, width: 150, height: 190 },
+type Area = { left: number; top: number; width: number; height: number };
+
+const SLEEVE: Area = { left: 185, top: 205, width: 130, height: 150 };
+
+const AREAS: Record<ShirtModel, Record<ShirtSide, Area>> = {
+  careca: {
+    frente: { left: 152, top: 165, width: 196, height: 240 },
+    costas: { left: 152, top: 150, width: 196, height: 260 },
+    "manga-esq": SLEEVE,
+    "manga-dir": SLEEVE,
+  },
+  v: {
+    frente: { left: 152, top: 190, width: 196, height: 225 },
+    costas: { left: 152, top: 150, width: 196, height: 260 },
+    "manga-esq": SLEEVE,
+    "manga-dir": SLEEVE,
+  },
+  regata: {
+    frente: { left: 168, top: 165, width: 164, height: 245 },
+    costas: { left: 168, top: 155, width: 164, height: 255 },
+    "manga-esq": SLEEVE,
+    "manga-dir": SLEEVE,
+  },
+  polo: {
+    frente: { left: 155, top: 215, width: 190, height: 220 },
+    costas: { left: 152, top: 150, width: 196, height: 260 },
+    "manga-esq": SLEEVE,
+    "manga-dir": SLEEVE,
+  },
 };
+
 
 const MODELS: { id: ShirtModel; label: string }[] = [
   { id: "careca", label: "Gola Careca" },
@@ -54,8 +79,11 @@ export default function ShirtStudioCanvas() {
   const [studioBg, setStudioBg] = useState("#0e1116");
   const [hasArt, setHasArt] = useState(false);
   const sideRef = useRef<ShirtSide>(side);
+  const modelRef = useRef<ShirtModel>(model);
+  modelRef.current = model;
 
-  const area = PRINT_AREAS[side];
+  const area = AREAS[model][side];
+
 
   // init fabric
   useEffect(() => {
@@ -90,7 +118,7 @@ export default function ShirtStudioCanvas() {
       const saved = statesRef.current[side];
       if (saved) {
         void canvas.loadFromJSON(saved).then((c) => {
-          c.getObjects().forEach((o) => applyClip(o, PRINT_AREAS[side]));
+          c.getObjects().forEach((o) => applyClip(o, AREAS[modelRef.current][side]));
           c.requestRenderAll();
           setHasArt(c.getObjects().length > 0);
         });
@@ -125,7 +153,7 @@ export default function ShirtStudioCanvas() {
       const url = URL.createObjectURL(file);
       try {
         const img = await fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" });
-        const a = PRINT_AREAS[sideRef.current];
+        const a = AREAS[modelRef.current][sideRef.current];
         const scale = Math.min(a.width / (img.width || 1), a.height / (img.height || 1)) * 0.9;
         img.set({
           originX: "center",
@@ -162,7 +190,7 @@ export default function ShirtStudioCanvas() {
     canvas.discardActiveObject();
     canvas.requestRenderAll();
 
-    const a = PRINT_AREAS[sideRef.current];
+    const a = AREAS[modelRef.current][sideRef.current];
     const watermark = new fabric.FabricText("DTFLEXPRO", {
       fontSize: Math.round(a.width / 7),
       fontFamily: "Inter, sans-serif",
@@ -209,7 +237,7 @@ export default function ShirtStudioCanvas() {
       >
         <div className="relative w-full max-w-[420px]" style={{ aspectRatio: "5 / 6" }}>
           <div className="absolute inset-0">
-            <ShirtSvg model={model} side={side} color={shirtColor} />
+            <ShirtMockup model={model} side={side} color={shirtColor} />
           </div>
           <div
             className="pointer-events-none absolute rounded-sm border border-dashed border-primary/50"
