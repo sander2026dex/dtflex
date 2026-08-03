@@ -5,53 +5,23 @@ import { Button } from "@/components/ui/button";
 import { ShirtMockup, type ShirtModel, type ShirtSide } from "./ShirtMockup";
 import { cn } from "@/lib/utils";
 
+// A3 proportion (297 x 420mm)
 const STAGE_W = 500;
-const STAGE_H = 600;
-
-type Area = { left: number; top: number; width: number; height: number };
-
-const SLEEVE: Area = { left: 185, top: 205, width: 130, height: 150 };
-
-const AREAS: Record<ShirtModel, Record<ShirtSide, Area>> = {
-  careca: {
-    frente: { left: 152, top: 165, width: 196, height: 240 },
-    costas: { left: 152, top: 150, width: 196, height: 260 },
-    "manga-esq": SLEEVE,
-    "manga-dir": SLEEVE,
-  },
-  v: {
-    frente: { left: 152, top: 190, width: 196, height: 225 },
-    costas: { left: 152, top: 150, width: 196, height: 260 },
-    "manga-esq": SLEEVE,
-    "manga-dir": SLEEVE,
-  },
-  regata: {
-    frente: { left: 168, top: 165, width: 164, height: 245 },
-    costas: { left: 168, top: 155, width: 164, height: 255 },
-    "manga-esq": SLEEVE,
-    "manga-dir": SLEEVE,
-  },
-  polo: {
-    frente: { left: 155, top: 215, width: 190, height: 220 },
-    costas: { left: 152, top: 150, width: 196, height: 260 },
-    "manga-esq": SLEEVE,
-    "manga-dir": SLEEVE,
-  },
-};
-
+const STAGE_H = 707;
 
 const MODELS: { id: ShirtModel; label: string }[] = [
   { id: "careca", label: "Gola Careca" },
   { id: "v", label: "Gola V" },
   { id: "regata", label: "Regata" },
   { id: "polo", label: "Polo" },
+  { id: "manga-longa", label: "Manga Longa" },
 ];
 
 const SIDES: { id: ShirtSide; label: string }[] = [
   { id: "frente", label: "Frente" },
   { id: "costas", label: "Costas" },
-  { id: "manga-esq", label: "Manga Esq." },
-  { id: "manga-dir", label: "Manga Dir." },
+  { id: "lado-esq", label: "Lado Esq." },
+  { id: "lado-dir", label: "Lado Dir." },
 ];
 
 const SHIRT_COLORS = [
@@ -79,11 +49,6 @@ export default function ShirtStudioCanvas() {
   const [studioBg, setStudioBg] = useState("#0e1116");
   const [hasArt, setHasArt] = useState(false);
   const sideRef = useRef<ShirtSide>(side);
-  const modelRef = useRef<ShirtModel>(model);
-  modelRef.current = model;
-
-  const area = AREAS[model][side];
-
 
   // init fabric
   useEffect(() => {
@@ -118,7 +83,7 @@ export default function ShirtStudioCanvas() {
       const saved = statesRef.current[side];
       if (saved) {
         void canvas.loadFromJSON(saved).then((c) => {
-          c.getObjects().forEach((o) => applyClip(o, AREAS[modelRef.current][side]));
+          c.getObjects().forEach((o) => styleHandles(o));
           c.requestRenderAll();
           setHasArt(c.getObjects().length > 0);
         });
@@ -129,14 +94,7 @@ export default function ShirtStudioCanvas() {
     }
   }, [side]);
 
-  const applyClip = (obj: fabric.FabricObject, a: { left: number; top: number; width: number; height: number }) => {
-    obj.clipPath = new fabric.Rect({
-      left: a.left,
-      top: a.top,
-      width: a.width,
-      height: a.height,
-      absolutePositioned: true,
-    });
+  const styleHandles = (obj: fabric.FabricObject) => {
     obj.set({
       cornerColor: "#3b82f6",
       cornerStyle: "circle",
@@ -146,33 +104,33 @@ export default function ShirtStudioCanvas() {
     });
   };
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      const canvas = fabricRef.current;
-      if (!canvas) return;
-      const url = URL.createObjectURL(file);
-      try {
-        const img = await fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" });
-        const a = AREAS[modelRef.current][sideRef.current];
-        const scale = Math.min(a.width / (img.width || 1), a.height / (img.height || 1)) * 0.9;
-        img.set({
-          originX: "center",
-          originY: "center",
-          left: a.left + a.width / 2,
-          top: a.top + a.height / 2,
-          scaleX: scale,
-          scaleY: scale,
-        });
-        applyClip(img, a);
-        canvas.add(img);
-        canvas.setActiveObject(img);
-        canvas.requestRenderAll();
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    },
-    [],
-  );
+  const handleFile = useCallback(async (file: File) => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" });
+      // free placement: no clip, just fit comfortably inside the stage
+      const scale = Math.min(
+        (STAGE_W * 0.5) / (img.width || 1),
+        (STAGE_H * 0.5) / (img.height || 1),
+      );
+      img.set({
+        originX: "center",
+        originY: "center",
+        left: STAGE_W / 2,
+        top: STAGE_H / 2,
+        scaleX: scale,
+        scaleY: scale,
+      });
+      styleHandles(img);
+      canvas.add(img);
+      canvas.setActiveObject(img);
+      canvas.requestRenderAll();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }, []);
 
   const removeActive = () => {
     const canvas = fabricRef.current;
@@ -190,9 +148,8 @@ export default function ShirtStudioCanvas() {
     canvas.discardActiveObject();
     canvas.requestRenderAll();
 
-    const a = AREAS[modelRef.current][sideRef.current];
     const watermark = new fabric.FabricText("DTFLEXPRO", {
-      fontSize: Math.round(a.width / 7),
+      fontSize: Math.round(STAGE_W / 7),
       fontFamily: "Inter, sans-serif",
       fontWeight: "700",
       fill: "rgba(255,255,255,0.28)",
@@ -201,8 +158,8 @@ export default function ShirtStudioCanvas() {
       angle: -30,
       originX: "center",
       originY: "center",
-      left: a.left + a.width / 2,
-      top: a.top + a.height / 2,
+      left: STAGE_W / 2,
+      top: STAGE_H / 2,
       selectable: false,
       evented: false,
     });
@@ -212,10 +169,10 @@ export default function ShirtStudioCanvas() {
     const dataUrl = canvas.toDataURL({
       format: "png",
       multiplier: 4,
-      left: a.left,
-      top: a.top,
-      width: a.width,
-      height: a.height,
+      left: 0,
+      top: 0,
+      width: STAGE_W,
+      height: STAGE_H,
       enableRetinaScaling: false,
     });
 
@@ -224,30 +181,21 @@ export default function ShirtStudioCanvas() {
 
     const link = document.createElement("a");
     link.href = dataUrl;
-    link.download = `dtflexpro-${model}-${sideRef.current}.png`;
+    link.download = `dtflexpro-${model}-${sideRef.current}-a3.png`;
     link.click();
   };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-      {/* Preview */}
+      {/* Preview — A3 */}
       <div
         className="relative flex items-center justify-center rounded-3xl border border-border p-6 shadow-[var(--shadow-panel)] transition-colors"
         style={{ backgroundColor: studioBg }}
       >
-        <div className="relative w-full max-w-[420px]" style={{ aspectRatio: "5 / 6" }}>
+        <div className="relative w-full max-w-[420px]" style={{ aspectRatio: "297 / 420" }}>
           <div className="absolute inset-0">
             <ShirtMockup model={model} side={side} color={shirtColor} />
           </div>
-          <div
-            className="pointer-events-none absolute rounded-sm border border-dashed border-primary/50"
-            style={{
-              left: `${(area.left / STAGE_W) * 100}%`,
-              top: `${(area.top / STAGE_H) * 100}%`,
-              width: `${(area.width / STAGE_W) * 100}%`,
-              height: `${(area.height / STAGE_H) * 100}%`,
-            }}
-          />
           <canvas
             ref={canvasElRef}
             width={STAGE_W}
@@ -370,12 +318,12 @@ export default function ShirtStudioCanvas() {
           </Button>
           <Button variant="default" className="w-full" onClick={() => void exportArt()} disabled={!hasArt}>
             <Download className="h-4 w-4" />
-            Salvar layout (PNG 4x)
+            Salvar layout A3 (PNG 4x)
           </Button>
           <p className="flex items-start gap-2 text-xs text-muted-foreground">
             <ImageIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Exportação em PNG transparente com escala 4x, pronta para ripagem DTF/sublimação. O arquivo final leva a
-            marca d'água DTFLEXPRO.
+            Posicione a arte livremente em qualquer ponto da camisa. Exportação em PNG transparente no formato A3 com
+            escala 4x e marca d'água DTFLEXPRO.
           </p>
         </div>
       </div>
