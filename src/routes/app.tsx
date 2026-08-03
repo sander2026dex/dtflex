@@ -246,6 +246,13 @@ function AppPage() {
                 <Wand2 className="h-4 w-4" />
                 Vetorizar (VTracer)
               </Button>
+              <Button
+                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.6_0.16_150)] hover:bg-[oklch(0.53_0.16_150)] text-white"
+                onClick={() => setShowStudio(true)}
+              >
+                <Shirt className="h-4 w-4" />
+                Crie seu mockup
+              </Button>
               <DTFCalculatorDialog
                 trigger={
                   <Button variant="secondary" className="h-10 px-3 text-xs font-semibold shadow-lg">
