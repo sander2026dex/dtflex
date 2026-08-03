@@ -72,6 +72,8 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
     canvas.on("object:added", sync);
     canvas.on("object:removed", sync);
     return () => {
+      window.removeEventListener("resize", recalc);
+      window.removeEventListener("scroll", recalc, true);
       void canvas.dispose();
       fabricRef.current = null;
     };
