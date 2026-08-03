@@ -247,23 +247,27 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
     canvas.discardActiveObject();
     canvas.requestRenderAll();
 
-    const watermark = new fabric.FabricText("DTFLEXPRO", {
-      fontSize: Math.round(STAGE_W / 7),
-      fontFamily: "Inter, sans-serif",
-      fontWeight: "700",
-      fill: "rgba(255,255,255,0.28)",
-      stroke: "rgba(0,0,0,0.18)",
-      strokeWidth: 0.5,
-      angle: -30,
-      originX: "center",
-      originY: "center",
-      left: STAGE_W / 2,
-      top: STAGE_H / 2,
-      selectable: false,
-      evented: false,
-    });
-    canvas.add(watermark);
-    canvas.requestRenderAll();
+    const wm = watermark
+      ? new fabric.FabricText("DTFLEXPRO", {
+          fontSize: Math.round(STAGE_W / 7),
+          fontFamily: "Inter, sans-serif",
+          fontWeight: "700",
+          fill: "rgba(255,255,255,0.28)",
+          stroke: "rgba(0,0,0,0.18)",
+          strokeWidth: 0.5,
+          angle: -30,
+          originX: "center",
+          originY: "center",
+          left: STAGE_W / 2,
+          top: STAGE_H / 2,
+          selectable: false,
+          evented: false,
+        })
+      : null;
+    if (wm) {
+      canvas.add(wm);
+      canvas.requestRenderAll();
+    }
 
     const dataUrl = canvas.toDataURL({
       format: "png",
@@ -275,8 +279,10 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
       enableRetinaScaling: false,
     });
 
-    canvas.remove(watermark);
-    canvas.requestRenderAll();
+    if (wm) {
+      canvas.remove(wm);
+      canvas.requestRenderAll();
+    }
 
     const link = document.createElement("a");
     link.href = dataUrl;
