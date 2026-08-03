@@ -4,20 +4,24 @@ import vFrente from "@/assets/shirt-v-frente.png";
 import regataFrente from "@/assets/shirt-regata-frente.png";
 import regataCostas from "@/assets/shirt-regata-costas.png";
 import poloFrente from "@/assets/shirt-polo-frente.png";
+import mangaLongaFrente from "@/assets/shirt-manga-longa-frente.png";
+import mangaLongaCostas from "@/assets/shirt-manga-longa-costas.png";
+import lateral from "@/assets/shirt-lateral.png";
 
-export type ShirtModel = "careca" | "v" | "regata" | "polo";
-export type ShirtSide = "frente" | "costas" | "manga-esq" | "manga-dir";
+export type ShirtModel = "careca" | "v" | "regata" | "polo" | "manga-longa";
+export type ShirtSide = "frente" | "costas" | "lado-esq" | "lado-dir";
 
 const SOURCES: Record<ShirtModel, Record<"frente" | "costas", string>> = {
   careca: { frente: carecaFrente, costas: carecaCostas },
   v: { frente: vFrente, costas: carecaCostas },
   regata: { frente: regataFrente, costas: regataCostas },
   polo: { frente: poloFrente, costas: carecaCostas },
+  "manga-longa": { frente: mangaLongaFrente, costas: mangaLongaCostas },
 };
 
 export function getShirtSrc(model: ShirtModel, side: ShirtSide) {
-  const face = side === "costas" ? "costas" : "frente";
-  return SOURCES[model][face];
+  if (side === "lado-esq" || side === "lado-dir") return lateral;
+  return SOURCES[model][side];
 }
 
 interface Props {
@@ -32,7 +36,7 @@ interface Props {
  */
 export function ShirtMockup({ model, side, color }: Props) {
   const src = getShirtSrc(model, side);
-  const flipped = side === "manga-dir";
+  const flipped = side === "lado-dir";
 
   const maskStyle: React.CSSProperties = {
     WebkitMaskImage: `url(${src})`,
@@ -57,7 +61,7 @@ export function ShirtMockup({ model, side, color }: Props) {
         alt={`Mockup camisa ${model} ${side}`}
         loading="lazy"
         width={1024}
-        height={1216}
+        height={1448}
         draggable={false}
         className="absolute inset-0 h-full w-full object-contain"
         style={{ mixBlendMode: "multiply" }}

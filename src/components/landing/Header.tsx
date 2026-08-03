@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Users, MessageCircle, Gift } from "lucide-react";
+import { ArrowUpRight, Users, MessageCircle, Gift, Shirt } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { TrialSignupDialog } from "@/components/landing/TrialSignupDialog";
@@ -34,6 +34,18 @@ export function Header({ affiliateMode = false }: { affiliateMode?: boolean } = 
               </Button>
             }
           />
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              document.getElementById("estudio")?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+          >
+            <Shirt className="h-4 w-4" />
+            <span className="hidden sm:inline">Crie seu mockup</span>
+            <span className="sm:hidden">Mockup</span>
+          </Button>
+
           <Button
             asChild
             size="sm"
