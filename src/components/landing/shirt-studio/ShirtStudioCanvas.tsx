@@ -60,6 +60,13 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
       preserveObjectStacking: true,
       selection: false,
     });
+    // O wrapper .canvas-container criado pelo fabric precisa ocupar exatamente
+    // a mesma caixa do mockup, senão o clique/arraste fica deslocado da arte.
+    canvas.setDimensions({ width: "100%", height: "100%" }, { cssOnly: true });
+    const recalc = () => canvas.calcOffset();
+    window.addEventListener("resize", recalc);
+    window.addEventListener("scroll", recalc, true);
+    requestAnimationFrame(recalc);
     fabricRef.current = canvas;
     const sync = () => setHasArt(canvas.getObjects().length > 0);
     canvas.on("object:added", sync);
