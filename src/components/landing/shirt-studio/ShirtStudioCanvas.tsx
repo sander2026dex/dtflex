@@ -404,9 +404,13 @@ export default function ShirtStudioCanvas() {
             <Trash2 className="h-4 w-4" />
             Remover arte selecionada
           </Button>
-          <Button variant="default" className="w-full" onClick={() => void exportArt()} disabled={!hasArt}>
+          <Button variant="default" className="w-full" onClick={() => void exportMockup()}>
             <Download className="h-4 w-4" />
-            Salvar layout A3 (PNG 4x)
+            Salvar mockup com camisa (PNG 4x)
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => void exportArt()} disabled={!hasArt}>
+            <Download className="h-4 w-4" />
+            Salvar só a arte (PNG transparente)
           </Button>
           <p className="flex items-start gap-2 text-xs text-muted-foreground">
             <ImageIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
