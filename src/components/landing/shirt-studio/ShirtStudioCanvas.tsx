@@ -37,7 +37,7 @@ const SHIRT_COLORS = [
   "#0f766e",
 ];
 
-export default function ShirtStudioCanvas() {
+export default function ShirtStudioCanvas({ watermark = true }: { watermark?: boolean }) {
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
