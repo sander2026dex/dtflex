@@ -294,6 +294,27 @@ function AppPage() {
           onClose={() => setShowVtracer(false)}
         />
       )}
+
+      {/* Estúdio de mockup (sem marca d'água) */}
+      {showStudio && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-background">
+          <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
+            <Button variant="outline" size="sm" className="gap-1 font-semibold" onClick={() => setShowStudio(false)}>
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para ferramenta
+            </Button>
+            <span className="text-sm text-muted-foreground">Crie seu mockup</span>
+            <div className="w-20" />
+          </div>
+          <div className="flex-1 overflow-auto p-4">
+            <ClientOnly fallback={<div className="h-[560px] animate-pulse rounded-3xl bg-card/50" />}>
+              <Suspense fallback={<div className="h-[560px] animate-pulse rounded-3xl bg-card/50" />}>
+                <ShirtStudioCanvas watermark={false} />
+              </Suspense>
+            </ClientOnly>
+          </div>
+        </div>
+      )}
     </>
   );
 }
