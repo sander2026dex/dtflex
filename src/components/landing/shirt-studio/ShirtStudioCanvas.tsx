@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
 import { Download, Image as ImageIcon, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ShirtMockup, type ShirtModel, type ShirtSide } from "./ShirtMockup";
+import { ShirtMockup, getShirtSrc, type ShirtModel, type ShirtSide } from "./ShirtMockup";
 import { cn } from "@/lib/utils";
 
 // A3 proportion (297 x 420mm)
@@ -140,6 +140,94 @@ export default function ShirtStudioCanvas() {
     else canvas.getObjects().forEach((o) => canvas.remove(o));
     canvas.discardActiveObject();
     canvas.requestRenderAll();
+  };
+
+  const loadImg = (src: string) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.crossOrigin = "anonymous";
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = src;
+    });
+
+  // Exports the full mockup: studio background + colored shirt + artwork
+  const exportMockup = async () => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+
+    const scale = 4;
+    const W = STAGE_W * scale;
+    const H = STAGE_H * scale;
+
+    const out = document.createElement("canvas");
+    out.width = W;
+    out.height = H;
+    const ctx = out.getContext("2d");
+    if (!ctx) return;
+
+    ctx.fillStyle = studioBg;
+    ctx.fillRect(0, 0, W, H);
+
+    const shirt = await loadImg(getShirtSrc(model, sideRef.current));
+    // contain fit
+    const r = Math.min(W / shirt.width, H / shirt.height);
+    const sw = shirt.width * r;
+    const sh = shirt.height * r;
+    const sx = (W - sw) / 2;
+    const sy = (H - sh) / 2;
+
+    const layer = document.createElement("canvas");
+    layer.width = W;
+    layer.height = H;
+    const lctx = layer.getContext("2d");
+    if (!lctx) return;
+    if (sideRef.current === "lado-dir") {
+      lctx.translate(W, 0);
+      lctx.scale(-1, 1);
+    }
+    lctx.drawImage(shirt, sx, sy, sw, sh);
+    lctx.globalCompositeOperation = "source-in";
+    lctx.fillStyle = shirtColor;
+    lctx.fillRect(0, 0, W, H);
+    lctx.globalCompositeOperation = "multiply";
+    lctx.drawImage(shirt, sx, sy, sw, sh);
+    // restore shirt alpha (multiply can bleed outside)
+    lctx.globalCompositeOperation = "destination-in";
+    lctx.drawImage(shirt, sx, sy, sw, sh);
+
+    ctx.drawImage(layer, 0, 0);
+
+    // artwork on top
+    const artUrl = canvas.toDataURL({
+      format: "png",
+      multiplier: scale,
+      left: 0,
+      top: 0,
+      width: STAGE_W,
+      height: STAGE_H,
+      enableRetinaScaling: false,
+    });
+    const art = await loadImg(artUrl);
+    ctx.drawImage(art, 0, 0, W, H);
+
+    // watermark
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate((-30 * Math.PI) / 180);
+    ctx.font = `700 ${Math.round(W / 7)}px Inter, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.fillText("DTFLEXPRO", 0, 0);
+    ctx.restore();
+
+    const link = document.createElement("a");
+    link.href = out.toDataURL("image/png");
+    link.download = `dtflexpro-mockup-${model}-${sideRef.current}.png`;
+    link.click();
   };
 
   const exportArt = async () => {
@@ -316,9 +404,13 @@ export default function ShirtStudioCanvas() {
             <Trash2 className="h-4 w-4" />
             Remover arte selecionada
           </Button>
-          <Button variant="default" className="w-full" onClick={() => void exportArt()} disabled={!hasArt}>
+          <Button variant="default" className="w-full" onClick={() => void exportMockup()}>
             <Download className="h-4 w-4" />
-            Salvar layout A3 (PNG 4x)
+            Salvar mockup com camisa (PNG 4x)
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => void exportArt()} disabled={!hasArt}>
+            <Download className="h-4 w-4" />
+            Salvar só a arte (PNG transparente)
           </Button>
           <p className="flex items-start gap-2 text-xs text-muted-foreground">
             <ImageIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
