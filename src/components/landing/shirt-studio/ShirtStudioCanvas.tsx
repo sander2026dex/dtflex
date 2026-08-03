@@ -297,16 +297,14 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
         className="relative flex items-center justify-center rounded-3xl border border-border p-6 shadow-[var(--shadow-panel)] transition-colors"
         style={{ backgroundColor: studioBg }}
       >
-        <div className="relative w-full max-w-[420px]" style={{ aspectRatio: "297 / 420" }}>
-          <div className="absolute inset-0">
+        <div
+          className="relative w-full max-w-[420px] [&_.canvas-container]:!absolute [&_.canvas-container]:!inset-0 [&_.canvas-container]:!h-full [&_.canvas-container]:!w-full [&_canvas]:!h-full [&_canvas]:!w-full"
+          style={{ aspectRatio: "297 / 420" }}
+        >
+          <div className="pointer-events-none absolute inset-0">
             <ShirtMockup model={model} side={side} color={shirtColor} />
           </div>
-          <canvas
-            ref={canvasElRef}
-            width={STAGE_W}
-            height={STAGE_H}
-            className="absolute inset-0 !h-full !w-full"
-          />
+          <canvas ref={canvasElRef} width={STAGE_W} height={STAGE_H} className="absolute inset-0" />
         </div>
       </div>
 
