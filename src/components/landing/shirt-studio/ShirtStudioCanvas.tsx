@@ -223,15 +223,17 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
     ctx.drawImage(art, 0, 0, W, H);
 
     // watermark
-    ctx.save();
-    ctx.translate(W / 2, H / 2);
-    ctx.rotate((-30 * Math.PI) / 180);
-    ctx.font = `700 ${Math.round(W / 7)}px Inter, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "rgba(255,255,255,0.28)";
-    ctx.fillText("DTFLEXPRO", 0, 0);
-    ctx.restore();
+    if (watermark) {
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.rotate((-30 * Math.PI) / 180);
+      ctx.font = `700 ${Math.round(W / 7)}px Inter, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255,255,255,0.28)";
+      ctx.fillText("DTFLEXPRO", 0, 0);
+      ctx.restore();
+    }
 
     const link = document.createElement("a");
     link.href = out.toDataURL("image/png");
