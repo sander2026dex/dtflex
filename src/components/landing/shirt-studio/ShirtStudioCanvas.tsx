@@ -37,7 +37,7 @@ const SHIRT_COLORS = [
   "#0f766e",
 ];
 
-export default function ShirtStudioCanvas() {
+export default function ShirtStudioCanvas({ watermark = true }: { watermark?: boolean }) {
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -60,11 +60,20 @@ export default function ShirtStudioCanvas() {
       preserveObjectStacking: true,
       selection: false,
     });
+    // O wrapper .canvas-container criado pelo fabric precisa ocupar exatamente
+    // a mesma caixa do mockup, senão o clique/arraste fica deslocado da arte.
+    canvas.setDimensions({ width: "100%", height: "100%" }, { cssOnly: true });
+    const recalc = () => canvas.calcOffset();
+    window.addEventListener("resize", recalc);
+    window.addEventListener("scroll", recalc, true);
+    requestAnimationFrame(recalc);
     fabricRef.current = canvas;
     const sync = () => setHasArt(canvas.getObjects().length > 0);
     canvas.on("object:added", sync);
     canvas.on("object:removed", sync);
     return () => {
+      window.removeEventListener("resize", recalc);
+      window.removeEventListener("scroll", recalc, true);
       void canvas.dispose();
       fabricRef.current = null;
     };
@@ -214,15 +223,17 @@ export default function ShirtStudioCanvas() {
     ctx.drawImage(art, 0, 0, W, H);
 
     // watermark
-    ctx.save();
-    ctx.translate(W / 2, H / 2);
-    ctx.rotate((-30 * Math.PI) / 180);
-    ctx.font = `700 ${Math.round(W / 7)}px Inter, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "rgba(255,255,255,0.28)";
-    ctx.fillText("DTFLEXPRO", 0, 0);
-    ctx.restore();
+    if (watermark) {
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.rotate((-30 * Math.PI) / 180);
+      ctx.font = `700 ${Math.round(W / 7)}px Inter, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255,255,255,0.28)";
+      ctx.fillText("DTFLEXPRO", 0, 0);
+      ctx.restore();
+    }
 
     const link = document.createElement("a");
     link.href = out.toDataURL("image/png");
@@ -236,23 +247,27 @@ export default function ShirtStudioCanvas() {
     canvas.discardActiveObject();
     canvas.requestRenderAll();
 
-    const watermark = new fabric.FabricText("DTFLEXPRO", {
-      fontSize: Math.round(STAGE_W / 7),
-      fontFamily: "Inter, sans-serif",
-      fontWeight: "700",
-      fill: "rgba(255,255,255,0.28)",
-      stroke: "rgba(0,0,0,0.18)",
-      strokeWidth: 0.5,
-      angle: -30,
-      originX: "center",
-      originY: "center",
-      left: STAGE_W / 2,
-      top: STAGE_H / 2,
-      selectable: false,
-      evented: false,
-    });
-    canvas.add(watermark);
-    canvas.requestRenderAll();
+    const wm = watermark
+      ? new fabric.FabricText("DTFLEXPRO", {
+          fontSize: Math.round(STAGE_W / 7),
+          fontFamily: "Inter, sans-serif",
+          fontWeight: "700",
+          fill: "rgba(255,255,255,0.28)",
+          stroke: "rgba(0,0,0,0.18)",
+          strokeWidth: 0.5,
+          angle: -30,
+          originX: "center",
+          originY: "center",
+          left: STAGE_W / 2,
+          top: STAGE_H / 2,
+          selectable: false,
+          evented: false,
+        })
+      : null;
+    if (wm) {
+      canvas.add(wm);
+      canvas.requestRenderAll();
+    }
 
     const dataUrl = canvas.toDataURL({
       format: "png",
@@ -264,8 +279,10 @@ export default function ShirtStudioCanvas() {
       enableRetinaScaling: false,
     });
 
-    canvas.remove(watermark);
-    canvas.requestRenderAll();
+    if (wm) {
+      canvas.remove(wm);
+      canvas.requestRenderAll();
+    }
 
     const link = document.createElement("a");
     link.href = dataUrl;
@@ -280,16 +297,14 @@ export default function ShirtStudioCanvas() {
         className="relative flex items-center justify-center rounded-3xl border border-border p-6 shadow-[var(--shadow-panel)] transition-colors"
         style={{ backgroundColor: studioBg }}
       >
-        <div className="relative w-full max-w-[420px]" style={{ aspectRatio: "297 / 420" }}>
-          <div className="absolute inset-0">
+        <div
+          className="relative w-full max-w-[420px] [&_.canvas-container]:!absolute [&_.canvas-container]:!inset-0 [&_.canvas-container]:!h-full [&_.canvas-container]:!w-full [&_canvas]:!h-full [&_canvas]:!w-full"
+          style={{ aspectRatio: "297 / 420" }}
+        >
+          <div className="pointer-events-none absolute inset-0">
             <ShirtMockup model={model} side={side} color={shirtColor} />
           </div>
-          <canvas
-            ref={canvasElRef}
-            width={STAGE_W}
-            height={STAGE_H}
-            className="absolute inset-0 !h-full !w-full"
-          />
+          <canvas ref={canvasElRef} width={STAGE_W} height={STAGE_H} className="absolute inset-0" />
         </div>
       </div>
 

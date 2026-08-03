@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, Wand2, ChevronDown, ChevronUp } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft, Wand2, ChevronDown, ChevronUp, Shirt } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
+
+const ShirtStudioCanvas = lazy(() => import("@/components/landing/shirt-studio/ShirtStudioCanvas"));
 
 function AppError() {
   return (
@@ -60,6 +62,7 @@ function AppPage() {
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
   const [showVtracer, setShowVtracer] = useState(false);
+  const [showStudio, setShowStudio] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -243,6 +246,13 @@ function AppPage() {
                 <Wand2 className="h-4 w-4" />
                 Vetorizar (VTracer)
               </Button>
+              <Button
+                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.6_0.16_150)] hover:bg-[oklch(0.53_0.16_150)] text-white"
+                onClick={() => setShowStudio(true)}
+              >
+                <Shirt className="h-4 w-4" />
+                Crie seu mockup
+              </Button>
               <DTFCalculatorDialog
                 trigger={
                   <Button variant="secondary" className="h-10 px-3 text-xs font-semibold shadow-lg">
@@ -283,6 +293,27 @@ function AppPage() {
           offsetTop={64}
           onClose={() => setShowVtracer(false)}
         />
+      )}
+
+      {/* Estúdio de mockup (sem marca d'água) */}
+      {showStudio && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-background">
+          <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
+            <Button variant="outline" size="sm" className="gap-1 font-semibold" onClick={() => setShowStudio(false)}>
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para ferramenta
+            </Button>
+            <span className="text-sm text-muted-foreground">Crie seu mockup</span>
+            <div className="w-20" />
+          </div>
+          <div className="flex-1 overflow-auto p-4">
+            <ClientOnly fallback={<div className="h-[560px] animate-pulse rounded-3xl bg-card/50" />}>
+              <Suspense fallback={<div className="h-[560px] animate-pulse rounded-3xl bg-card/50" />}>
+                <ShirtStudioCanvas watermark={false} />
+              </Suspense>
+            </ClientOnly>
+          </div>
+        </div>
       )}
     </>
   );
