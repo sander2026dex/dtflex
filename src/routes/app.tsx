@@ -261,6 +261,17 @@ function AppPage() {
                   </Button>
                 }
               />
+              <Button
+                variant="outline"
+                className="h-10 px-3 text-xs font-semibold shadow-lg"
+                asChild
+              >
+                <a href="/api/public/download-windows" download>
+                  <Download className="h-4 w-4" />
+                  Baixar para Windows (x64)
+                </a>
+              </Button>
+
             </div>
           )}
           <Button
