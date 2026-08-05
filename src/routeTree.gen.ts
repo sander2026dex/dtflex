@@ -20,6 +20,7 @@ import { Route as SobreHalftoneRouteImport } from './routes/sobre-halftone'
 import { Route as ValidateAccessCodeRouteImport } from './routes/validate-access-code'
 import { Route as VerifyAdminRouteImport } from './routes/verify-admin'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
+import { Route as ApiPublicDownloadWindowsRouteImport } from './routes/api/public/download-windows'
 import { Route as ApiPublicInfinitepayWebhookRouteImport } from './routes/api/public/infinitepay-webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 
@@ -78,6 +79,12 @@ const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   path: '/api/stripe-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicDownloadWindowsRoute =
+  ApiPublicDownloadWindowsRouteImport.update({
+    id: '/api/public/download-windows',
+    path: '/api/public/download-windows',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicInfinitepayWebhookRoute =
   ApiPublicInfinitepayWebhookRouteImport.update({
     id: '/api/public/infinitepay-webhook',
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/api/public/download-windows': typeof ApiPublicDownloadWindowsRoute
   '/api/public/infinitepay-webhook': typeof ApiPublicInfinitepayWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
@@ -118,6 +126,7 @@ export interface FileRoutesByTo {
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/api/public/download-windows': typeof ApiPublicDownloadWindowsRoute
   '/api/public/infinitepay-webhook': typeof ApiPublicInfinitepayWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
@@ -134,6 +143,7 @@ export interface FileRoutesById {
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/api/public/download-windows': typeof ApiPublicDownloadWindowsRoute
   '/api/public/infinitepay-webhook': typeof ApiPublicInfinitepayWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
+    | '/api/public/download-windows'
     | '/api/public/infinitepay-webhook'
     | '/lovable/email/queue/process'
   fileRoutesByTo: FileRoutesByTo
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
+    | '/api/public/download-windows'
     | '/api/public/infinitepay-webhook'
     | '/lovable/email/queue/process'
   id:
@@ -181,6 +193,7 @@ export interface FileRouteTypes {
     | '/validate-access-code'
     | '/verify-admin'
     | '/api/stripe-webhook'
+    | '/api/public/download-windows'
     | '/api/public/infinitepay-webhook'
     | '/lovable/email/queue/process'
   fileRoutesById: FileRoutesById
@@ -197,6 +210,7 @@ export interface RootRouteChildren {
   ValidateAccessCodeRoute: typeof ValidateAccessCodeRoute
   VerifyAdminRoute: typeof VerifyAdminRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
+  ApiPublicDownloadWindowsRoute: typeof ApiPublicDownloadWindowsRoute
   ApiPublicInfinitepayWebhookRoute: typeof ApiPublicInfinitepayWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
@@ -280,6 +294,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/download-windows': {
+      id: '/api/public/download-windows'
+      path: '/api/public/download-windows'
+      fullPath: '/api/public/download-windows'
+      preLoaderRoute: typeof ApiPublicDownloadWindowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/infinitepay-webhook': {
       id: '/api/public/infinitepay-webhook'
       path: '/api/public/infinitepay-webhook'
@@ -309,6 +330,7 @@ const rootRouteChildren: RootRouteChildren = {
   ValidateAccessCodeRoute: ValidateAccessCodeRoute,
   VerifyAdminRoute: VerifyAdminRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
+  ApiPublicDownloadWindowsRoute: ApiPublicDownloadWindowsRoute,
   ApiPublicInfinitepayWebhookRoute: ApiPublicInfinitepayWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
