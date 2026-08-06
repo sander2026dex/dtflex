@@ -268,7 +268,7 @@ function AppPage() {
               >
                 <a href="/api/public/download-windows" download>
                   <Download className="h-4 w-4" />
-                  Baixar para Windows (x64)
+                  Baixar instalador Windows (setup.exe)
                 </a>
               </Button>
 
