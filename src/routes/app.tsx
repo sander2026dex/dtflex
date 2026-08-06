@@ -262,8 +262,7 @@ function AppPage() {
                 }
               />
               <Button
-                variant="outline"
-                className="h-10 px-3 text-xs font-semibold shadow-lg"
+                className="h-10 px-3 text-xs font-bold shadow-lg bg-[oklch(0.85_0.17_95)] text-black hover:bg-[oklch(0.78_0.17_95)]"
                 asChild
               >
                 <a href="/api/public/download-windows" rel="noreferrer">
@@ -271,12 +270,7 @@ function AppPage() {
                   Baixar instalador Windows (setup.exe)
                 </a>
               </Button>
-              <p className="max-w-[260px] rounded-md bg-amber-100 p-2 text-[10px] font-semibold leading-snug text-amber-950">
-                Se o Windows mostrar “SmartScreen impediu…”, clique em{" "}
-                <strong>Mais informações → Executar assim mesmo</strong>. E no navegador, se
-                aparecer aviso, escolha <strong>Manter arquivo</strong>. O instalador é seguro,
-                apenas ainda não tem assinatura digital paga.
-              </p>
+
 
             </div>
           )}

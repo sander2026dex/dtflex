@@ -984,7 +984,97 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v34"></script>
+    <script>
+      /* Visualização nítida online + LUPA DE ALTA DEFINIÇÃO (somente no software desktop) */
+      (function(){
+        var st = document.createElement('style');
+        st.textContent = 'canvas{image-rendering:-webkit-optimize-contrast;}' +
+          '#dtf-zoom-bar{position:fixed;right:14px;bottom:14px;z-index:99998;display:flex;gap:6px;align-items:center;background:#111827;color:#fff;border:1px solid #374151;border-radius:10px;padding:6px 8px;font:600 12px system-ui;box-shadow:0 6px 20px rgba(0,0,0,.45)}' +
+          '#dtf-zoom-bar button{background:#facc15;color:#111827;border:0;border-radius:6px;padding:4px 9px;font:700 12px system-ui;cursor:pointer}' +
+          '#dtf-zoom-stage{position:fixed;inset:0;z-index:99999;background:#0b0d12;display:flex;flex-direction:column}' +
+          '#dtf-zoom-stage .hd{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 12px;background:#111827;color:#fff;font:600 13px system-ui}' +
+          '#dtf-zoom-stage .hd button{background:#facc15;color:#111827;border:0;border-radius:6px;padding:4px 9px;font:700 12px system-ui;cursor:pointer}' +
+          '#dtf-zoom-stage .vp{flex:1;overflow:auto;background:#0b0d12;display:block}' +
+          '#dtf-zoom-stage canvas{image-rendering:pixelated;display:block;margin:0 auto}';
+        document.head.appendChild(st);
+
+        var isDesktop = !!(window.dtflex) || /Electron/i.test(navigator.userAgent);
+        if (!isDesktop) return;
+
+        function biggestCanvas(){
+          var best = null, area = 0;
+          document.querySelectorAll('canvas').forEach(function(c){
+            var a = c.width * c.height;
+            if (a > area && c.width > 200) { area = a; best = c; }
+          });
+          return best;
+        }
+
+        function openZoom(){
+          var src = biggestCanvas();
+          if (!src) { alert('Gere a arte antes de usar o zoom.'); return; }
+          var snap = document.createElement('canvas');
+          snap.width = src.width; snap.height = src.height;
+          snap.getContext('2d').drawImage(src, 0, 0);
+
+          var stage = document.createElement('div');
+          stage.id = 'dtf-zoom-stage';
+          var scale = 1;
+          stage.innerHTML = '<div class="hd"><span>Zoom em alta definição — reticulado real (' + src.width + '×' + src.height + ' px)</span>' +
+            '<span><button data-a="out">−</button> <b id="dtf-z-val">100%</b> <button data-a="in">+</button> ' +
+            '<button data-a="fit">Ajustar</button> <button data-a="one">1:1</button> <button data-a="close">Fechar</button></span></div>' +
+            '<div class="vp"></div>';
+          var vp = stage.querySelector('.vp');
+          var view = document.createElement('canvas');
+          vp.appendChild(view);
+          document.body.appendChild(stage);
+
+          function render(){
+            var w = Math.max(1, Math.round(snap.width * scale));
+            var h = Math.max(1, Math.round(snap.height * scale));
+            view.width = w; view.height = h;
+            var ctx = view.getContext('2d');
+            ctx.imageSmoothingEnabled = scale < 1;
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(snap, 0, 0, w, h);
+            stage.querySelector('#dtf-z-val').textContent = Math.round(scale * 100) + '%';
+          }
+          function fit(){
+            scale = Math.min(vp.clientWidth / snap.width, vp.clientHeight / snap.height) || 1;
+            render();
+          }
+          stage.querySelector('.hd').addEventListener('click', function(e){
+            var a = e.target.getAttribute && e.target.getAttribute('data-a');
+            if (!a) return;
+            if (a === 'close') { stage.remove(); return; }
+            if (a === 'fit') return fit();
+            if (a === 'one') { scale = 1; return render(); }
+            scale = Math.min(16, Math.max(0.05, scale * (a === 'in' ? 1.25 : 1 / 1.25)));
+            render();
+          });
+          vp.addEventListener('wheel', function(e){
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            var dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
+            scale = Math.min(16, Math.max(0.05, scale * Math.exp(-dy * 0.0015)));
+            render();
+          }, { passive: false });
+          fit();
+        }
+
+        function mountBar(){
+          if (document.getElementById('dtf-zoom-bar')) return;
+          var bar = document.createElement('div');
+          bar.id = 'dtf-zoom-bar';
+          bar.innerHTML = '<span>Alta definição</span><button type="button">🔍 Zoom da arte</button>';
+          bar.querySelector('button').onclick = openZoom;
+          document.body.appendChild(bar);
+        }
+        document.addEventListener('DOMContentLoaded', mountBar);
+        setTimeout(mountBar, 1500);
+      })();
+    </script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v36"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
