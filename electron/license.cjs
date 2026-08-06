@@ -7,6 +7,14 @@ const crypto = require("crypto");
 const SALT = Buffer.from("ZHRmbGV4cHJvLWRlc2t0b3AtbGljZW5zZS12MQ==", "base64").toString();
 const API_BASE = "https://dtflexpro.com";
 
+const DAY = 24 * 3600 * 1000;
+// Planos anuais: exige revalidação online a cada 2 meses. Mensais: a cada 15 dias.
+const RECHECK_DAYS = { anual: 60, mensal: 15, teste: 3 };
+
+function recheckWindow(plan) {
+  return (RECHECK_DAYS[String(plan || "").toLowerCase()] || 30) * DAY;
+}
+
 function deviceId() {
   const nets = os.networkInterfaces();
   let mac = "";
@@ -65,6 +73,26 @@ function isValid(lic) {
   return new Date(lic.expiresAt).getTime() > now;
 }
 
+/** Dias restantes até a expiração do plano. */
+function daysLeft(lic) {
+  if (!lic || !lic.expiresAt) return 0;
+  return Math.ceil((new Date(lic.expiresAt).getTime() - Date.now()) / DAY);
+}
+
+/** Verdadeiro quando o software já pode rodar offline sem nova checagem online. */
+function needsOnlineCheck(lic) {
+  if (!lic) return true;
+  const last = lic.lastCheck || lic.activatedAt || 0;
+  return Date.now() - last > recheckWindow(lic.plan);
+}
+
+/** Dias até a próxima verificação online obrigatória. */
+function daysToRecheck(lic) {
+  if (!lic) return 0;
+  const last = lic.lastCheck || lic.activatedAt || 0;
+  return Math.ceil((last + recheckWindow(lic.plan) - Date.now()) / DAY);
+}
+
 async function activate(email, code) {
   const res = await fetch(`${API_BASE}/api/public/desktop-activate`, {
     method: "POST",
@@ -75,24 +103,48 @@ async function activate(email, code) {
   if (!res.ok || !data.ok) {
     throw new Error(data.error || "Não foi possível ativar. Verifique o código.");
   }
-  return { ...data, lastSeen: Date.now(), activatedAt: Date.now() };
+  const now = Date.now();
+  return { ...data, lastSeen: now, lastCheck: now, activatedAt: now };
 }
 
-// Revalidação silenciosa quando há internet (bloqueia plano revogado/expirado).
+/**
+ * Revalidação online. Se o servidor responder, atualiza a validade salva.
+ * Sem internet: mantém a licença apenas se ainda estiver dentro da janela offline.
+ */
 async function revalidate(app, lic) {
   try {
     const fresh = await activate(lic.email, lic.code);
-    save(app, { ...fresh, code: lic.code });
-    return { ok: true };
+    save(app, { ...fresh, code: lic.code, activatedAt: lic.activatedAt || fresh.activatedAt });
+    return { ok: true, online: true, expiresAt: fresh.expiresAt };
   } catch (e) {
-    if (String(e && e.message).match(/expirad|bloquead|inválid/i)) {
+    const msg = String((e && e.message) || e);
+    if (msg.match(/expirad|bloquead|inválid/i)) {
       clear(app);
-      return { ok: false, error: e.message };
+      return { ok: false, error: msg };
     }
-    // Offline: mantém a licença dentro da validade.
+    // Offline: só continua dentro da validade e da janela de revalidação.
+    if (needsOnlineCheck(lic)) {
+      return {
+        ok: false,
+        offline: true,
+        error:
+          "Verificação de licença pendente. Conecte-se à internet para revalidar seu plano e continuar usando o software.",
+      };
+    }
     save(app, { ...lic, lastSeen: Date.now() });
-    return { ok: true, offline: true };
+    return { ok: true, offline: true, expiresAt: lic.expiresAt };
   }
 }
 
-module.exports = { deviceId, save, load, clear, isValid, activate, revalidate };
+module.exports = {
+  deviceId,
+  save,
+  load,
+  clear,
+  isValid,
+  activate,
+  revalidate,
+  needsOnlineCheck,
+  daysLeft,
+  daysToRecheck,
+};
