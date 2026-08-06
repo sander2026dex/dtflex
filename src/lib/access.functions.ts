@@ -645,7 +645,42 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
   };
 });
 
+const setExpirySchema = z.object({
+  accessId: z.string().uuid(),
+  expiresAt: z.string().min(8).max(40),
+  planCode: z.enum(["mensal", "anual", "teste"]).optional(),
+});
+
+/** Admin define manualmente a data de validade do plano do cliente. */
+export const setAccessExpiry = createServerFn({ method: "POST" })
+  .inputValidator(setExpirySchema)
+  .handler(async ({ data }) => {
+    await requireAdminSession();
+    const db = getDb();
+
+    const parsed = new Date(
+      data.expiresAt.length <= 10 ? `${data.expiresAt}T23:59:59` : data.expiresAt,
+    );
+    if (Number.isNaN(parsed.getTime())) throw new Error("Data inválida");
+
+    const update: Record<string, any> = {
+      expires_at: parsed.toISOString(),
+      status: "active",
+    };
+    if (data.planCode) {
+      update.plan_code = data.planCode;
+      update.is_trial = data.planCode === "teste";
+    }
+
+    const { error } = await db.from("user_access").update(update).eq("id", data.accessId);
+    if (error) throw new Error("Não foi possível atualizar a data de validade");
+
+    await logSecurity("admin_set_expiry", true);
+    return { ok: true, expiresAt: parsed.toISOString() };
+  });
+
 export const revokeAccess = createServerFn({ method: "POST" })
+
   .inputValidator(revokeSchema)
   .handler(async ({ data }) => {
     await requireAdminSession();

@@ -23,7 +23,8 @@
   <body>
     <div class="card">
       <h1>Ativação necessária</h1>
-      <p>Seu plano expirou ou o software ainda não foi ativado neste computador. Informe o e-mail e o código de ativação enviados pelo administrador.</p>
+      <p>A primeira ativação exige internet. Depois de ativado, o software registra este computador e funciona offline até a data de expiração do seu plano.</p>
+      <div class="err" id="msg" style="color:#fbbf24"></div>
       <label for="email">E-mail</label>
       <input id="email" type="email" placeholder="voce@email.com" />
       <label for="code">Código de ativação</label>
@@ -33,6 +34,9 @@
       <div class="hint">Renovação: dtflexpro.com</div>
     </div>
     <script>
+      const params = new URLSearchParams(location.search);
+      const preset = params.get("msg");
+      if (preset) document.getElementById("msg").textContent = preset;
       const btn = document.getElementById("go");
       const err = document.getElementById("err");
       btn.onclick = async () => {
@@ -50,5 +54,6 @@
         }
       };
     </script>
+
   </body>
 </html>

@@ -15,6 +15,8 @@ import {
   getAdminSession,
   logoutAdminSession,
   regenerateAccessCode,
+  setAccessExpiry,
+
   registerProvisionalAccess,
   resetActiveSession,
   revokeAccess,
@@ -127,6 +129,11 @@ function AdminPage() {
   const warnDevice = useServerFn(sendDeviceWarning);
   const generateManualCode = useServerFn(generateManualAccessCode);
   const regenerateCode = useServerFn(regenerateAccessCode);
+  const saveExpiry = useServerFn(setAccessExpiry);
+  const [expiryEmail, setExpiryEmail] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [expiryPlan, setExpiryPlan] = useState<"mensal" | "anual" | "teste">("mensal");
+
 
   const registerProvisional = useServerFn(registerProvisionalAccess);
   const logout = useServerFn(logoutAdminSession);
@@ -421,7 +428,76 @@ function AdminPage() {
         />
 
 
+        <DataCard title="Definir data de validade manual (entrada do plano)">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Escolha o cliente, o plano e a data exata em que o acesso deve expirar. O software desktop e o painel passam a respeitar essa data imediatamente.
+          </p>
+          <form
+            className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_1fr_auto] md:items-end"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const target = dashboard?.codes.find((c) => c.email === expiryEmail.trim().toLowerCase());
+              if (!target) {
+                toast.error("Cliente não encontrado com esse e-mail.");
+                return;
+              }
+              if (!expiryDate) {
+                toast.error("Informe a data de validade.");
+                return;
+              }
+              try {
+                await saveExpiry({
+                  data: {
+                    accessId: target.id,
+                    expiresAt: expiryDate,
+                    planCode: expiryPlan,
+                  },
+                });
+                toast.success(`Validade de ${target.email} definida para ${expiryDate}.`);
+                setExpiryEmail("");
+                setExpiryDate("");
+                await loadDashboard();
+              } catch {
+                toast.error("Falha ao definir a data de validade.");
+              }
+            }}
+          >
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">E-mail do cliente</label>
+              <Input
+                list="admin-client-emails"
+                value={expiryEmail}
+                onChange={(e) => setExpiryEmail(e.target.value)}
+                placeholder="cliente@email.com"
+              />
+              <datalist id="admin-client-emails">
+                {(dashboard?.codes ?? []).map((c) => (
+                  <option key={c.id} value={c.email} />
+                ))}
+              </datalist>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Plano</label>
+              <select
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                value={expiryPlan}
+                onChange={(e) => setExpiryPlan(e.target.value as "mensal" | "anual" | "teste")}
+              >
+                <option value="mensal">Mensal</option>
+                <option value="anual">Anual</option>
+                <option value="teste">Teste</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Expira em</label>
+              <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+            </div>
+            <Button type="submit">Salvar data</Button>
+          </form>
+        </DataCard>
+
         <DataCard title="Registrar compra (envia senha provisória ao cliente)">
+
           <p className="mb-3 text-xs text-muted-foreground">
             Use ao receber o comprovante do InfinitePay no WhatsApp. O cliente recebe um e-mail de boas-vindas com uma senha provisória (válida por 7 dias e ligada a 1 dispositivo). Depois que ele acessar, libere a senha definitiva no formulário abaixo.
           </p>
