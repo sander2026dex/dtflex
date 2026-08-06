@@ -15,6 +15,8 @@ import {
   getAdminSession,
   logoutAdminSession,
   regenerateAccessCode,
+  setAccessExpiry,
+
   registerProvisionalAccess,
   resetActiveSession,
   revokeAccess,
