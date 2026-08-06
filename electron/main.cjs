@@ -148,9 +148,17 @@ function injectLicenseBar(win) {
 async function openStudio() {
   if (mainWindow) return mainWindow.focus();
   const port = await startServer();
+  // Adapta-se automaticamente a qualquer tela/resolução do Windows.
+  const { screen } = require("electron");
+  const work = screen.getPrimaryDisplay().workAreaSize;
+  const winW = Math.max(1024, Math.min(1440, Math.round(work.width * 0.92)));
+  const winH = Math.max(680, Math.min(950, Math.round(work.height * 0.92)));
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: winW,
+    height: winH,
+    minWidth: Math.min(1024, work.width),
+    minHeight: Math.min(660, work.height),
+    center: true,
     backgroundColor: "#0e1116",
     autoHideMenuBar: true,
     icon: APP_ICON,
