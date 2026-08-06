@@ -563,7 +563,7 @@
             + '  <button data-ar="A4"   class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#f59e0b;color:#1a1a1a;font-weight:700;cursor:pointer;">A4</button>'
             + '  <button data-ar="A3"   class="dtf-ar-up" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#f59e0b;color:#1a1a1a;font-weight:700;cursor:pointer;">A3</button>'
             + '</div>'
-            + '<div id="dtf-upcrop-stage" style="position:relative;background:#222;border:1px solid #444;max-width:90vw;max-height:60vh;overflow:hidden;"></div>'
+            + '<div style="display:flex;align-items:center;justify-content:center;width:90vw;max-width:1100px;padding:28px;box-sizing:border-box;"><div id="dtf-upcrop-stage" style="position:relative;background:#222;border:1px solid #444;overflow:visible;margin:0 auto;"></div></div>'
             + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font:600 12px system-ui;color:#fff;align-items:center;max-width:820px;">'
             + '  <span style="opacity:.85;width:100%;text-align:center;">Cor da camiseta — usada apenas na retícula e no preview. Nunca define o que é removido.</span>'
             + '  <button data-hex="#000000" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#000;color:#fff;font-weight:600;cursor:pointer;">Preto</button>'
@@ -579,7 +579,7 @@
             + '  <button data-hex="#78350F" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#78350F;color:#fff;font-weight:600;cursor:pointer;">Marrom</button>'
             + '  <input id="dtf-shirt-color" type="color" value="#ff0000" style="width:38px;height:32px;border:1px solid #888;border-radius:6px;background:#222;cursor:pointer;" title="Cor personalizada" />'
             + '</div>'
-            + '<div id="dtf-colorida-msg" style="display:none;max-width:820px;text-align:center;font:800 12px system-ui;color:#111;background:#fbbf24;border-radius:8px;padding:10px 14px;border:2px solid #f59e0b;">⚠️ CAMISAS COLORIDAS: envie o arquivo em PNG sem fundo e NÃO deixe a arte perto dos cantos — mantenha margem de segurança. Nenhuma cor é removida (preto e branco preservados); as cores intermediárias são reticuladas conforme o tecido escolhido.</div>'
+            + '<div id="dtf-colorida-msg" style="display:none;max-width:820px;text-align:center;font:800 13px system-ui;color:#111;background:#fbbf24;border-radius:8px;padding:12px 16px;border:3px solid #f59e0b;">⚠️ CAMISAS COLORIDAS: use SEMPRE imagem em <u>PNG com fundo transparente</u> e prepare a arte conforme a cor da camisa escolhida, para as cores combinarem com o tecido. NÃO deixe a arte perto dos cantos — mantenha margem de segurança. Nenhuma cor é removida (preto e branco preservados); as cores intermediárias são reticuladas conforme o tecido.</div>'
             + '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;font:600 12px system-ui;color:#fff;max-width:820px;">'
             + '  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input id="dtf-rmbg" type="checkbox" checked style="width:16px;height:16px;" /> Remover fundo (só o conectado às bordas)</label>'
             + '  <span style="opacity:.85;">Tamanho (300 DPI):</span>'
@@ -621,10 +621,13 @@
             if (ar > 0 && drag && drag.mode === 'resize') {
               rect.h = Math.max(10, rect.w / ar);
             }
-            rect.x = Math.max(0, Math.min(rect.x, dispW - 10));
-            rect.y = Math.max(0, Math.min(rect.y, dispH - 10));
-            rect.w = Math.max(10, Math.min(rect.w, dispW - rect.x));
-            rect.h = Math.max(10, Math.min(rect.h, dispH - rect.y));
+            // O recorte pode ultrapassar a imagem: assim a arte inteira cabe
+            // dentro da proporção escolhida (A4/A3) sem nunca ser cortada.
+            var PAD = Math.max(dispW, dispH);
+            rect.w = Math.max(10, Math.min(rect.w, dispW + PAD * 2));
+            rect.h = Math.max(10, Math.min(rect.h, dispH + PAD * 2));
+            rect.x = Math.max(-PAD, Math.min(rect.x, dispW + PAD - 10));
+            rect.y = Math.max(-PAD, Math.min(rect.y, dispH + PAD - 10));
             sel.style.left = rect.x + 'px'; sel.style.top = rect.y + 'px';
             sel.style.width = rect.w + 'px'; sel.style.height = rect.h + 'px';
           }
@@ -689,11 +692,15 @@
             });
             window.__DTF_UPLOAD_PAPER = (mode === 'A4' || mode === 'A3') ? mode : null;
             if (ar > 0) {
-              var cx = rect.x + rect.w/2, cy = rect.y + rect.h/2;
-              var w = rect.w, h = w / ar;
-              if (h > dispH) { h = dispH; w = h * ar; }
-              if (w > dispW) { w = dispW; h = w / ar; }
-              rect = { x: cx - w/2, y: cy - h/2, w: w, h: h };
+              // Enquadra a IMAGEM INTEIRA dentro da proporção escolhida, centralizada.
+              // Nunca corta: sobra vira margem transparente ao redor da arte.
+              var w, h;
+              if (dispW / dispH > ar) { w = dispW; h = w / ar; }
+              else { h = dispH; w = h * ar; }
+              rect = { x: (dispW - w) / 2, y: (dispH - h) / 2, w: w, h: h };
+              applyRect();
+            } else {
+              rect = { x: 0, y: 0, w: dispW, h: dispH };
               applyRect();
             }
           }
@@ -863,8 +870,10 @@
             var sw = Math.round(rect.w / scale);
             var sh = Math.round(rect.h / scale);
             var out = document.createElement('canvas');
-            out.width = sw; out.height = sh;
-            out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
+            out.width = Math.max(1, sw); out.height = Math.max(1, sh);
+            // Desenha a imagem inteira dentro do quadro (offsets podem ser
+            // negativos): o que sobra fica transparente, nada é cortado.
+            out.getContext('2d').drawImage(bitmap, -sx, -sy, bitmap.width, bitmap.height);
 
             var rmBg = overlay.querySelector('#dtf-rmbg');
             var coloridaNow = window.__DTF_SHIRT_COLOR === 'colorida';
@@ -975,7 +984,97 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v34"></script>
+    <script>
+      /* Visualização nítida online + LUPA DE ALTA DEFINIÇÃO (somente no software desktop) */
+      (function(){
+        var st = document.createElement('style');
+        st.textContent = 'canvas{image-rendering:-webkit-optimize-contrast;}' +
+          '#dtf-zoom-bar{position:fixed;right:14px;bottom:14px;z-index:99998;display:flex;gap:6px;align-items:center;background:#111827;color:#fff;border:1px solid #374151;border-radius:10px;padding:6px 8px;font:600 12px system-ui;box-shadow:0 6px 20px rgba(0,0,0,.45)}' +
+          '#dtf-zoom-bar button{background:#facc15;color:#111827;border:0;border-radius:6px;padding:4px 9px;font:700 12px system-ui;cursor:pointer}' +
+          '#dtf-zoom-stage{position:fixed;inset:0;z-index:99999;background:#0b0d12;display:flex;flex-direction:column}' +
+          '#dtf-zoom-stage .hd{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 12px;background:#111827;color:#fff;font:600 13px system-ui}' +
+          '#dtf-zoom-stage .hd button{background:#facc15;color:#111827;border:0;border-radius:6px;padding:4px 9px;font:700 12px system-ui;cursor:pointer}' +
+          '#dtf-zoom-stage .vp{flex:1;overflow:auto;background:#0b0d12;display:block}' +
+          '#dtf-zoom-stage canvas{image-rendering:pixelated;display:block;margin:0 auto}';
+        document.head.appendChild(st);
+
+        var isDesktop = !!(window.dtflex) || /Electron/i.test(navigator.userAgent);
+        if (!isDesktop) return;
+
+        function biggestCanvas(){
+          var best = null, area = 0;
+          document.querySelectorAll('canvas').forEach(function(c){
+            var a = c.width * c.height;
+            if (a > area && c.width > 200) { area = a; best = c; }
+          });
+          return best;
+        }
+
+        function openZoom(){
+          var src = biggestCanvas();
+          if (!src) { alert('Gere a arte antes de usar o zoom.'); return; }
+          var snap = document.createElement('canvas');
+          snap.width = src.width; snap.height = src.height;
+          snap.getContext('2d').drawImage(src, 0, 0);
+
+          var stage = document.createElement('div');
+          stage.id = 'dtf-zoom-stage';
+          var scale = 1;
+          stage.innerHTML = '<div class="hd"><span>Zoom em alta definição — reticulado real (' + src.width + '×' + src.height + ' px)</span>' +
+            '<span><button data-a="out">−</button> <b id="dtf-z-val">100%</b> <button data-a="in">+</button> ' +
+            '<button data-a="fit">Ajustar</button> <button data-a="one">1:1</button> <button data-a="close">Fechar</button></span></div>' +
+            '<div class="vp"></div>';
+          var vp = stage.querySelector('.vp');
+          var view = document.createElement('canvas');
+          vp.appendChild(view);
+          document.body.appendChild(stage);
+
+          function render(){
+            var w = Math.max(1, Math.round(snap.width * scale));
+            var h = Math.max(1, Math.round(snap.height * scale));
+            view.width = w; view.height = h;
+            var ctx = view.getContext('2d');
+            ctx.imageSmoothingEnabled = scale < 1;
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(snap, 0, 0, w, h);
+            stage.querySelector('#dtf-z-val').textContent = Math.round(scale * 100) + '%';
+          }
+          function fit(){
+            scale = Math.min(vp.clientWidth / snap.width, vp.clientHeight / snap.height) || 1;
+            render();
+          }
+          stage.querySelector('.hd').addEventListener('click', function(e){
+            var a = e.target.getAttribute && e.target.getAttribute('data-a');
+            if (!a) return;
+            if (a === 'close') { stage.remove(); return; }
+            if (a === 'fit') return fit();
+            if (a === 'one') { scale = 1; return render(); }
+            scale = Math.min(16, Math.max(0.05, scale * (a === 'in' ? 1.25 : 1 / 1.25)));
+            render();
+          });
+          vp.addEventListener('wheel', function(e){
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            var dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
+            scale = Math.min(16, Math.max(0.05, scale * Math.exp(-dy * 0.0015)));
+            render();
+          }, { passive: false });
+          fit();
+        }
+
+        function mountBar(){
+          if (document.getElementById('dtf-zoom-bar')) return;
+          var bar = document.createElement('div');
+          bar.id = 'dtf-zoom-bar';
+          bar.innerHTML = '<span>Alta definição</span><button type="button">🔍 Zoom da arte</button>';
+          bar.querySelector('button').onclick = openZoom;
+          document.body.appendChild(bar);
+        }
+        document.addEventListener('DOMContentLoaded', mountBar);
+        setTimeout(mountBar, 1500);
+      })();
+    </script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v36"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
