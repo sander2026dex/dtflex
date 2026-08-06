@@ -166,12 +166,86 @@ async function openStudio() {
     return { action: "deny" };
   });
   mainWindow.once("ready-to-show", closeSplash);
-  mainWindow.webContents.on("did-finish-load", () => injectLicenseBar(mainWindow));
+  mainWindow.webContents.on("did-finish-load", () => {
+    injectLicenseBar(mainWindow);
+    enableWindowsZoom(mainWindow);
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
   mainWindow.loadURL(`http://127.0.0.1:${port}/index.html`);
 }
+
+// Zoom nativo estilo Windows (Ctrl + roda, Ctrl +/-, Ctrl+0) — só no software desktop.
+const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
+
+function showZoomBadge(win, factor) {
+  const pct = Math.round(factor * 100);
+  win.webContents
+    .executeJavaScript(
+      `(() => {
+        let el = document.getElementById("dtflex-zoom-badge");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "dtflex-zoom-badge";
+          el.style.cssText = "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#111827;color:#facc15;border:1px solid #374151;border-radius:10px;padding:6px 14px;font:800 14px system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:none";
+          document.body.appendChild(el);
+        }
+        el.textContent = "Zoom ${pct}%";
+        el.style.opacity = "1";
+        clearTimeout(window.__dtflexZoomT);
+        window.__dtflexZoomT = setTimeout(() => { el.style.transition = "opacity .3s"; el.style.opacity = "0"; }, 900);
+      })();`,
+    )
+    .catch(() => {});
+}
+
+function setZoom(win, factor) {
+  const f = Math.min(5, Math.max(0.25, factor));
+  win.webContents.setZoomFactor(f);
+  showZoomBadge(win, f);
+}
+
+function stepZoom(win, dir) {
+  const cur = win.webContents.getZoomFactor();
+  let idx = 0;
+  let best = Infinity;
+  ZOOM_STEPS.forEach((s, i) => {
+    const d = Math.abs(s - cur);
+    if (d < best) {
+      best = d;
+      idx = i;
+    }
+  });
+  const next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, idx + dir))];
+  setZoom(win, next);
+}
+
+function enableWindowsZoom(win) {
+  if (!win || win.__dtflexZoom) return;
+  win.__dtflexZoom = true;
+  const wc = win.webContents;
+  wc.setVisualZoomLevelLimits(1, 5).catch(() => {});
+  wc.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown" || !input.control) return;
+    const k = (input.key || "").toLowerCase();
+    if (k === "+" || k === "=" || k === "add") {
+      event.preventDefault();
+      stepZoom(win, 1);
+    } else if (k === "-" || k === "_" || k === "subtract") {
+      event.preventDefault();
+      stepZoom(win, -1);
+    } else if (k === "0") {
+      event.preventDefault();
+      setZoom(win, 1);
+    }
+  });
+  wc.on("zoom-changed", (event, direction) => {
+    event.preventDefault();
+    stepZoom(win, direction === "in" ? 1 : -1);
+  });
+}
+
 
 
 // Checagem periódica: expiração do plano ou revalidação online vencida fecham o estúdio.
