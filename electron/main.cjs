@@ -20,6 +20,37 @@ const MIME = {
 
 let mainWindow = null;
 let activationWindow = null;
+let splashWindow = null;
+
+const APP_ICON = path.join(__dirname, "assets", "icon.ico");
+
+function showSplash() {
+  splashWindow = new BrowserWindow({
+    width: 760,
+    height: 428,
+    frame: false,
+    resizable: false,
+    center: true,
+    show: false,
+    backgroundColor: "#05070c",
+    icon: APP_ICON,
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+  splashWindow.loadFile(path.join(__dirname, "splash.html"));
+  splashWindow.once("ready-to-show", () => splashWindow && splashWindow.show());
+  splashWindow.on("closed", () => {
+    splashWindow = null;
+  });
+}
+
+function closeSplash() {
+  if (splashWindow) {
+    const w = splashWindow;
+    splashWindow = null;
+    w.destroy();
+  }
+}
+
 
 function startServer() {
   return new Promise((resolve) => {
@@ -54,6 +85,7 @@ function openActivation() {
     resizable: false,
     backgroundColor: "#0e1116",
     autoHideMenuBar: true,
+    icon: APP_ICON,
     title: "Ativação — DTFLEXPRO Studio",
     webPreferences: {
       contextIsolation: true,
@@ -62,6 +94,7 @@ function openActivation() {
     },
   });
   activationWindow.loadFile(path.join(__dirname, "activation.html"));
+  activationWindow.once("ready-to-show", closeSplash);
   activationWindow.on("closed", () => {
     activationWindow = null;
     if (!mainWindow) app.quit();
@@ -76,6 +109,7 @@ async function openStudio() {
     height: 900,
     backgroundColor: "#0e1116",
     autoHideMenuBar: true,
+    icon: APP_ICON,
     title: "DTFLEXPRO — Halftone Studio",
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
@@ -83,11 +117,13 @@ async function openStudio() {
     shell.openExternal(url);
     return { action: "deny" };
   });
+  mainWindow.once("ready-to-show", closeSplash);
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
   mainWindow.loadURL(`http://127.0.0.1:${port}/index.html`);
 }
+
 
 // Checagem periódica: se o plano vencer com o app aberto, volta para a ativação.
 function watchLicense() {
@@ -120,14 +156,18 @@ ipcMain.handle("license:activate", async (_e, { email, code }) => {
 });
 
 async function boot() {
+  showSplash();
+  await new Promise((r) => setTimeout(r, 2200));
   const lic = license.load(app);
   if (license.isValid(lic)) {
+
     const res = await license.revalidate(app, lic);
     if (res.ok) {
       await openStudio();
       watchLicense();
       return;
     }
+    closeSplash();
     dialog.showErrorBox("Plano expirado", res.error || "Renove seu plano para continuar.");
   }
   openActivation();
