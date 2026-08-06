@@ -129,6 +129,11 @@ function AdminPage() {
   const warnDevice = useServerFn(sendDeviceWarning);
   const generateManualCode = useServerFn(generateManualAccessCode);
   const regenerateCode = useServerFn(regenerateAccessCode);
+  const saveExpiry = useServerFn(setAccessExpiry);
+  const [expiryEmail, setExpiryEmail] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [expiryPlan, setExpiryPlan] = useState<"mensal" | "anual" | "teste">("mensal");
+
 
   const registerProvisional = useServerFn(registerProvisionalAccess);
   const logout = useServerFn(logoutAdminSession);
