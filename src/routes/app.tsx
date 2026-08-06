@@ -212,7 +212,7 @@ function AppPage() {
       )}
       <iframe
         ref={iframeRef}
-        src="/dtflex-tool/index.html?v=dpi300-a3-v35"
+        src="/dtflex-tool/index.html?v=dpi300-a3-v36"
         title="DTFLEXPRO Halftone Engine"
         style={{
           position: "fixed",
@@ -266,11 +266,17 @@ function AppPage() {
                 className="h-10 px-3 text-xs font-semibold shadow-lg"
                 asChild
               >
-                <a href="/api/public/download-windows" download>
+                <a href="/api/public/download-windows" rel="noreferrer">
                   <Download className="h-4 w-4" />
                   Baixar instalador Windows (setup.exe)
                 </a>
               </Button>
+              <p className="max-w-[260px] rounded-md bg-amber-100 p-2 text-[10px] font-semibold leading-snug text-amber-950">
+                Se o Windows mostrar “SmartScreen impediu…”, clique em{" "}
+                <strong>Mais informações → Executar assim mesmo</strong>. E no navegador, se
+                aparecer aviso, escolha <strong>Manter arquivo</strong>. O instalador é seguro,
+                apenas ainda não tem assinatura digital paga.
+              </p>
 
             </div>
           )}

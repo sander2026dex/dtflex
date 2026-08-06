@@ -8,13 +8,22 @@ export const Route = createFileRoute("/api/public/download-windows")({
   server: {
     handlers: {
       GET: async () => {
+        // URL assinada longa: o navegador baixa direto do storage (sem passar
+        // pelo servidor), o que deixa o download bem mais rápido.
         const { data, error } = await supabaseAdmin.storage
           .from("downloads")
-          .createSignedUrl(FILE, 60 * 10, { download: FILE });
+          .createSignedUrl(FILE, 60 * 60 * 6, { download: FILE });
         if (error || !data?.signedUrl) {
           return new Response("Download indisponível no momento.", { status: 503 });
         }
-        return new Response(null, { status: 302, headers: { Location: data.signedUrl } });
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: data.signedUrl,
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+          },
+        });
       },
     },
   },
