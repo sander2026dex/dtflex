@@ -621,10 +621,13 @@
             if (ar > 0 && drag && drag.mode === 'resize') {
               rect.h = Math.max(10, rect.w / ar);
             }
-            rect.x = Math.max(0, Math.min(rect.x, dispW - 10));
-            rect.y = Math.max(0, Math.min(rect.y, dispH - 10));
-            rect.w = Math.max(10, Math.min(rect.w, dispW - rect.x));
-            rect.h = Math.max(10, Math.min(rect.h, dispH - rect.y));
+            // O recorte pode ultrapassar a imagem: assim a arte inteira cabe
+            // dentro da proporção escolhida (A4/A3) sem nunca ser cortada.
+            var PAD = Math.max(dispW, dispH);
+            rect.w = Math.max(10, Math.min(rect.w, dispW + PAD * 2));
+            rect.h = Math.max(10, Math.min(rect.h, dispH + PAD * 2));
+            rect.x = Math.max(-PAD, Math.min(rect.x, dispW + PAD - 10));
+            rect.y = Math.max(-PAD, Math.min(rect.y, dispH + PAD - 10));
             sel.style.left = rect.x + 'px'; sel.style.top = rect.y + 'px';
             sel.style.width = rect.w + 'px'; sel.style.height = rect.h + 'px';
           }
