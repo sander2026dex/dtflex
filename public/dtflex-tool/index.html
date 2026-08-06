@@ -870,8 +870,10 @@
             var sw = Math.round(rect.w / scale);
             var sh = Math.round(rect.h / scale);
             var out = document.createElement('canvas');
-            out.width = sw; out.height = sh;
-            out.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
+            out.width = Math.max(1, sw); out.height = Math.max(1, sh);
+            // Desenha a imagem inteira dentro do quadro (offsets podem ser
+            // negativos): o que sobra fica transparente, nada é cortado.
+            out.getContext('2d').drawImage(bitmap, -sx, -sy, bitmap.width, bitmap.height);
 
             var rmBg = overlay.querySelector('#dtf-rmbg');
             var coloridaNow = window.__DTF_SHIRT_COLOR === 'colorida';
