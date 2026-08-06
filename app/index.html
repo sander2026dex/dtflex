@@ -985,7 +985,7 @@
       })();
     </script>
     <script>
-      /* Visualização nítida online + LUPA DE ALTA DEFINIÇÃO (somente no software desktop) */
+      /* Visualização nítida online. LUPA DE ALTA DEFINIÇÃO apenas no software desktop (window.dtflex). */
       (function(){
         var st = document.createElement('style');
         st.textContent = 'canvas{image-rendering:-webkit-optimize-contrast;}' +
@@ -998,8 +998,8 @@
           '#dtf-zoom-stage canvas{image-rendering:pixelated;display:block;margin:0 auto}';
         document.head.appendChild(st);
 
-        var isDesktop = !!(window.dtflex) || /Electron/i.test(navigator.userAgent);
-        if (!isDesktop) return;
+        // Só exibe a lupa de alta definição no software desktop (Electron).
+        if (typeof window.dtflex === 'undefined') return;
 
         function biggestCanvas(){
           var best = null, area = 0;
@@ -1074,7 +1074,7 @@
         setTimeout(mountBar, 1500);
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v36"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v37"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
