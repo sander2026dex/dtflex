@@ -998,8 +998,8 @@
           '#dtf-zoom-stage canvas{image-rendering:pixelated;display:block;margin:0 auto}';
         document.head.appendChild(st);
 
-        var isDesktop = !!(window.dtflex) || /Electron/i.test(navigator.userAgent);
-        if (!isDesktop) return;
+        // Zoom da arte disponível também no site (online), não só no software.
+
 
         function biggestCanvas(){
           var best = null, area = 0;
