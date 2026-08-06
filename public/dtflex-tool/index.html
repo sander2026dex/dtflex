@@ -692,11 +692,15 @@
             });
             window.__DTF_UPLOAD_PAPER = (mode === 'A4' || mode === 'A3') ? mode : null;
             if (ar > 0) {
-              var cx = rect.x + rect.w/2, cy = rect.y + rect.h/2;
-              var w = rect.w, h = w / ar;
-              if (h > dispH) { h = dispH; w = h * ar; }
-              if (w > dispW) { w = dispW; h = w / ar; }
-              rect = { x: cx - w/2, y: cy - h/2, w: w, h: h };
+              // Enquadra a IMAGEM INTEIRA dentro da proporção escolhida, centralizada.
+              // Nunca corta: sobra vira margem transparente ao redor da arte.
+              var w, h;
+              if (dispW / dispH > ar) { w = dispW; h = w / ar; }
+              else { h = dispH; w = h * ar; }
+              rect = { x: (dispW - w) / 2, y: (dispH - h) / 2, w: w, h: h };
+              applyRect();
+            } else {
+              rect = { x: 0, y: 0, w: dispW, h: dispH };
               applyRect();
             }
           }
