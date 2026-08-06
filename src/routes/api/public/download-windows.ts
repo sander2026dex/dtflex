@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const FILE = "DTFLEXPRO-Studio-win64.zip";
+const FILE = "DTFLEXPRO-Studio-Setup.exe";
 
 // Download público do software desktop (Windows x64)
 export const Route = createFileRoute("/api/public/download-windows")({
