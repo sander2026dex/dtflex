@@ -985,7 +985,7 @@
       })();
     </script>
     <script>
-      /* Visualização nítida online + LUPA DE ALTA DEFINIÇÃO (somente no software desktop) */
+      /* Visualização nítida online. LUPA DE ALTA DEFINIÇÃO apenas no software desktop (window.dtflex). */
       (function(){
         var st = document.createElement('style');
         st.textContent = 'canvas{image-rendering:-webkit-optimize-contrast;}' +
@@ -998,8 +998,8 @@
           '#dtf-zoom-stage canvas{image-rendering:pixelated;display:block;margin:0 auto}';
         document.head.appendChild(st);
 
-        // Zoom da arte disponível também no site (online), não só no software.
-
+        // Só exibe a lupa de alta definição no software desktop (Electron).
+        if (typeof window.dtflex === 'undefined') return;
 
         function biggestCanvas(){
           var best = null, area = 0;
