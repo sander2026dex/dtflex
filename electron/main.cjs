@@ -173,10 +173,16 @@ async function openStudio() {
     shell.openExternal(url);
     return { action: "deny" };
   });
-  mainWindow.once("ready-to-show", closeSplash);
+  mainWindow.once("ready-to-show", () => {
+    closeSplash();
+    if (work.width <= 1400 || work.height <= 800) mainWindow.maximize();
+  });
   mainWindow.webContents.on("did-finish-load", () => {
     injectLicenseBar(mainWindow);
     enableWindowsZoom(mainWindow);
+    // Escala inicial de acordo com a tela (telas menores = zoom menor).
+    const auto = Math.min(1, Math.max(0.67, work.width / 1600));
+    mainWindow.webContents.setZoomFactor(Number(auto.toFixed(2)));
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
