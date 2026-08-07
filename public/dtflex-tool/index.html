@@ -597,11 +597,12 @@
               }
             }
             var area = pix.length;
-            if (area < 24 || area > maxCompArea) continue;
+            if (area < 12 || area > maxCompArea) continue;
             var bw = maxX - minX + 1, bh = maxY - minY + 1;
-            if (bh > H * 0.4 || bw > W * 0.95) continue;
+            if (bh > H * 0.6 || bw > W * 0.99) continue;
             var fill = area / (bw * bh);
-            if (fill < 0.04 || fill > 0.92) continue;
+            if (fill < 0.02 || fill > 0.97) continue;
+
             // espessura média do traço = 2 * área / perímetro
             var per = 0;
             for (var k = 0; k < pix.length; k++) {
