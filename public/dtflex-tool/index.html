@@ -675,6 +675,31 @@
         }
         window.__DTF_APPLY_TEXT_ISOLATION = compositeTextOverlay;
 
+        // Preview: mantém o texto sólido também na tela enquanto a opção estiver ativa
+        setInterval(function(){
+          var ov = window.__DTF_TEXT_OVERLAY;
+          if (!ov) return;
+          var best = null, area = 0;
+          document.querySelectorAll('canvas').forEach(function(c){
+            if (c.closest('#dtf-upcrop-stage') || c.closest('#dtf-zoom-stage')) return;
+            var a = c.width * c.height;
+            if (a > area && c.width > 200) { area = a; best = c; }
+          });
+          if (!best) return;
+          try {
+            var c2 = best.getContext('2d');
+            if (!c2) return;
+            c2.save();
+            c2.imageSmoothingEnabled = false;
+            c2.globalCompositeOperation = 'destination-out';
+            c2.drawImage(ov.eraser, 0, 0, best.width, best.height);
+            c2.globalCompositeOperation = 'source-over';
+            c2.drawImage(ov.solid, 0, 0, best.width, best.height);
+            c2.restore();
+          } catch (e) {}
+        }, 900);
+
+
 
 
         // ============================================================
