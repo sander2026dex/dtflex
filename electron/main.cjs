@@ -4,6 +4,14 @@ const fs = require("fs");
 const http = require("http");
 const license = require("./license.cjs");
 
+// Usa a aceleração de hardware do Windows (GPU) para renderizar as retículas 1:1.
+app.commandLine.appendSwitch("ignore-gpu-blocklist");
+app.commandLine.appendSwitch("enable-gpu-rasterization");
+app.commandLine.appendSwitch("enable-zero-copy");
+// Funciona 100% offline: todo o conteúdo é servido do disco local.
+app.commandLine.appendSwitch("disable-features", "OutOfBlinkCors");
+
+
 const ROOT = path.join(__dirname, "..", "app");
 
 const MIME = {
