@@ -1082,19 +1082,37 @@
           btn.textContent = PREVIEW_ZOOM ? '75%' : '100%';
         }
 
-        function mountBar(){
-          if (document.getElementById('dtf-zoom-bar')) return;
-          var bar = document.createElement('div');
-          bar.id = 'dtf-zoom-bar';
-          bar.innerHTML = '<button type="button" data-z="v">75%</button><button type="button" data-z="hd">🔍 Retículas</button>';
-          bar.querySelector('[data-z="hd"]').onclick = openZoom;
-          var vb = bar.querySelector('[data-z="v"]');
-          vb.onclick = function(){ togglePreviewZoom(vb); };
-          document.body.appendChild(bar);
+        // Zoom embarcado: sem botões na tela.
+        // Ctrl + roda do mouse / Ctrl +,- / duplo clique na arte abrem o zoom real.
+        function bindEmbedded(){
+          if (window.__dtfZoomBound) return;
+          window.__dtfZoomBound = true;
+          document.addEventListener('wheel', function(e){
+            if (!(e.ctrlKey || e.metaKey)) return;
+            if (document.getElementById('dtf-zoom-stage')) return;
+            if (!biggestCanvas()) return;
+            e.preventDefault();
+            openZoom();
+          }, { passive: false });
+          document.addEventListener('dblclick', function(e){
+            var t = e.target;
+            if (t && t.tagName === 'CANVAS' && t.width > 200) openZoom();
+          });
+          document.addEventListener('keydown', function(e){
+            if (!(e.ctrlKey || e.metaKey)) return;
+            if (e.key === '+' || e.key === '=' || e.key === '-') {
+              if (document.getElementById('dtf-zoom-stage')) return;
+              if (!biggestCanvas()) return;
+              e.preventDefault(); openZoom();
+            }
+            if (e.key === '0') { PREVIEW_ZOOM = 0.75; var c = biggestCanvas(); if (c) { c.dataset.dtfZoom = ''; applyPreviewZoom(); } }
+            if (e.key === 'Escape') { var s = document.getElementById('dtf-zoom-stage'); if (s) s.remove(); }
+          });
         }
-        document.addEventListener('DOMContentLoaded', mountBar);
-        setTimeout(mountBar, 1500);
+        document.addEventListener('DOMContentLoaded', bindEmbedded);
+        bindEmbedded();
         setInterval(applyPreviewZoom, 1200);
+
 
       })();
     </script>
