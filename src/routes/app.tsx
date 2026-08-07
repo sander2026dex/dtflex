@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, Wand2, ChevronDown, ChevronUp, Shirt, Download } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft, Wand2, ChevronDown, ChevronUp, Shirt } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
@@ -212,7 +212,7 @@ function AppPage() {
       )}
       <iframe
         ref={iframeRef}
-        src="/dtflex-tool/index.html?v=dpi300-a3-v40"
+        src="/dtflex-tool/index.html?v=dpi300-a3-v41"
         title="DTFLEXPRO Halftone Engine"
         style={{
           position: "fixed",
@@ -261,15 +261,6 @@ function AppPage() {
                   </Button>
                 }
               />
-              <Button
-                className="h-10 px-3 text-xs font-bold shadow-lg bg-[oklch(0.85_0.17_95)] text-black hover:bg-[oklch(0.78_0.17_95)]"
-                asChild
-              >
-                <a href="/api/public/download-windows" rel="noreferrer">
-                  <Download className="h-4 w-4" />
-                  Baixar instalador Windows (.zip)
-                </a>
-              </Button>
 
 
             </div>
