@@ -180,9 +180,9 @@ async function openStudio() {
   mainWindow.webContents.on("did-finish-load", () => {
     injectLicenseBar(mainWindow);
     enableWindowsZoom(mainWindow);
-    // Escala inicial de acordo com a tela (telas menores = zoom menor).
-    const auto = Math.min(1, Math.max(0.67, work.width / 1600));
-    mainWindow.webContents.setZoomFactor(Number(auto.toFixed(2)));
+    // Escala inicial 75% — melhor leitura das retículas no monitor.
+    mainWindow.webContents.setZoomFactor(0.75);
+
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
