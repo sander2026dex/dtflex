@@ -288,6 +288,15 @@ function AppPage() {
       )}
 
 
+      {/* Recorte IA — rastreamento inteligente (processa no navegador) */}
+      {showSmartCut && (
+        <ClientOnly fallback={null}>
+          <Suspense fallback={<div className="fixed inset-0 z-[100] flex items-center justify-center bg-background text-sm">Carregando IA...</div>}>
+            <SmartCutoutStudio onClose={() => setShowSmartCut(false)} />
+          </Suspense>
+        </ClientOnly>
+      )}
+
       {/* Overlay do Removedor de Fundos */}
       {showRemover && (
         <ExternalToolOverlay
