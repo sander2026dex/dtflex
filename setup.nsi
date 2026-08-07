@@ -1,11 +1,12 @@
 ; DTFLEXPRO Studio — Assistente de Instalação (NSIS / Modern UI 2)
 Unicode true
+ManifestDPIAware true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
 
 !define APPNAME "DTFLEXPRO Studio"
 !define COMPANY "DTFLEXPRO"
-!define VERSION "1.0.0"
+!define VERSION "1.2.0"
 !define EXE "DTFLEXPRO Studio.exe"
 !define SRC "electron-release\DTFLEXPRO Studio-win32-x64"
 !define REGKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DTFLEXPROStudio"
