@@ -559,20 +559,22 @@
           var img = ctx.getImageData(0, 0, W, H);
           var d = img.data;
           var N = W * H;
-          var hasAlpha = false;
-          for (var i = 3; i < d.length; i += 4) { if (d[i] < 250) { hasAlpha = true; break; } }
+          // "Tinta" = pixel visível e escuro o suficiente para ser glifo.
+          // Usar alpha como critério faz a arte inteira virar 1 componente
+          // gigante (nada é detectado). Por isso sempre usamos luminância.
           var ink = new Uint8Array(N);
           for (var p = 0; p < N; p++) {
             var o = p * 4, a = d[o + 3];
             if (a < 60) continue;
             var lum = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
-            if (hasAlpha ? a > 60 : lum < 150) ink[p] = 1;
+            if (lum < 175) ink[p] = 1;
           }
           var label = new Int32Array(N).fill(-1);
           var stack = new Int32Array(N);
           var mask = new Uint8Array(N);
-          var maxCompArea = N * 0.12;
-          var maxStroke = Math.max(2.5, Math.min(W, H) * 0.022);
+          var maxCompArea = N * 0.30;
+          var maxStroke = Math.max(3, Math.min(W, H) * 0.06);
+
           for (var s = 0; s < N; s++) {
             if (!ink[s] || label[s] !== -1) continue;
             var top = 0; stack[top++] = s; label[s] = s;
@@ -595,11 +597,12 @@
               }
             }
             var area = pix.length;
-            if (area < 24 || area > maxCompArea) continue;
+            if (area < 12 || area > maxCompArea) continue;
             var bw = maxX - minX + 1, bh = maxY - minY + 1;
-            if (bh > H * 0.4 || bw > W * 0.95) continue;
+            if (bh > H * 0.6 || bw > W * 0.99) continue;
             var fill = area / (bw * bh);
-            if (fill < 0.04 || fill > 0.92) continue;
+            if (fill < 0.02 || fill > 0.97) continue;
+
             // espessura média do traço = 2 * área / perímetro
             var per = 0;
             for (var k = 0; k < pix.length; k++) {
