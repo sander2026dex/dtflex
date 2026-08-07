@@ -148,9 +148,17 @@ function injectLicenseBar(win) {
 async function openStudio() {
   if (mainWindow) return mainWindow.focus();
   const port = await startServer();
+  // Adapta-se automaticamente a qualquer tela/resolução do Windows.
+  const { screen } = require("electron");
+  const work = screen.getPrimaryDisplay().workAreaSize;
+  const winW = Math.max(1024, Math.min(1440, Math.round(work.width * 0.92)));
+  const winH = Math.max(680, Math.min(950, Math.round(work.height * 0.92)));
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: winW,
+    height: winH,
+    minWidth: Math.min(1024, work.width),
+    minHeight: Math.min(660, work.height),
+    center: true,
     backgroundColor: "#0e1116",
     autoHideMenuBar: true,
     icon: APP_ICON,
@@ -165,10 +173,16 @@ async function openStudio() {
     shell.openExternal(url);
     return { action: "deny" };
   });
-  mainWindow.once("ready-to-show", closeSplash);
+  mainWindow.once("ready-to-show", () => {
+    closeSplash();
+    if (work.width <= 1400 || work.height <= 800) mainWindow.maximize();
+  });
   mainWindow.webContents.on("did-finish-load", () => {
     injectLicenseBar(mainWindow);
     enableWindowsZoom(mainWindow);
+    // Escala inicial de acordo com a tela (telas menores = zoom menor).
+    const auto = Math.min(1, Math.max(0.67, work.width / 1600));
+    mainWindow.webContents.setZoomFactor(Number(auto.toFixed(2)));
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
