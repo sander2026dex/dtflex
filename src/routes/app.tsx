@@ -261,15 +261,6 @@ function AppPage() {
                   </Button>
                 }
               />
-              <Button
-                className="h-10 px-3 text-xs font-bold shadow-lg bg-[oklch(0.85_0.17_95)] text-black hover:bg-[oklch(0.78_0.17_95)]"
-                asChild
-              >
-                <a href="/api/public/download-windows" rel="noreferrer">
-                  <Download className="h-4 w-4" />
-                  Baixar instalador Windows (.zip)
-                </a>
-              </Button>
 
 
             </div>
