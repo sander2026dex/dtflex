@@ -643,11 +643,19 @@
           var sImg = sCtx.createImageData(W, H), eImg = eCtx.createImageData(W, H);
           var soft = dilateMask(det.mask, W, H, 1);
           var wide = dilateMask(det.mask, W, H, 3);
+          // Camisas PRETA e BRANCA: o preto do texto sai VAZADO (sem tinta),
+          // as demais cores do texto ficam exatamente como na imagem original.
+          var shirt = window.__DTF_SHIRT_COLOR;
+          var knockoutBlack = (shirt === 'black' || shirt === 'white');
           for (var p = 0; p < W * H; p++) {
             var o = p * 4;
             if (soft[p]) {
-              sImg.data[o] = src[o]; sImg.data[o + 1] = src[o + 1]; sImg.data[o + 2] = src[o + 2];
-              sImg.data[o + 3] = 255;
+              var lumT = 0.299 * src[o] + 0.587 * src[o + 1] + 0.114 * src[o + 2];
+              var isBlackText = knockoutBlack && src[o + 3] > 40 && lumT < 70;
+              if (!isBlackText) {
+                sImg.data[o] = src[o]; sImg.data[o + 1] = src[o + 1]; sImg.data[o + 2] = src[o + 2];
+                sImg.data[o + 3] = 255;
+              }
             }
             if (wide[p]) { eImg.data[o + 3] = 255; }
           }
