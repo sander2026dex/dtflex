@@ -1039,6 +1039,14 @@
               window.__DTF_TARGET_PX = null;
             }
 
+            // Isolar/neutralizar textos: só quando o usuário marca a opção
+            var isoEl = overlay.querySelector('#dtf-textiso');
+            window.__DTF_TEXT_OVERLAY = null;
+            if (isoEl && isoEl.checked) {
+              try { window.__DTF_TEXT_OVERLAY = buildTextOverlay(out); } catch (e) { window.__DTF_TEXT_OVERLAY = null; }
+              try { console.log('[TEXTO] isolamento', window.__DTF_TEXT_OVERLAY ? 'ativo' : 'nenhum texto detectado'); } catch (_) {}
+            }
+
             overlay.remove();
             onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
           };
