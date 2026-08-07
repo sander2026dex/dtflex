@@ -543,6 +543,139 @@
         window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT], a3: [A3_WIDTH, A3_HEIGHT] };
 
         // ============================================================
+        // ISOLAR / NEUTRALIZAR TEXTOS (opcional)
+        // Detecta glifos de texto (traço fino, componente pequeno) e, quando
+        // o usuário liga a opção, esses pixels saem SÓLIDOS no arquivo final
+        // (sem retícula). Desligado: nada muda no pipeline.
+        // ============================================================
+        window.__DTF_TEXT_OVERLAY = null;
+
+        function detectTextComponents(canvas){
+          var W = canvas.width, H = canvas.height;
+          if (!W || !H || W * H > 40e6) return null;
+          var ctx = canvas.getContext('2d');
+          var img = ctx.getImageData(0, 0, W, H);
+          var d = img.data;
+          var N = W * H;
+          var hasAlpha = false;
+          for (var i = 3; i < d.length; i += 4) { if (d[i] < 250) { hasAlpha = true; break; } }
+          var ink = new Uint8Array(N);
+          for (var p = 0; p < N; p++) {
+            var o = p * 4, a = d[o + 3];
+            if (a < 60) continue;
+            var lum = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
+            if (hasAlpha ? a > 60 : lum < 150) ink[p] = 1;
+          }
+          var label = new Int32Array(N).fill(-1);
+          var stack = new Int32Array(N);
+          var mask = new Uint8Array(N);
+          var maxCompArea = N * 0.12;
+          var maxStroke = Math.max(2.5, Math.min(W, H) * 0.022);
+          for (var s = 0; s < N; s++) {
+            if (!ink[s] || label[s] !== -1) continue;
+            var top = 0; stack[top++] = s; label[s] = s;
+            var pix = [];
+            var minX = W, minY = H, maxX = -1, maxY = -1;
+            while (top > 0) {
+              var cur = stack[--top];
+              pix.push(cur);
+              var cx = cur % W, cy = (cur / W) | 0;
+              if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
+              if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
+              for (var dy = -1; dy <= 1; dy++) {
+                for (var dx = -1; dx <= 1; dx++) {
+                  if (!dx && !dy) continue;
+                  var nx = cx + dx, ny = cy + dy;
+                  if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+                  var ni = ny * W + nx;
+                  if (ink[ni] && label[ni] === -1) { label[ni] = s; stack[top++] = ni; }
+                }
+              }
+            }
+            var area = pix.length;
+            if (area < 24 || area > maxCompArea) continue;
+            var bw = maxX - minX + 1, bh = maxY - minY + 1;
+            if (bh > H * 0.4 || bw > W * 0.95) continue;
+            var fill = area / (bw * bh);
+            if (fill < 0.04 || fill > 0.92) continue;
+            // espessura média do traço = 2 * área / perímetro
+            var per = 0;
+            for (var k = 0; k < pix.length; k++) {
+              var q = pix[k], qx = q % W, qy = (q / W) | 0;
+              if (qx === 0 || qy === 0 || qx === W - 1 || qy === H - 1) { per++; continue; }
+              if (!ink[q - 1] || !ink[q + 1] || !ink[q - W] || !ink[q + W]) per++;
+            }
+            var stroke = per > 0 ? (2 * area / per) : 99;
+            if (stroke > maxStroke) continue;
+            for (var m = 0; m < pix.length; m++) mask[pix[m]] = 1;
+          }
+          var any = false;
+          for (var t = 0; t < N; t++) { if (mask[t]) { any = true; break; } }
+          if (!any) return null;
+          return { w: W, h: H, mask: mask, data: d };
+        }
+
+        function dilateMask(mask, W, H, r){
+          var out = new Uint8Array(mask);
+          for (var pass = 0; pass < r; pass++) {
+            var prev = new Uint8Array(out);
+            for (var y = 0; y < H; y++) {
+              for (var x = 0; x < W; x++) {
+                var i = y * W + x;
+                if (prev[i]) continue;
+                if ((x > 0 && prev[i - 1]) || (x < W - 1 && prev[i + 1]) ||
+                    (y > 0 && prev[i - W]) || (y < H - 1 && prev[i + W])) out[i] = 1;
+              }
+            }
+          }
+          return out;
+        }
+
+        function buildTextOverlay(canvas){
+          var det = detectTextComponents(canvas);
+          if (!det) return null;
+          var W = det.w, H = det.h, src = det.data;
+          var solid = document.createElement('canvas'); solid.width = W; solid.height = H;
+          var eraser = document.createElement('canvas'); eraser.width = W; eraser.height = H;
+          var sCtx = solid.getContext('2d'), eCtx = eraser.getContext('2d');
+          var sImg = sCtx.createImageData(W, H), eImg = eCtx.createImageData(W, H);
+          var soft = dilateMask(det.mask, W, H, 1);
+          var wide = dilateMask(det.mask, W, H, 3);
+          for (var p = 0; p < W * H; p++) {
+            var o = p * 4;
+            if (soft[p]) {
+              sImg.data[o] = src[o]; sImg.data[o + 1] = src[o + 1]; sImg.data[o + 2] = src[o + 2];
+              sImg.data[o + 3] = 255;
+            }
+            if (wide[p]) { eImg.data[o + 3] = 255; }
+          }
+          sCtx.putImageData(sImg, 0, 0);
+          eCtx.putImageData(eImg, 0, 0);
+          return { solid: solid, eraser: eraser, w: W, h: H };
+        }
+
+        // Aplica o texto sólido por cima do reticulado (usado na exportação)
+        function compositeTextOverlay(flat){
+          var ov = window.__DTF_TEXT_OVERLAY;
+          if (!ov || !flat || !flat.width) return flat;
+          try {
+            var out = document.createElement('canvas');
+            out.width = flat.width; out.height = flat.height;
+            var c = out.getContext('2d');
+            c.drawImage(flat, 0, 0);
+            c.imageSmoothingEnabled = false;
+            c.globalCompositeOperation = 'destination-out';
+            c.drawImage(ov.eraser, 0, 0, out.width, out.height);
+            c.globalCompositeOperation = 'source-over';
+            c.drawImage(ov.solid, 0, 0, out.width, out.height);
+            return out;
+          } catch (e) { return flat; }
+        }
+        window.__DTF_APPLY_TEXT_ISOLATION = compositeTextOverlay;
+
+
+
+        // ============================================================
         // Corte no UPLOAD: abre modal ao subir imagem, permite recortar
         // livre / 1:1 / 3:4 / 4:3 / A4 / A3 e substitui o arquivo antes
         // de entrar no pipeline. A escolha se propaga até o arquivo final.
