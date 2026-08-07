@@ -1005,6 +1005,8 @@
         function biggestCanvas(){
           var best = null, area = 0;
           document.querySelectorAll('canvas').forEach(function(c){
+            // Nunca mexer nos canvases do modal de upload/recorte.
+            if (c.closest('#dtf-upcrop-stage')) return;
             var a = c.width * c.height;
             if (a > area && c.width > 200) { area = a; best = c; }
           });
