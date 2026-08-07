@@ -998,8 +998,8 @@
           '#dtf-zoom-stage canvas{image-rendering:pixelated;display:block;margin:0 auto}';
         document.head.appendChild(st);
 
-        // Só exibe a lupa de alta definição no software desktop (Electron).
-        if (typeof window.dtflex === 'undefined') return;
+        var IS_DESKTOP = typeof window.dtflex !== 'undefined';
+
 
         function biggestCanvas(){
           var best = null, area = 0;
