@@ -1,12 +1,15 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, Wand2, ChevronDown, ChevronUp, Shirt } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft, Wand2, ChevronDown, ChevronUp, Shirt, Sparkles } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
 
 const ShirtStudioCanvas = lazy(() => import("@/components/landing/shirt-studio/ShirtStudioCanvas"));
+const SmartCutoutStudio = lazy(() =>
+  import("@/components/SmartCutoutStudio").then((m) => ({ default: m.SmartCutoutStudio })),
+);
 
 function AppError() {
   return (
@@ -63,6 +66,7 @@ function AppPage() {
   const [showRemover, setShowRemover] = useState(false);
   const [showVtracer, setShowVtracer] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
+  const [showSmartCut, setShowSmartCut] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -233,6 +237,13 @@ function AppPage() {
           {toolsOpen && (
             <div className="flex flex-col items-start gap-2">
               <Button
+                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.62_0.19_300)] hover:bg-[oklch(0.55_0.19_300)] text-white"
+                onClick={() => setShowSmartCut(true)}
+              >
+                <Sparkles className="h-4 w-4" />
+                Recorte IA (rastreamento)
+              </Button>
+              <Button
                 className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
                 onClick={() => setShowRemover(true)}
               >
@@ -276,6 +287,15 @@ function AppPage() {
         </div>
       )}
 
+
+      {/* Recorte IA — rastreamento inteligente (processa no navegador) */}
+      {showSmartCut && (
+        <ClientOnly fallback={null}>
+          <Suspense fallback={<div className="fixed inset-0 z-[100] flex items-center justify-center bg-background text-sm">Carregando IA...</div>}>
+            <SmartCutoutStudio onClose={() => setShowSmartCut(false)} />
+          </Suspense>
+        </ClientOnly>
+      )}
 
       {/* Overlay do Removedor de Fundos */}
       {showRemover && (
