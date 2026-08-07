@@ -989,9 +989,8 @@
       (function(){
         var st = document.createElement('style');
         st.textContent = 'canvas{image-rendering:-webkit-optimize-contrast;}' +
-          '#dtf-zoom-bar{position:fixed;right:12px;bottom:12px;z-index:99998;display:flex;gap:5px;align-items:center;background:rgba(17,24,39,.72);border:1px solid rgba(55,65,81,.8);border-radius:9px;padding:4px 5px;opacity:.55;transition:opacity .2s}' +
-          '#dtf-zoom-bar:hover{opacity:1}' +
-          '#dtf-zoom-bar button{background:#facc15;color:#111827;border:0;border-radius:6px;padding:3px 8px;font:700 11px system-ui;cursor:pointer}' +
+
+
 
           '#dtf-zoom-stage{position:fixed;inset:0;z-index:99999;background:#0b0d12;display:flex;flex-direction:column}' +
           '#dtf-zoom-stage .hd{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 12px;background:#111827;color:#fff;font:600 13px system-ui}' +
@@ -1082,23 +1081,41 @@
           btn.textContent = PREVIEW_ZOOM ? '75%' : '100%';
         }
 
-        function mountBar(){
-          if (document.getElementById('dtf-zoom-bar')) return;
-          var bar = document.createElement('div');
-          bar.id = 'dtf-zoom-bar';
-          bar.innerHTML = '<button type="button" data-z="v">75%</button><button type="button" data-z="hd">🔍 Retículas</button>';
-          bar.querySelector('[data-z="hd"]').onclick = openZoom;
-          var vb = bar.querySelector('[data-z="v"]');
-          vb.onclick = function(){ togglePreviewZoom(vb); };
-          document.body.appendChild(bar);
+        // Zoom embarcado: sem botões na tela.
+        // Ctrl + roda do mouse / Ctrl +,- / duplo clique na arte abrem o zoom real.
+        function bindEmbedded(){
+          if (window.__dtfZoomBound) return;
+          window.__dtfZoomBound = true;
+          document.addEventListener('wheel', function(e){
+            if (!(e.ctrlKey || e.metaKey)) return;
+            if (document.getElementById('dtf-zoom-stage')) return;
+            if (!biggestCanvas()) return;
+            e.preventDefault();
+            openZoom();
+          }, { passive: false });
+          document.addEventListener('dblclick', function(e){
+            var t = e.target;
+            if (t && t.tagName === 'CANVAS' && t.width > 200) openZoom();
+          });
+          document.addEventListener('keydown', function(e){
+            if (!(e.ctrlKey || e.metaKey)) return;
+            if (e.key === '+' || e.key === '=' || e.key === '-') {
+              if (document.getElementById('dtf-zoom-stage')) return;
+              if (!biggestCanvas()) return;
+              e.preventDefault(); openZoom();
+            }
+            if (e.key === '0') { PREVIEW_ZOOM = 0.75; var c = biggestCanvas(); if (c) { c.dataset.dtfZoom = ''; applyPreviewZoom(); } }
+            if (e.key === 'Escape') { var s = document.getElementById('dtf-zoom-stage'); if (s) s.remove(); }
+          });
         }
-        document.addEventListener('DOMContentLoaded', mountBar);
-        setTimeout(mountBar, 1500);
+        document.addEventListener('DOMContentLoaded', bindEmbedded);
+        bindEmbedded();
         setInterval(applyPreviewZoom, 1200);
+
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v39"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v40"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
