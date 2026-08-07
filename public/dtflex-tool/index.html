@@ -297,6 +297,7 @@
         HTMLCanvasElement.prototype.toDataURL = function(type){
           var source = this;
           if ((!type || type === 'image/png') && window.__flat && source === window.__flat) {
+            source = compositeTextOverlay(source);
             if (window.__DTF_EXPORT_A4_NEXT) {
               source = makeA4Canvas(source);
               window.__DTF_EXPORT_A4_NEXT = false;
