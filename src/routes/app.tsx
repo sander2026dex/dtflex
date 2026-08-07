@@ -237,6 +237,13 @@ function AppPage() {
           {toolsOpen && (
             <div className="flex flex-col items-start gap-2">
               <Button
+                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.62_0.19_300)] hover:bg-[oklch(0.55_0.19_300)] text-white"
+                onClick={() => setShowSmartCut(true)}
+              >
+                <Sparkles className="h-4 w-4" />
+                Recorte IA (rastreamento)
+              </Button>
+              <Button
                 className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
                 onClick={() => setShowRemover(true)}
               >
