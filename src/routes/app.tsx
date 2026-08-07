@@ -63,6 +63,7 @@ function AppPage() {
   const [showRemover, setShowRemover] = useState(false);
   const [showVtracer, setShowVtracer] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
+  const [showSmartCut, setShowSmartCut] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
