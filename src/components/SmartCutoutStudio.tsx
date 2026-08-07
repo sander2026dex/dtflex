@@ -16,6 +16,8 @@ const MODELS: Record<Level, "isnet_quint8" | "isnet_fp16" | "isnet"> = {
   ultra: "isnet",
 };
 
+const ASSET_PATH = "https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/";
+
 const LEVEL_INFO: Record<Level, string> = {
   rapido: "Maior velocidade de processamento.",
   profissional: "Melhor equilíbrio entre velocidade e qualidade.",
@@ -36,7 +38,7 @@ export function SmartCutoutStudio({ onClose }: { onClose: () => void }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    imglyPreload({ model: MODELS[level] }).catch(() => {});
+    imglyPreload({ model: MODELS[level], publicPath: ASSET_PATH, device: "cpu" }).catch(() => {});
   }, [level]);
 
   const pickLevel = (l: Level) => {
@@ -80,11 +82,20 @@ export function SmartCutoutStudio({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setProgress(0);
     try {
-      const raw = await imglyRemoveBackground(srcUrl, {
-        model: MODELS[level],
-        output: { format: "image/png", quality: 1 },
-        progress: (_k, c, t) => setProgress(Math.round((c / t) * 100)),
+      const cfg = (model: (typeof MODELS)[Level]) => ({
+        model,
+        publicPath: ASSET_PATH,
+        device: "cpu" as const,
+        output: { format: "image/png" as const, quality: 1 },
+        progress: (_k: string, c: number, t: number) => setProgress(Math.round((c / t) * 100)),
       });
+      let raw: Blob;
+      try {
+        raw = await imglyRemoveBackground(srcUrl, cfg(MODELS[level]));
+      } catch (err) {
+        console.warn("Fallback para modelo rápido:", err);
+        raw = await imglyRemoveBackground(srcUrl, cfg("isnet_quint8"));
+      }
       // Recompõe na resolução original e aplica refinamento de borda.
       const bmp = await createImageBitmap(raw);
       const cv = document.createElement("canvas");
@@ -101,7 +112,7 @@ export function SmartCutoutStudio({ onClose }: { onClose: () => void }) {
       toast.success("Recorte pronto — PNG 32 bits com alpha real.");
     } catch (e) {
       console.error(e);
-      toast.error("Falha no rastreamento. Tente outro nível.");
+      toast.error("Falha no rastreamento. Verifique a conexão e tente novamente.");
     } finally {
       setBusy(false);
     }
