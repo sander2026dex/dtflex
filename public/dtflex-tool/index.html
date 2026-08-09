@@ -545,170 +545,70 @@
         window.__DTF_FORCE_300_DPI = { readPhys: readPhys, setDpi: setDpi, ensureDpi: ensureDpi, a4: [A4_WIDTH, A4_HEIGHT], a3: [A3_WIDTH, A3_HEIGHT] };
 
         // ============================================================
-        // ISOLAR / NEUTRALIZAR TEXTOS (opcional)
-        // Detecta glifos de texto (traço fino, componente pequeno) e, quando
-        // o usuário liga a opção, esses pixels saem SÓLIDOS no arquivo final
-        // (sem retícula). Desligado: nada muda no pipeline.
+        // RETÍCULA BEN-DAY (aplicada em TODA a imagem, opcional)
+        // Grade regular de pontos sólidos a 45°: o tamanho de cada ponto
+        // vem da cobertura/luminância local. Desligada: nada muda.
         // ============================================================
-        window.__DTF_TEXT_OVERLAY = null;
+        window.__DTF_BENDAY = false;
+        window.__DTF_BENDAY_SPACING = 10; // px (300 DPI)
 
-        function detectTextComponents(canvas){
-          var W = canvas.width, H = canvas.height;
-          if (!W || !H || W * H > 40e6) return null;
-          var ctx = canvas.getContext('2d');
-          var img = ctx.getImageData(0, 0, W, H);
+        function renderBenDay(src){
+          if (!src || !src.width) return src;
+          var W = src.width, H = src.height;
+          var sctx = src.getContext('2d');
+          var img;
+          try { img = sctx.getImageData(0, 0, W, H); } catch (e) { return src; }
           var d = img.data;
-          var N = W * H;
-          // "Tinta" = pixel visível e escuro o suficiente para ser glifo.
-          // Usar alpha como critério faz a arte inteira virar 1 componente
-          // gigante (nada é detectado). Por isso sempre usamos luminância.
-          var ink = new Uint8Array(N);
-          for (var p = 0; p < N; p++) {
-            var o = p * 4, a = d[o + 3];
-            if (a < 60) continue;
-            var lum = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
-            if (lum < 175) ink[p] = 1;
-          }
-          var label = new Int32Array(N).fill(-1);
-          var stack = new Int32Array(N);
-          var mask = new Uint8Array(N);
-          var maxCompArea = N * 0.30;
-          var maxStroke = Math.max(3, Math.min(W, H) * 0.06);
-
-          for (var s = 0; s < N; s++) {
-            if (!ink[s] || label[s] !== -1) continue;
-            var top = 0; stack[top++] = s; label[s] = s;
-            var pix = [];
-            var minX = W, minY = H, maxX = -1, maxY = -1;
-            while (top > 0) {
-              var cur = stack[--top];
-              pix.push(cur);
-              var cx = cur % W, cy = (cur / W) | 0;
-              if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
-              if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
-              for (var dy = -1; dy <= 1; dy++) {
-                for (var dx = -1; dx <= 1; dx++) {
-                  if (!dx && !dy) continue;
-                  var nx = cx + dx, ny = cy + dy;
-                  if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-                  var ni = ny * W + nx;
-                  if (ink[ni] && label[ni] === -1) { label[ni] = s; stack[top++] = ni; }
+          var out = document.createElement('canvas');
+          out.width = W; out.height = H;
+          var o = out.getContext('2d');
+          o.clearRect(0, 0, W, H);
+          var step = Math.max(3, Math.round(window.__DTF_BENDAY_SPACING || 10));
+          var ang = Math.PI / 4;
+          var ca = Math.cos(ang), sa = Math.sin(ang);
+          var diag = Math.ceil(Math.sqrt(W * W + H * H));
+          var half = step / 2;
+          for (var v = -diag; v <= diag; v += step) {
+            for (var u = -diag; u <= diag; u += step) {
+              var cx = u * ca - v * sa + W / 2;
+              var cy = u * sa + v * ca + H / 2;
+              if (cx < -step || cy < -step || cx > W + step || cy > H + step) continue;
+              var x0 = Math.max(0, Math.round(cx - half)), x1 = Math.min(W - 1, Math.round(cx + half));
+              var y0 = Math.max(0, Math.round(cy - half)), y1 = Math.min(H - 1, Math.round(cy + half));
+              if (x1 < x0 || y1 < y0) continue;
+              var r = 0, g = 0, b = 0, a = 0, n = 0;
+              for (var y = y0; y <= y1; y++) {
+                var row = y * W;
+                for (var x = x0; x <= x1; x++) {
+                  var i = (row + x) * 4;
+                  var al = d[i + 3] / 255;
+                  r += d[i] * al; g += d[i + 1] * al; b += d[i + 2] * al; a += al; n++;
                 }
               }
-            }
-            var area = pix.length;
-            if (area < 12 || area > maxCompArea) continue;
-            var bw = maxX - minX + 1, bh = maxY - minY + 1;
-            if (bh > H * 0.6 || bw > W * 0.99) continue;
-            var fill = area / (bw * bh);
-            if (fill < 0.02 || fill > 0.97) continue;
-
-            // espessura média do traço = 2 * área / perímetro
-            var per = 0;
-            for (var k = 0; k < pix.length; k++) {
-              var q = pix[k], qx = q % W, qy = (q / W) | 0;
-              if (qx === 0 || qy === 0 || qx === W - 1 || qy === H - 1) { per++; continue; }
-              if (!ink[q - 1] || !ink[q + 1] || !ink[q - W] || !ink[q + W]) per++;
-            }
-            var stroke = per > 0 ? (2 * area / per) : 99;
-            if (stroke > maxStroke) continue;
-            for (var m = 0; m < pix.length; m++) mask[pix[m]] = 1;
-          }
-          var any = false;
-          for (var t = 0; t < N; t++) { if (mask[t]) { any = true; break; } }
-          if (!any) return null;
-          return { w: W, h: H, mask: mask, data: d };
-        }
-
-        function dilateMask(mask, W, H, r){
-          var out = new Uint8Array(mask);
-          for (var pass = 0; pass < r; pass++) {
-            var prev = new Uint8Array(out);
-            for (var y = 0; y < H; y++) {
-              for (var x = 0; x < W; x++) {
-                var i = y * W + x;
-                if (prev[i]) continue;
-                if ((x > 0 && prev[i - 1]) || (x < W - 1 && prev[i + 1]) ||
-                    (y > 0 && prev[i - W]) || (y < H - 1 && prev[i + W])) out[i] = 1;
-              }
+              if (!n || a <= 0.001) continue;
+              r = r / a; g = g / a; b = b / a;
+              var cov = a / n;
+              var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+              var ink = cov * (1 - lum * 0.85);
+              if (ink <= 0.02) continue;
+              var rad = half * Math.sqrt(Math.min(1, ink)) * 1.28;
+              if (rad < 0.35) continue;
+              o.beginPath();
+              o.fillStyle = 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ')';
+              o.arc(cx, cy, rad, 0, 6.2832);
+              o.fill();
             }
           }
           return out;
         }
 
-        function buildTextOverlay(canvas){
-          var det = detectTextComponents(canvas);
-          if (!det) return null;
-          var W = det.w, H = det.h, src = det.data;
-          var solid = document.createElement('canvas'); solid.width = W; solid.height = H;
-          var eraser = document.createElement('canvas'); eraser.width = W; eraser.height = H;
-          var sCtx = solid.getContext('2d'), eCtx = eraser.getContext('2d');
-          var sImg = sCtx.createImageData(W, H), eImg = eCtx.createImageData(W, H);
-          var soft = dilateMask(det.mask, W, H, 1);
-          var wide = dilateMask(det.mask, W, H, 3);
-          // Camisas PRETA e BRANCA: o preto do texto sai VAZADO (sem tinta),
-          // as demais cores do texto ficam exatamente como na imagem original.
-          var shirt = window.__DTF_SHIRT_COLOR;
-          var knockoutBlack = (shirt === 'black' || shirt === 'white');
-          for (var p = 0; p < W * H; p++) {
-            var o = p * 4;
-            if (soft[p]) {
-              var lumT = 0.299 * src[o] + 0.587 * src[o + 1] + 0.114 * src[o + 2];
-              var isBlackText = knockoutBlack && src[o + 3] > 40 && lumT < 70;
-              if (!isBlackText) {
-                sImg.data[o] = src[o]; sImg.data[o + 1] = src[o + 1]; sImg.data[o + 2] = src[o + 2];
-                sImg.data[o + 3] = 255;
-              }
-            }
-            if (wide[p]) { eImg.data[o + 3] = 255; }
-          }
-          sCtx.putImageData(sImg, 0, 0);
-          eCtx.putImageData(eImg, 0, 0);
-          return { solid: solid, eraser: eraser, w: W, h: H };
-        }
-
-        // Aplica o texto sólido por cima do reticulado (usado na exportação)
+        // Hook usado na exportação (mantém o nome antigo)
         function compositeTextOverlay(flat){
-          var ov = window.__DTF_TEXT_OVERLAY;
-          if (!ov || !flat || !flat.width) return flat;
-          try {
-            var out = document.createElement('canvas');
-            out.width = flat.width; out.height = flat.height;
-            var c = out.getContext('2d');
-            c.drawImage(flat, 0, 0);
-            c.imageSmoothingEnabled = false;
-            c.globalCompositeOperation = 'destination-out';
-            c.drawImage(ov.eraser, 0, 0, out.width, out.height);
-            c.globalCompositeOperation = 'source-over';
-            c.drawImage(ov.solid, 0, 0, out.width, out.height);
-            return out;
-          } catch (e) { return flat; }
+          if (!window.__DTF_BENDAY) return flat;
+          try { return renderBenDay(flat); } catch (e) { return flat; }
         }
-        window.__DTF_APPLY_TEXT_ISOLATION = compositeTextOverlay;
-
-        // Preview: mantém o texto sólido também na tela enquanto a opção estiver ativa
-        setInterval(function(){
-          var ov = window.__DTF_TEXT_OVERLAY;
-          if (!ov) return;
-          var best = null, area = 0;
-          document.querySelectorAll('canvas').forEach(function(c){
-            if (c.closest('#dtf-upcrop-stage') || c.closest('#dtf-zoom-stage')) return;
-            var a = c.width * c.height;
-            if (a > area && c.width > 200) { area = a; best = c; }
-          });
-          if (!best) return;
-          try {
-            var c2 = best.getContext('2d');
-            if (!c2) return;
-            c2.save();
-            c2.imageSmoothingEnabled = false;
-            c2.globalCompositeOperation = 'destination-out';
-            c2.drawImage(ov.eraser, 0, 0, best.width, best.height);
-            c2.globalCompositeOperation = 'source-over';
-            c2.drawImage(ov.solid, 0, 0, best.width, best.height);
-            c2.restore();
-          } catch (e) {}
-        }, 900);
+        window.__DTF_RENDER_BENDAY = renderBenDay;
+        window.__DTF_APPLY_BENDAY = compositeTextOverlay;
 
 
 
@@ -760,10 +660,6 @@
             + '  <span id="dtf-size-px" style="opacity:.7;"></span>'
             + '</div>'
 
-            + '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center;font:600 12px system-ui;color:#fff;max-width:820px;">'
-            + '  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:#1f2937;border:1px solid #facc15;border-radius:8px;padding:8px 12px;"><input id="dtf-textiso" type="checkbox" style="width:16px;height:16px;" /> 🅣 Isolar e neutralizar textos (texto sai sólido, <b>sem retícula</b>)</label>'
-            + '  <span style="opacity:.75;max-width:520px;">Opcional. Desativado, tudo funciona normal. Ativado, só os textos ficam sólidos no arquivo final — o resto continua reticulado.</span>'
-            + '</div>'
 
 
 
@@ -1075,13 +971,6 @@
               window.__DTF_TARGET_PX = null;
             }
 
-            // Isolar/neutralizar textos: só quando o usuário marca a opção
-            var isoEl = overlay.querySelector('#dtf-textiso');
-            window.__DTF_TEXT_OVERLAY = null;
-            if (isoEl && isoEl.checked) {
-              try { window.__DTF_TEXT_OVERLAY = buildTextOverlay(out); } catch (e) { window.__DTF_TEXT_OVERLAY = null; }
-              try { console.log('[TEXTO] isolamento', window.__DTF_TEXT_OVERLAY ? 'ativo' : 'nenhum texto detectado'); } catch (_) {}
-            }
 
             overlay.remove();
             onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
