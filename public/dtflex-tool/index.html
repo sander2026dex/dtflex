@@ -1142,24 +1142,79 @@
           if (IS_DESKTOP) { try { vp.style.willChange = 'transform'; } catch(e){} }
         }
 
-        // Visualização automática em 75% da arte reticulada (online e desktop).
+        // ============================================================
+        // BARRA DE VISUALIZAÇÃO: Zoom ao vivo (10% a 300%) + Ben-Day
+        // ============================================================
         var PREVIEW_ZOOM = 0.75;
+        var bar = null;
+
         function applyPreviewZoom(){
           var c = biggestCanvas();
           if (!c) return;
           if (c.dataset.dtfZoom === String(PREVIEW_ZOOM)) return;
           c.dataset.dtfZoom = String(PREVIEW_ZOOM);
           c.style.zoom = PREVIEW_ZOOM ? String(PREVIEW_ZOOM) : '';
+          c.style.imageRendering = PREVIEW_ZOOM > 1 ? 'pixelated' : '';
         }
-        function togglePreviewZoom(btn){
-          PREVIEW_ZOOM = PREVIEW_ZOOM ? 0 : 0.75;
+        function setZoom(pct){
+          PREVIEW_ZOOM = Math.min(3, Math.max(0.1, pct / 100));
           var c = biggestCanvas();
-          if (c) { c.dataset.dtfZoom = ''; applyPreviewZoom(); if (!PREVIEW_ZOOM) c.style.zoom = ''; }
-          btn.textContent = PREVIEW_ZOOM ? '75%' : '100%';
+          if (c) { c.dataset.dtfZoom = ''; applyPreviewZoom(); }
+          if (bar) bar.querySelector('#dtf-zv').textContent = Math.round(PREVIEW_ZOOM * 100) + '%';
         }
 
-        // Zoom embarcado: sem botões na tela.
-        // Ctrl + roda do mouse / Ctrl +,- / duplo clique na arte abrem o zoom real.
+        // ---- Ben-Day ao vivo no preview ----
+        function canvasSig(c){
+          try {
+            var t = document.createElement('canvas'); t.width = 24; t.height = 24;
+            var x = t.getContext('2d'); x.drawImage(c, 0, 0, 24, 24);
+            var d = x.getImageData(0, 0, 24, 24).data, s = c.width + 'x' + c.height + ':';
+            for (var i = 0; i < d.length; i += 61) s += d[i];
+            return s;
+          } catch (e) { return String(c.width) + 'x' + String(c.height); }
+        }
+        var bdDrawnSig = null;
+        function applyBenDayPreview(force){
+          var c = biggestCanvas();
+          if (!c) return;
+          if (!window.__DTF_BENDAY) { bdDrawnSig = null; return; }
+          var sig = canvasSig(c);
+          if (!force && sig === bdDrawnSig) return;
+          try {
+            var res = renderBenDay(c);
+            var ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, c.width, c.height);
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(res, 0, 0);
+            bdDrawnSig = canvasSig(c);
+          } catch (e) {}
+        }
+
+        function buildBar(){
+          if (bar || !biggestCanvas()) return;
+          bar = document.createElement('div');
+          bar.id = 'dtf-viewbar';
+          bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:99998;display:flex;align-items:center;gap:10px;background:rgba(17,24,39,.94);border:1px solid #374151;border-radius:12px;padding:8px 14px;box-shadow:0 8px 24px rgba(0,0,0,.45);font:700 12px system-ui;color:#e5e7eb;';
+          bar.innerHTML = '<span style="color:#a78bfa">Zoom</span>' +
+            '<input id="dtf-zr" type="range" min="10" max="300" step="5" value="75" style="width:190px;accent-color:#a78bfa;cursor:pointer" />' +
+            '<b id="dtf-zv" style="min-width:46px;text-align:center;background:#1f2937;border-radius:8px;padding:4px 8px;">75%</b>' +
+            '<span style="width:1px;height:22px;background:#374151"></span>' +
+            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="dtf-bd" type="checkbox" style="width:15px;height:15px;accent-color:#facc15" /> ◉ Ben-Day dots</label>' +
+            '<input id="dtf-bds" type="range" min="4" max="24" step="1" value="10" title="Tamanho do ponto" style="width:90px;accent-color:#facc15;cursor:pointer" />';
+          document.body.appendChild(bar);
+          bar.querySelector('#dtf-zr').addEventListener('input', function(){ setZoom(+this.value); });
+          bar.querySelector('#dtf-bd').addEventListener('change', function(){
+            window.__DTF_BENDAY = this.checked;
+            if (!this.checked) { bdDrawnSig = null; location.reload === null; }
+            applyBenDayPreview(true);
+          });
+          bar.querySelector('#dtf-bds').addEventListener('input', function(){
+            window.__DTF_BENDAY_SPACING = +this.value;
+            if (window.__DTF_BENDAY) applyBenDayPreview(true);
+          });
+        }
+
+        // Zoom real (lupa) continua embarcado: Ctrl + roda / Ctrl +,- / duplo clique.
         function bindEmbedded(){
           if (window.__dtfZoomBound) return;
           window.__dtfZoomBound = true;
@@ -1181,13 +1236,18 @@
               if (!biggestCanvas()) return;
               e.preventDefault(); openZoom();
             }
-            if (e.key === '0') { PREVIEW_ZOOM = 0.75; var c = biggestCanvas(); if (c) { c.dataset.dtfZoom = ''; applyPreviewZoom(); } }
+            if (e.key === '0') setZoom(75);
             if (e.key === 'Escape') { var s = document.getElementById('dtf-zoom-stage'); if (s) s.remove(); }
           });
         }
         document.addEventListener('DOMContentLoaded', bindEmbedded);
         bindEmbedded();
-        setInterval(applyPreviewZoom, 1200);
+        setInterval(function(){
+          applyPreviewZoom();
+          buildBar();
+          if (bar) bar.style.display = (biggestCanvas() && !document.getElementById('dtf-upcrop-stage')) ? 'flex' : 'none';
+          applyBenDayPreview(false);
+        }, 900);
 
 
       })();
