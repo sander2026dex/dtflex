@@ -1173,7 +1173,18 @@
             return s;
           } catch (e) { return String(c.width) + 'x' + String(c.height); }
         }
-        var bdDrawnSig = null;
+        var bdDrawnSig = null, bdOrig = null;
+        function restoreBenDay(){
+          var c = biggestCanvas();
+          if (c && bdOrig && bdOrig.width === c.width && bdOrig.height === c.height) {
+            try {
+              var ctx = c.getContext('2d');
+              ctx.clearRect(0, 0, c.width, c.height);
+              ctx.drawImage(bdOrig, 0, 0);
+            } catch (e) {}
+          }
+          bdOrig = null; bdDrawnSig = null;
+        }
         function applyBenDayPreview(force){
           var c = biggestCanvas();
           if (!c) return;
@@ -1181,7 +1192,12 @@
           var sig = canvasSig(c);
           if (!force && sig === bdDrawnSig) return;
           try {
-            var res = renderBenDay(c);
+            if (sig !== bdDrawnSig) {
+              bdOrig = document.createElement('canvas');
+              bdOrig.width = c.width; bdOrig.height = c.height;
+              bdOrig.getContext('2d').drawImage(c, 0, 0);
+            }
+            var res = renderBenDay(bdOrig || c);
             var ctx = c.getContext('2d');
             ctx.clearRect(0, 0, c.width, c.height);
             ctx.imageSmoothingEnabled = false;
@@ -1205,12 +1221,12 @@
           bar.querySelector('#dtf-zr').addEventListener('input', function(){ setZoom(+this.value); });
           bar.querySelector('#dtf-bd').addEventListener('change', function(){
             window.__DTF_BENDAY = this.checked;
-            if (!this.checked) { bdDrawnSig = null; location.reload === null; }
+            if (!this.checked) { restoreBenDay(); return; }
             applyBenDayPreview(true);
           });
           bar.querySelector('#dtf-bds').addEventListener('input', function(){
             window.__DTF_BENDAY_SPACING = +this.value;
-            if (window.__DTF_BENDAY) applyBenDayPreview(true);
+            if (window.__DTF_BENDAY) { bdDrawnSig = null; applyBenDayPreview(true); }
           });
         }
 
