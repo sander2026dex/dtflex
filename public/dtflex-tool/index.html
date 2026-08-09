@@ -605,6 +605,8 @@
         // Hook usado na exportação (mantém o nome antigo)
         function compositeTextOverlay(flat){
           if (!window.__DTF_BENDAY) return flat;
+          // já aplicado ao vivo neste canvas → não aplicar duas vezes
+          if (window.__DTF_BENDAY_LIVE_CANVAS === flat) return flat;
           try { return renderBenDay(flat); } catch (e) { return flat; }
         }
         window.__DTF_RENDER_BENDAY = renderBenDay;
@@ -1203,6 +1205,7 @@
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(res, 0, 0);
             bdDrawnSig = canvasSig(c);
+            window.__DTF_BENDAY_LIVE_CANVAS = c;
           } catch (e) {}
         }
 
