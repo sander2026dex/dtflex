@@ -1296,27 +1296,16 @@
           bar.id = 'dtf-viewbar';
           bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:99998;display:flex;align-items:center;gap:10px;background:rgba(17,24,39,.94);border:1px solid #374151;border-radius:12px;padding:8px 14px;box-shadow:0 8px 24px rgba(0,0,0,.45);font:700 12px system-ui;color:#e5e7eb;';
           bar.innerHTML = '<span style="color:#a78bfa">Zoom</span>' +
-            '<input id="dtf-zr" type="range" min="10" max="800" step="1" value="100" style="width:190px;accent-color:#a78bfa;cursor:pointer" />' +
-            '<b id="dtf-zv" style="min-width:52px;text-align:center;background:#1f2937;border-radius:8px;padding:4px 8px;">100%</b>' +
+            '<input id="dtf-zr" type="range" min="10" max="1600" step="1" value="100" style="width:210px;accent-color:#a78bfa;cursor:pointer" />' +
+            '<b id="dtf-zv" style="min-width:56px;text-align:center;background:#1f2937;border-radius:8px;padding:4px 8px;">100%</b>' +
             '<button id="dtf-zfit" style="background:#374151;color:#e5e7eb;border:0;border-radius:8px;padding:5px 9px;font:700 12px system-ui;cursor:pointer">Ajustar</button>' +
-            '<button id="dtf-z1" style="background:#374151;color:#e5e7eb;border:0;border-radius:8px;padding:5px 9px;font:700 12px system-ui;cursor:pointer">1:1</button>' +
-            '<span style="width:1px;height:22px;background:#374151"></span>' +
-            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input id="dtf-bd" type="checkbox" style="width:15px;height:15px;accent-color:#facc15" /> ◉ Ben-Day dots</label>' +
-            '<input id="dtf-bds" type="range" min="4" max="24" step="1" value="10" title="Tamanho do ponto" style="width:90px;accent-color:#facc15;cursor:pointer" />';
+            '<button id="dtf-z1" style="background:#374151;color:#e5e7eb;border:0;border-radius:8px;padding:5px 9px;font:700 12px system-ui;cursor:pointer">1:1</button>';
           document.body.appendChild(bar);
           bar.querySelector('#dtf-zr').addEventListener('input', function(){ setZoom(+this.value); });
           bar.querySelector('#dtf-zfit').addEventListener('click', function(){ fitView(false); });
           bar.querySelector('#dtf-z1').addEventListener('click', function(){ centerZoom(1); });
-          bar.querySelector('#dtf-bd').addEventListener('change', function(){
-            window.__DTF_BENDAY = this.checked;
-            if (!this.checked) { restoreBenDay(); return; }
-            applyBenDayPreview(true);
-          });
-          bar.querySelector('#dtf-bds').addEventListener('input', function(){
-            window.__DTF_BENDAY_SPACING = +this.value;
-            if (window.__DTF_BENDAY) { bdDrawnSig = null; applyBenDayPreview(true); }
-          });
         }
+
 
         function bindEmbedded(){
           if (window.__dtfZoomBound) return;
