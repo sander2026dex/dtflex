@@ -1093,7 +1093,7 @@
         // ============================================================
         // VIEWPORT PROFISSIONAL: translate + scale, zoom no cursor, pan
         // ============================================================
-        var MAXZ = 8;              // 800%
+        var MAXZ = 16;             // 1600%
         var V = {
           el: null,               // canvas alvo
           vp: null,               // elemento viewport (pai do canvas)
@@ -1125,7 +1125,7 @@
         function paint(){
           if (!V.el) return;
           V.el.style.transform = 'translate3d(' + V.offX.toFixed(2) + 'px,' + V.offY.toFixed(2) + 'px,0) scale(' + V.zoom.toFixed(5) + ')';
-          V.el.style.imageRendering = V.zoom > 1.05 ? 'pixelated' : 'auto';
+          V.el.style.imageRendering = V.zoom >= 0.999 ? 'pixelated' : 'auto';
           if (bar) {
             var zv = bar.querySelector('#dtf-zv'), zr = bar.querySelector('#dtf-zr');
             if (zv) zv.textContent = Math.round(V.zoom * 100) + '%';
@@ -1331,7 +1331,6 @@
           }
           buildBar();
           if (bar) bar.style.display = (c && !document.getElementById('dtf-upcrop-stage')) ? 'flex' : 'none';
-          applyBenDayPreview(false);
         }, 900);
 
 
