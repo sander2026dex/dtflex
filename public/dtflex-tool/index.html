@@ -1316,12 +1316,16 @@
           bar.id = 'dtf-viewbar';
           bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:99998;display:flex;align-items:center;gap:10px;background:rgba(17,24,39,.94);border:1px solid #374151;border-radius:12px;padding:8px 14px;box-shadow:0 8px 24px rgba(0,0,0,.45);font:700 12px system-ui;color:#e5e7eb;';
           bar.innerHTML = '<span style="color:#a78bfa">Zoom</span>' +
-            '<input id="dtf-zr" type="range" min="10" max="1600" step="1" value="100" style="width:210px;accent-color:#a78bfa;cursor:pointer" />' +
+            '<input id="dtf-zr" type="range" min="0" max="1000" step="1" value="500" style="width:210px;accent-color:#a78bfa;cursor:pointer" />' +
             '<b id="dtf-zv" style="min-width:56px;text-align:center;background:#1f2937;border-radius:8px;padding:4px 8px;">100%</b>' +
             '<button id="dtf-zfit" style="background:#374151;color:#e5e7eb;border:0;border-radius:8px;padding:5px 9px;font:700 12px system-ui;cursor:pointer">Ajustar</button>' +
             '<button id="dtf-z1" style="background:#374151;color:#e5e7eb;border:0;border-radius:8px;padding:5px 9px;font:700 12px system-ui;cursor:pointer">1:1</button>';
           document.body.appendChild(bar);
-          bar.querySelector('#dtf-zr').addEventListener('input', function(){ setZoom(+this.value); });
+          var zr = bar.querySelector('#dtf-zr');
+          zr.addEventListener('pointerdown', function(){ V.sliding = true; });
+          window.addEventListener('pointerup', function(){ if (V.sliding) { V.sliding = false; paint(); } });
+          zr.addEventListener('input', function(){ V.sliding = true; setZoom(sliderToZoom(+this.value), true); });
+          zr.addEventListener('change', function(){ V.sliding = false; paint(); });
           bar.querySelector('#dtf-zfit').addEventListener('click', function(){ fitView(false); });
           bar.querySelector('#dtf-z1').addEventListener('click', function(){ centerZoom(1); });
         }
