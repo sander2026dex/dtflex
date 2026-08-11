@@ -1113,11 +1113,11 @@
           var f = Math.min(s.w / V.el.width, s.h / V.el.height) * 0.94;
           return Math.max(0.02, Math.min(f, 4));
         }
-        function clampZoom(z){ return Math.max(V.fit, Math.min(MAXZ, z)); }
+        function clampZoom(z){ return Math.max(Math.min(V.fit, 0.1), Math.min(MAXZ, z)); }
         function clampOffsets(z, ox, oy){
           var s = vpSize();
           var w = V.el.width * z, h = V.el.height * z;
-          // Centraliza quando menor que o viewport; senão limita para não sair da tela.
+          // Menor que o viewport -> centraliza. Maior -> pan livre, mas sem vazar do quadro.
           if (w <= s.w) ox = (s.w - w) / 2; else ox = Math.min(0, Math.max(s.w - w, ox));
           if (h <= s.h) oy = (s.h - h) / 2; else oy = Math.min(0, Math.max(s.h - h, oy));
           return { x: ox, y: oy };
@@ -1126,15 +1126,18 @@
           if (!V.el) return;
           V.el.style.transform = 'translate3d(' + V.offX.toFixed(2) + 'px,' + V.offY.toFixed(2) + 'px,0) scale(' + V.zoom.toFixed(5) + ')';
           V.el.style.imageRendering = V.zoom >= 0.999 ? 'pixelated' : 'auto';
+          var s = vpSize();
+          var pannable = (V.el.width * V.zoom > s.w + 1) || (V.el.height * V.zoom > s.h + 1);
+          if (V.vp) V.vp.style.cursor = V.dragging ? 'grabbing' : (pannable ? 'grab' : 'default');
           if (bar) {
             var zv = bar.querySelector('#dtf-zv'), zr = bar.querySelector('#dtf-zr');
             if (zv) zv.textContent = Math.round(V.zoom * 100) + '%';
-            if (zr) zr.value = String(Math.round(V.zoom * 100));
+            if (zr && !V.sliding) zr.value = String(zoomToSlider(V.zoom));
           }
         }
         function tick(){
           V.raf = 0;
-          var k = 0.22; // suavização (aceleração progressiva)
+          var k = 0.28; // suavização (interpolação exponencial)
           var dz = V.tZoom - V.zoom, dx = V.tOffX - V.offX, dy = V.tOffY - V.offY;
           if (Math.abs(dz) < 0.0004 && Math.abs(dx) < 0.15 && Math.abs(dy) < 0.15) {
             V.zoom = V.tZoom; V.offX = V.tOffX; V.offY = V.tOffY; paint(); return;
@@ -1162,9 +1165,22 @@
           V.fit = computeFit();
           setView(V.fit, 0, 0, instant);
         }
-        function centerZoom(z){
+        function centerZoom(z, instant){
           var s = vpSize();
-          zoomAt(s.w / 2, s.h / 2, z);
+          // Escala a partir do centro do container (enquadramento estável)
+          var z0 = V.tZoom, px = s.w / 2, py = s.h / 2;
+          var wx = (px - V.tOffX) / z0, wy = (py - V.tOffY) / z0;
+          var z1 = clampZoom(z);
+          setView(z1, px - wx * z1, py - wy * z1, instant);
+        }
+        // Slider logarítmico (0..1000) -> zoom 10%..1600%
+        var ZMIN = 0.1;
+        function sliderToZoom(v){
+          return ZMIN * Math.pow(MAXZ / ZMIN, Math.max(0, Math.min(1000, v)) / 1000);
+        }
+        function zoomToSlider(z){
+          z = Math.max(ZMIN, Math.min(MAXZ, z));
+          return Math.round(1000 * Math.log(z / ZMIN) / Math.log(MAXZ / ZMIN));
         }
 
         function detachViewport(){
