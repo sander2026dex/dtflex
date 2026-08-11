@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Users, MessageCircle, Gift, Shirt } from "lucide-react";
+import { ArrowUpRight, Users, MessageCircle, Shirt } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { TrialSignupDialog } from "@/components/landing/TrialSignupDialog";
 import logo from "@/assets/dtflexpro-logo.png.asset.json";
 
 export function Header({ affiliateMode = false }: { affiliateMode?: boolean } = {}) {
@@ -22,18 +21,6 @@ export function Header({ affiliateMode = false }: { affiliateMode?: boolean } = 
         </Link>
 
         <div className="flex items-center gap-2">
-          <TrialSignupDialog
-            trigger={
-              <Button
-                size="sm"
-                className="bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.55)]"
-              >
-                <Gift className="h-4 w-4" />
-                <span className="hidden sm:inline">Testar 7 dias grátis</span>
-                <span className="sm:hidden">7 dias</span>
-              </Button>
-            }
-          />
           <Button
             size="sm"
             variant="secondary"
