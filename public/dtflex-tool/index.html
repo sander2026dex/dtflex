@@ -1234,22 +1234,26 @@
           };
           var onDown = function(e){
             if (e.button !== 0 && e.button !== 1) return;
+            e.preventDefault();
             V.dragging = true; V.px = e.clientX; V.py = e.clientY;
             vp.style.cursor = 'grabbing';
             try { vp.setPointerCapture(e.pointerId); } catch(err){}
           };
           var onMove = function(e){
             if (!V.dragging) return;
+            e.preventDefault();
             var dx = e.clientX - V.px, dy = e.clientY - V.py;
             V.px = e.clientX; V.py = e.clientY;
+            // pan 1:1 com o cursor, sem interpolação (resposta imediata)
             setView(V.tZoom, V.tOffX + dx, V.tOffY + dy, true);
           };
-          var onUp = function(){ if (!V.dragging) return; V.dragging = false; vp.style.cursor = 'grab'; };
+          var onUp = function(){ if (!V.dragging) return; V.dragging = false; paint(); };
 
           vp.addEventListener('wheel', onWheel, { passive: false });
           vp.addEventListener('pointerdown', onDown);
-          window.addEventListener('pointermove', onMove);
+          window.addEventListener('pointermove', onMove, { passive: false });
           window.addEventListener('pointerup', onUp);
+          window.addEventListener('pointercancel', onUp);
           vp.__dtfWheel = onWheel; vp.__dtfDown = onDown; vp.__dtfMove = onMove; vp.__dtfUp = onUp;
 
           fitView(true);
@@ -1257,9 +1261,9 @@
 
         var bar = null;
 
-        function setZoom(pct){
+        function setZoom(z, instant){
           if (!V.el) return;
-          centerZoom(pct / 100);
+          centerZoom(z, instant);
         }
 
         // ---- Ben-Day ao vivo no preview ----
