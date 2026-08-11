@@ -15,6 +15,7 @@ const MODELS: { id: ShirtModel; label: string }[] = [
   { id: "regata", label: "Regata" },
   { id: "polo", label: "Polo" },
   { id: "manga-longa", label: "Manga Longa" },
+  { id: "dobrada", label: "Camisa Dobrada" },
 ];
 
 const SIDES: { id: ShirtSide; label: string }[] = [
