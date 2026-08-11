@@ -1100,7 +1100,7 @@
           zoom: 1, offX: 0, offY: 0,
           tZoom: 1, tOffX: 0, tOffY: 0,
           fit: 1,
-          raf: 0, dragging: false, px: 0, py: 0
+          raf: 0, dragging: false, sliding: false, px: 0, py: 0
         };
 
         function vpSize(){
@@ -1193,6 +1193,7 @@
             V.vp.removeEventListener('pointerdown', V.vp.__dtfDown);
             window.removeEventListener('pointermove', V.vp.__dtfMove);
             window.removeEventListener('pointerup', V.vp.__dtfUp);
+            window.removeEventListener('pointercancel', V.vp.__dtfUp);
             V.vp.__dtfWheel = null;
             V.vp.style.overflow = ''; V.vp.style.cursor = ''; V.vp.style.touchAction = '';
           }
@@ -1360,7 +1361,7 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v48"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v49"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
