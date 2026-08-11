@@ -306,8 +306,13 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       {/* Preview — A3 */}
       <div
-        className="relative flex items-center justify-center rounded-3xl border border-border p-6 shadow-[var(--shadow-panel)] transition-colors"
-        style={{ backgroundColor: studioBg }}
+        className="relative flex items-center justify-center overflow-hidden rounded-3xl border border-border p-6 shadow-[var(--shadow-panel)] transition-colors"
+        style={{
+          backgroundColor: studioBg,
+          backgroundImage: studioBgImage ? `url(${studioBgImage})` : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
       >
         <div
           className="relative w-full max-w-[420px] [&_.canvas-container]:!absolute [&_.canvas-container]:!inset-0 [&_.canvas-container]:!h-full [&_.canvas-container]:!w-full [&_canvas]:!h-full [&_canvas]:!w-full"
