@@ -414,6 +414,32 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
               ))}
             </div>
           </div>
+          <input
+            ref={bgFileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) {
+                const reader = new FileReader();
+                reader.onload = () => setStudioBgImage(String(reader.result));
+                reader.readAsDataURL(f);
+              }
+              e.target.value = "";
+            }}
+          />
+          <div className="mt-3 flex gap-2">
+            <Button variant="secondary" size="sm" className="flex-1" onClick={() => bgFileRef.current?.click()}>
+              <Upload className="h-4 w-4" />
+              Enviar imagem de fundo
+            </Button>
+            {studioBgImage && (
+              <Button variant="outline" size="sm" onClick={() => setStudioBgImage(null)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="space-y-2">
