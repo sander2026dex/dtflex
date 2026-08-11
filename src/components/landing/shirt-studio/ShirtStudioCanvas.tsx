@@ -42,12 +42,14 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const bgFileRef = useRef<HTMLInputElement | null>(null);
   const statesRef = useRef<Record<string, string>>({});
 
   const [model, setModel] = useState<ShirtModel>("careca");
   const [side, setSide] = useState<ShirtSide>("frente");
   const [shirtColor, setShirtColor] = useState("#111111");
   const [studioBg, setStudioBg] = useState("#0e1116");
+  const [studioBgImage, setStudioBgImage] = useState<string | null>(null);
   const [hasArt, setHasArt] = useState(false);
   const sideRef = useRef<ShirtSide>(side);
 
