@@ -42,12 +42,14 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const bgFileRef = useRef<HTMLInputElement | null>(null);
   const statesRef = useRef<Record<string, string>>({});
 
   const [model, setModel] = useState<ShirtModel>("careca");
   const [side, setSide] = useState<ShirtSide>("frente");
   const [shirtColor, setShirtColor] = useState("#111111");
   const [studioBg, setStudioBg] = useState("#0e1116");
+  const [studioBgImage, setStudioBgImage] = useState<string | null>(null);
   const [hasArt, setHasArt] = useState(false);
   const sideRef = useRef<ShirtSide>(side);
 
@@ -181,6 +183,15 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
     ctx.fillStyle = studioBg;
     ctx.fillRect(0, 0, W, H);
 
+    if (studioBgImage) {
+      const bg = await loadImg(studioBgImage);
+      // cover fit
+      const br = Math.max(W / bg.width, H / bg.height);
+      const bw = bg.width * br;
+      const bh = bg.height * br;
+      ctx.drawImage(bg, (W - bw) / 2, (H - bh) / 2, bw, bh);
+    }
+
     const shirt = await loadImg(getShirtSrc(model, sideRef.current));
     // contain fit
     const r = Math.min(W / shirt.width, H / shirt.height);
@@ -295,8 +306,13 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       {/* Preview — A3 */}
       <div
-        className="relative flex items-center justify-center rounded-3xl border border-border p-6 shadow-[var(--shadow-panel)] transition-colors"
-        style={{ backgroundColor: studioBg }}
+        className="relative flex items-center justify-center overflow-hidden rounded-3xl border border-border p-6 shadow-[var(--shadow-panel)] transition-colors"
+        style={{
+          backgroundColor: studioBg,
+          backgroundImage: studioBgImage ? `url(${studioBgImage})` : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
       >
         <div
           className="relative w-full max-w-[420px] [&_.canvas-container]:!absolute [&_.canvas-container]:!inset-0 [&_.canvas-container]:!h-full [&_.canvas-container]:!w-full [&_canvas]:!h-full [&_canvas]:!w-full"
@@ -397,6 +413,32 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
                 />
               ))}
             </div>
+          </div>
+          <input
+            ref={bgFileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) {
+                const reader = new FileReader();
+                reader.onload = () => setStudioBgImage(String(reader.result));
+                reader.readAsDataURL(f);
+              }
+              e.target.value = "";
+            }}
+          />
+          <div className="mt-3 flex gap-2">
+            <Button variant="secondary" size="sm" className="flex-1" onClick={() => bgFileRef.current?.click()}>
+              <Upload className="h-4 w-4" />
+              Enviar imagem de fundo
+            </Button>
+            {studioBgImage && (
+              <Button variant="outline" size="sm" onClick={() => setStudioBgImage(null)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
