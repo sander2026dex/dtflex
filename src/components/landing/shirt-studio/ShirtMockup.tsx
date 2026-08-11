@@ -7,8 +7,9 @@ import poloFrente from "@/assets/shirt-polo-frente.png";
 import mangaLongaFrente from "@/assets/shirt-manga-longa-frente.png";
 import mangaLongaCostas from "@/assets/shirt-manga-longa-costas.png";
 import lateral from "@/assets/shirt-lateral.png";
+import dobrada from "@/assets/shirt-dobrada.png";
 
-export type ShirtModel = "careca" | "v" | "regata" | "polo" | "manga-longa";
+export type ShirtModel = "careca" | "v" | "regata" | "polo" | "manga-longa" | "dobrada";
 export type ShirtSide = "frente" | "costas" | "lado-esq" | "lado-dir";
 
 const SOURCES: Record<ShirtModel, Record<"frente" | "costas", string>> = {
@@ -17,9 +18,11 @@ const SOURCES: Record<ShirtModel, Record<"frente" | "costas", string>> = {
   regata: { frente: regataFrente, costas: regataCostas },
   polo: { frente: poloFrente, costas: carecaCostas },
   "manga-longa": { frente: mangaLongaFrente, costas: mangaLongaCostas },
+  dobrada: { frente: dobrada, costas: dobrada },
 };
 
 export function getShirtSrc(model: ShirtModel, side: ShirtSide) {
+  if (model === "dobrada") return dobrada;
   if (side === "lado-esq" || side === "lado-dir") return lateral;
   return SOURCES[model][side];
 }
