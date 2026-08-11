@@ -334,7 +334,25 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
           <div className="pointer-events-none absolute inset-0">
             <ShirtMockup model={model} side={side} color={shirtColor} />
           </div>
-          <canvas ref={canvasElRef} width={STAGE_W} height={STAGE_H} className="absolute inset-0" />
+          <div
+            className="absolute inset-0"
+            style={
+              model === "dobrada"
+                ? {
+                    WebkitMaskImage: `url(${getShirtSrc(model, side)})`,
+                    maskImage: `url(${getShirtSrc(model, side)})`,
+                    WebkitMaskSize: "contain",
+                    maskSize: "contain",
+                    WebkitMaskRepeat: "no-repeat",
+                    maskRepeat: "no-repeat",
+                    WebkitMaskPosition: "center",
+                    maskPosition: "center",
+                  }
+                : undefined
+            }
+          >
+            <canvas ref={canvasElRef} width={STAGE_W} height={STAGE_H} className="absolute inset-0" />
+          </div>
         </div>
       </div>
 
