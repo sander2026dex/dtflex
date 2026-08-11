@@ -183,6 +183,15 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
     ctx.fillStyle = studioBg;
     ctx.fillRect(0, 0, W, H);
 
+    if (studioBgImage) {
+      const bg = await loadImg(studioBgImage);
+      // cover fit
+      const br = Math.max(W / bg.width, H / bg.height);
+      const bw = bg.width * br;
+      const bh = bg.height * br;
+      ctx.drawImage(bg, (W - bw) / 2, (H - bh) / 2, bw, bh);
+    }
+
     const shirt = await loadImg(getShirtSrc(model, sideRef.current));
     // contain fit
     const r = Math.min(W / shirt.width, H / shirt.height);
