@@ -232,7 +232,20 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
       enableRetinaScaling: false,
     });
     const art = await loadImg(artUrl);
-    ctx.drawImage(art, 0, 0, W, H);
+    if (model === "dobrada") {
+      // clip artwork strictly to the folded shirt silhouette
+      const clip = document.createElement("canvas");
+      clip.width = W;
+      clip.height = H;
+      const cctx = clip.getContext("2d");
+      if (!cctx) return;
+      cctx.drawImage(art, 0, 0, W, H);
+      cctx.globalCompositeOperation = "destination-in";
+      cctx.drawImage(shirt, sx, sy, sw, sh);
+      ctx.drawImage(clip, 0, 0);
+    } else {
+      ctx.drawImage(art, 0, 0, W, H);
+    }
 
     // watermark
     if (watermark) {
