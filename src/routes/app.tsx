@@ -7,9 +7,6 @@ import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
 
 const ShirtStudioCanvas = lazy(() => import("@/components/landing/shirt-studio/ShirtStudioCanvas"));
-const SmartCutoutStudio = lazy(() =>
-  import("@/components/SmartCutoutStudio").then((m) => ({ default: m.SmartCutoutStudio })),
-);
 
 function AppError() {
   return (
