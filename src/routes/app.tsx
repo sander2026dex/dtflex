@@ -62,7 +62,6 @@ function AppPage() {
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
-  const [showSmartCut, setShowSmartCut] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -233,13 +232,6 @@ function AppPage() {
           {toolsOpen && (
             <div className="flex flex-col items-start gap-2">
               <Button
-                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.62_0.19_300)] hover:bg-[oklch(0.55_0.19_300)] text-white"
-                onClick={() => setShowSmartCut(true)}
-              >
-                <Sparkles className="h-4 w-4" />
-                Recorte IA (rastreamento)
-              </Button>
-              <Button
                 className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
                 onClick={() => setShowRemover(true)}
               >
@@ -276,15 +268,6 @@ function AppPage() {
         </div>
       )}
 
-
-      {/* Recorte IA — rastreamento inteligente (processa no navegador) */}
-      {showSmartCut && (
-        <ClientOnly fallback={null}>
-          <Suspense fallback={<div className="fixed inset-0 z-[100] flex items-center justify-center bg-background text-sm">Carregando IA...</div>}>
-            <SmartCutoutStudio onClose={() => setShowSmartCut(false)} />
-          </Suspense>
-        </ClientOnly>
-      )}
 
       {/* Overlay do Removedor de Fundos */}
       {showRemover && (
