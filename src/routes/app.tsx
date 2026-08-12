@@ -64,7 +64,6 @@ function AppPage() {
   const logout = useServerFn(logoutAccessSession);
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
-  const [showVtracer, setShowVtracer] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
   const [showSmartCut, setShowSmartCut] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
