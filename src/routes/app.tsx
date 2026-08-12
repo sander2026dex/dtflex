@@ -250,13 +250,6 @@ function AppPage() {
                 Removedor de fundos
               </Button>
               <Button
-                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.55_0.18_260)] hover:bg-[oklch(0.48_0.18_260)] text-white"
-                onClick={() => setShowVtracer(true)}
-              >
-                <Wand2 className="h-4 w-4" />
-                Vetorizar (VTracer)
-              </Button>
-              <Button
                 className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.6_0.16_150)] hover:bg-[oklch(0.53_0.16_150)] text-white"
                 onClick={() => setShowStudio(true)}
               >
@@ -303,16 +296,6 @@ function AppPage() {
           src="https://www.photoroom.com/pt-pt/tools/background-remover"
           offsetTop={88}
           onClose={() => setShowRemover(false)}
-        />
-      )}
-
-      {/* Overlay do VTracer */}
-      {showVtracer && (
-        <ExternalToolOverlay
-          title="Vetorizar — VTracer"
-          src="https://www.visioncortex.org/vtracer/"
-          offsetTop={64}
-          onClose={() => setShowVtracer(false)}
         />
       )}
 
