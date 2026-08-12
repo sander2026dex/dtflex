@@ -49,7 +49,7 @@ export function Hero() {
               </a>
             </Button>
             <Button asChild size="lg" variant="outline" className="border-secondary/60 text-secondary hover:bg-secondary/10">
-              <Link to="/login" search={{ code: "", email: "" }}>
+              <Link to="/login" search={{ code: "", email: "", expired: "" }}>
                 Acessar Plataforma
                 <ArrowUpRight className="h-4 w-4" />
               </Link>

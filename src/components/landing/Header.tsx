@@ -57,7 +57,7 @@ export function Header({ affiliateMode = false }: { affiliateMode?: boolean } = 
             </Button>
           )}
           <Button asChild variant="outline" size="sm">
-            <Link to="/login" search={{ code: "", email: "" }}>
+            <Link to="/login" search={{ code: "", email: "", expired: "" }}>
               Acessar
               <ArrowUpRight className="h-4 w-4" />
             </Link>

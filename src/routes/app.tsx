@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, Wand2, ChevronDown, ChevronUp, Shirt, Sparkles } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft, ChevronDown, ChevronUp, Shirt, Sparkles } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,6 @@ function AppPage() {
   const logout = useServerFn(logoutAccessSession);
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
-  const [showVtracer, setShowVtracer] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
   const [showSmartCut, setShowSmartCut] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -251,13 +250,6 @@ function AppPage() {
                 Removedor de fundos
               </Button>
               <Button
-                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.55_0.18_260)] hover:bg-[oklch(0.48_0.18_260)] text-white"
-                onClick={() => setShowVtracer(true)}
-              >
-                <Wand2 className="h-4 w-4" />
-                Vetorizar (VTracer)
-              </Button>
-              <Button
                 className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.6_0.16_150)] hover:bg-[oklch(0.53_0.16_150)] text-white"
                 onClick={() => setShowStudio(true)}
               >
@@ -304,16 +296,6 @@ function AppPage() {
           src="https://www.photoroom.com/pt-pt/tools/background-remover"
           offsetTop={88}
           onClose={() => setShowRemover(false)}
-        />
-      )}
-
-      {/* Overlay do VTracer */}
-      {showVtracer && (
-        <ExternalToolOverlay
-          title="Vetorizar — VTracer"
-          src="https://www.visioncortex.org/vtracer/"
-          offsetTop={64}
-          onClose={() => setShowVtracer(false)}
         />
       )}
 
