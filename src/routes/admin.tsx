@@ -1639,7 +1639,16 @@ function TrialSignupsSection({
               );
               return (
                 <TableRow key={item.id} className={expired ? "bg-red-500/5" : ""}>
-                  <TableCell className="font-mono text-xs">{item.email}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <button
+                      type="button"
+                      title="Copiar e-mail"
+                      className="text-left underline decoration-dotted underline-offset-2 hover:text-primary"
+                      onClick={() => copyText(item.email, "E-mail copiado")}
+                    >
+                      {item.email}
+                    </button>
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{item.phone ?? "-"}</TableCell>
                   <TableCell className="font-mono text-xs">{item.access_code}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
