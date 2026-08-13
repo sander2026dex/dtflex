@@ -86,6 +86,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
                   document.addEventListener('copy', function(e){
                     var t = e.target; var tag = (t && t.tagName) || '';
                     if (tag === 'INPUT' || tag === 'TEXTAREA' || (t && t.isContentEditable)) return;
+                    if (t && t.closest && t.closest('[data-allow-copy]')) return;
                     e.preventDefault();
                   });
                   document.addEventListener('keydown', function(e){
