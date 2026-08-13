@@ -1541,16 +1541,80 @@ function TrialSignupsSection({
     return Math.ceil((new Date(expiresAt).getTime() - now) / (24 * 60 * 60 * 1000));
   }
 
+  const allEmails = sorted.map((c) => c.email).join("\n");
+
+  async function copyText(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(label);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      toast.success(label);
+    }
+  }
+
   return (
-    <Card className="rounded-lg bg-card/70 p-6 backdrop-blur">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <Card data-allow-copy className="rounded-lg bg-card/70 p-6 backdrop-blur select-text">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">Cadastros de teste (7 dias)</h2>
           <p className="text-sm text-muted-foreground">
             Total: {sorted.length}. Ative manualmente o plano mensal ou anual quando o cliente pagar.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => copyText(allEmails, `${sorted.length} e-mails copiados`)}
+          >
+            Copiar todos os e-mails
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => copyText(sorted.map((c) => c.email).join(", "), "E-mails copiados (separados por vírgula)")}
+          >
+            Copiar separados por vírgula
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              copyText(
+                ["email,whatsapp,codigo,criado,expira"]
+                  .concat(
+                    sorted.map((c) =>
+                      [
+                        c.email,
+                        c.phone ?? "",
+                        c.access_code,
+                        new Date(c.created_at).toLocaleDateString("pt-BR"),
+                        new Date(c.expires_at).toLocaleDateString("pt-BR"),
+                      ].join(","),
+                    ),
+                  )
+                  .join("\n"),
+                "Lista completa copiada (CSV)",
+              )
+            }
+          >
+            Copiar lista (CSV)
+          </Button>
+        </div>
       </div>
+      <textarea
+        readOnly
+        value={allEmails}
+        onFocus={(e) => e.currentTarget.select()}
+        className="mb-4 h-24 w-full rounded-md border border-border/60 bg-background/60 p-2 font-mono text-xs text-foreground"
+      />
+
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
