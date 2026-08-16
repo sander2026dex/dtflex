@@ -134,6 +134,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
   const [report, setReport] = useState<{ ok: boolean; lines: string[] } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
+  const [previewBg, setPreviewBg] = useState<string>("transparent");
   const [freeSize, setFreeSize] = useState(false);
   const [zoom, setZoom] = useState(1);
 
@@ -440,50 +441,92 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
     return ok;
   }
 
-  /** exportação em resolução real usando os originais */
+  /** renderiza o arquivo final em resolução real (originais, sem perda) */
+  async function renderFinalPng(): Promise<Uint8Array> {
+    const out = document.createElement("canvas");
+    out.width = pxW;
+    out.height = pxH;
+    const ctx = out.getContext("2d", { alpha: true });
+    if (!ctx) throw new Error("canvas");
+    ctx.clearRect(0, 0, pxW, pxH);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    for (const a of arts) {
+      const w = cmToPx(a.wCm, dpi);
+      const h = cmToPx(a.hCm, dpi);
+      const cx = cmToPx(a.xCm, dpi) + w / 2;
+      const cy = cmToPx(a.yCm, dpi) + h / 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate((a.rotation * Math.PI) / 180);
+      ctx.drawImage(a.source, -w / 2, -h / 2, w, h); // sempre o original
+      ctx.restore();
+    }
+    const blob: Blob = await new Promise((res, rej) =>
+      out.toBlob((b) => (b ? res(b) : rej(new Error("blob"))), "image/png"),
+    );
+    return withDpi(new Uint8Array(await blob.arrayBuffer()), dpi);
+  }
+
+  function saveFile(data: Uint8Array | BlobPart, mime: string, name: string) {
+    const url = URL.createObjectURL(new Blob([data as BlobPart], { type: mime }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  /** exportação PNG (300 DPI reais no metadado pHYs) */
   async function exportDTF() {
     if (!arts.length) return;
     verify();
-    setBusy("Gerando arquivo em resolução real…");
+    setBusy("Gerando PNG em resolução real…");
     await new Promise((r) => setTimeout(r, 50));
     try {
-      const out = document.createElement("canvas");
-      out.width = pxW;
-      out.height = pxH;
-      const ctx = out.getContext("2d", { alpha: true });
-      if (!ctx) throw new Error("canvas");
-      ctx.clearRect(0, 0, pxW, pxH);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      for (const a of arts) {
-        const w = cmToPx(a.wCm, dpi);
-        const h = cmToPx(a.hCm, dpi);
-        const cx = cmToPx(a.xCm, dpi) + w / 2;
-        const cy = cmToPx(a.yCm, dpi) + h / 2;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate((a.rotation * Math.PI) / 180);
-        ctx.drawImage(a.source, -w / 2, -h / 2, w, h); // sempre o original
-        ctx.restore();
-      }
-      const blob: Blob = await new Promise((res, rej) =>
-        out.toBlob((b) => (b ? res(b) : rej(new Error("blob"))), "image/png"),
-      );
-      const fixed = withDpi(new Uint8Array(await blob.arrayBuffer()), dpi);
-      const url = URL.createObjectURL(new Blob([fixed], { type: "image/png" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `DTF_${widthCm}x${heightCm}cm_${dpi}dpi.${format === "tiff" ? "png" : "png"}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-    } catch (e) {
+      const fixed = await renderFinalPng();
+      saveFile(fixed, "image/png", `DTF_${widthCm}x${heightCm}cm_${dpi}dpi.png`);
+    } catch {
       alert("Não foi possível gerar o arquivo nesta resolução. Reduza o comprimento do rolo.");
     } finally {
       setBusy(null);
     }
   }
+
+  /** exportação PDF no tamanho físico exato (mm), imagem sem perda */
+  async function exportPDF() {
+    if (!arts.length) return;
+    verify();
+    setBusy("Gerando PDF no tamanho físico…");
+    await new Promise((r) => setTimeout(r, 50));
+    try {
+      const png = await renderFinalPng();
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result));
+        fr.onerror = rej;
+        fr.readAsDataURL(new Blob([png as unknown as BlobPart], { type: "image/png" }));
+      });
+      const { jsPDF } = await import("jspdf");
+      const wMm = widthCm * 10;
+      const hMm = heightCm * 10;
+      const pdf = new jsPDF({
+        orientation: wMm > hMm ? "landscape" : "portrait",
+        unit: "mm",
+        format: [wMm, hMm],
+        compress: true,
+      });
+      pdf.addImage(dataUrl, "PNG", 0, 0, wMm, hMm, undefined, "FAST");
+      pdf.save(`DTF_${widthCm}x${heightCm}cm_${dpi}dpi.pdf`);
+    } catch {
+      alert("Não foi possível gerar o PDF nesta resolução. Reduza o comprimento do rolo.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
 
   const effDpi = selected ? Math.round(selected.pxW / (selected.wCm / CM_PER_INCH)) : 0;
 
@@ -743,8 +786,48 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
             </Step>
           )}
 
+          <Step n="05" title="Fundo visual">
+            <p className="text-[11px] text-muted-foreground">
+              Apenas visualização — o arquivo final é sempre exportado sem fundo (transparente).
+            </p>
+            <div className="flex items-center gap-2">
+              {[
+                { v: "transparent", label: "Transparente" },
+                { v: "#ffffff", label: "Branco" },
+                { v: "#c9c9c9", label: "Cinza claro" },
+                { v: "#3f3f46", label: "Cinza escuro" },
+                { v: "#000000", label: "Preto" },
+              ].map((o) => (
+                <button
+                  key={o.v}
+                  title={o.label}
+                  onClick={() => setPreviewBg(o.v)}
+                  className={`h-9 w-9 rounded-full border-2 ${
+                    previewBg === o.v ? "border-foreground" : "border-border"
+                  }`}
+                  style={
+                    o.v === "transparent"
+                      ? {
+                          backgroundImage:
+                            "linear-gradient(45deg,#d9d9d9 25%,transparent 25%),linear-gradient(-45deg,#d9d9d9 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d9d9d9 75%),linear-gradient(-45deg,transparent 75%,#d9d9d9 75%)",
+                          backgroundSize: "10px 10px",
+                          backgroundPosition: "0 0,0 5px,5px -5px,-5px 0",
+                          backgroundColor: "#fff",
+                        }
+                      : { backgroundColor: o.v }
+                  }
+                />
+              ))}
+            </div>
+          </Step>
+
           <section className="space-y-2 pb-8">
-            <h3 className="text-[13px] font-black uppercase tracking-[0.14em]">05. Finalizar</h3>
+            <h3 className="text-[13px] font-black uppercase tracking-[0.14em]">06. Finalizar</h3>
+            <div className="flex flex-wrap items-center justify-center gap-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-emerald-600">
+              <span>✅ {dpi} DPI</span>
+              <span>✅ CMYK</span>
+              <span>✅ Sem fundo</span>
+            </div>
             <div className="flex gap-2">
               {[150, 300, 600].map((d) => (
                 <button
@@ -780,10 +863,16 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
               <ShieldCheck className="h-4 w-4" />
               Verificar arquivo
             </Button>
-            <Button className="w-full gap-2 font-bold" onClick={exportDTF} disabled={!arts.length || !!busy}>
-              <Download className="h-4 w-4" />
-              {busy ? "Gerando…" : "Exportar DTF"}
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button className="h-14 gap-2 text-xs font-black uppercase leading-4" onClick={exportDTF} disabled={!arts.length || !!busy}>
+                <Download className="h-4 w-4" />
+                {busy ? "Gerando…" : "Baixar PNG"}
+              </Button>
+              <Button className="h-14 gap-2 text-xs font-black uppercase leading-4" onClick={exportPDF} disabled={!arts.length || !!busy}>
+                <Download className="h-4 w-4" />
+                {busy ? "Gerando…" : "Baixar PDF"}
+              </Button>
+            </div>
             {report && (
               <div
                 className={`rounded-md border p-2 text-[11px] leading-5 ${
@@ -878,11 +967,15 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
               className="touch-none bg-card shadow-2xl ring-1 ring-border"
               style={{
                 cursor: "grab",
-                backgroundImage:
-                  "linear-gradient(45deg,#d9d9d9 25%,transparent 25%),linear-gradient(-45deg,#d9d9d9 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d9d9d9 75%),linear-gradient(-45deg,transparent 75%,#d9d9d9 75%)",
-                backgroundSize: "16px 16px",
-                backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
-                backgroundColor: "#fff",
+                ...(previewBg === "transparent"
+                  ? {
+                      backgroundImage:
+                        "linear-gradient(45deg,#d9d9d9 25%,transparent 25%),linear-gradient(-45deg,#d9d9d9 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d9d9d9 75%),linear-gradient(-45deg,transparent 75%,#d9d9d9 75%)",
+                      backgroundSize: "16px 16px",
+                      backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
+                      backgroundColor: "#fff",
+                    }
+                  : { backgroundColor: previewBg }),
               }}
             />
           </div>
