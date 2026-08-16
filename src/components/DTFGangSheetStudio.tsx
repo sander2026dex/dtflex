@@ -134,9 +134,13 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
   const [report, setReport] = useState<{ ok: boolean; lines: string[] } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
+  const [freeSize, setFreeSize] = useState(false);
+  const [zoom, setZoom] = useState(1);
+
   const stageRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [stageScale, setStageScale] = useState(1); // px de tela por cm
+  const [fitScale, setFitScale] = useState(1); // px de tela por cm (encaixe)
+  const stageScale = fitScale * zoom;
 
   const selected = arts.find((a) => a.id === selectedId) ?? null;
   const pxW = cmToPx(widthCm, dpi);
@@ -147,17 +151,40 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
     const compute = () => {
       const el = stageRef.current;
       if (!el) return;
-      const pad = 24;
+      const pad = 72;
       const s = Math.min(
         (el.clientWidth - pad) / widthCm,
         (el.clientHeight - pad) / heightCm,
       );
-      setStageScale(Math.max(0.4, s));
+      setFitScale(Math.max(0.4, s));
     };
     compute();
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, [widthCm, heightCm]);
+
+  /** move a arte selecionada */
+  const nudge = useCallback(
+    (dx: number, dy: number) => {
+      setSelectedId((id) => {
+        if (id)
+          setArts((prev) =>
+            prev.map((a) =>
+              a.id === id
+                ? {
+                    ...a,
+                    xCm: +Math.max(0, Math.min(widthCm - a.wCm, a.xCm + dx)).toFixed(2),
+                    yCm: +Math.max(0, Math.min(heightCm - a.hCm, a.yCm + dy)).toFixed(2),
+                  }
+                : a,
+            ),
+          );
+        return id;
+      });
+    },
+    [widthCm, heightCm],
+  );
+
 
   /** desenha o preview (baixa resolução, só visual) */
   useEffect(() => {
