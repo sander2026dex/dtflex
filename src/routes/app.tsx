@@ -1,12 +1,13 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, ChevronDown, ChevronUp, Shirt } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft, ChevronDown, ChevronUp, Shirt, LayoutGrid } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
 
 const ShirtStudioCanvas = lazy(() => import("@/components/landing/shirt-studio/ShirtStudioCanvas"));
+const DTFGangSheetStudio = lazy(() => import("@/components/DTFGangSheetStudio"));
 
 function AppError() {
   return (
@@ -62,6 +63,7 @@ function AppPage() {
   const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
+  const [showGang, setShowGang] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -245,6 +247,13 @@ function AppPage() {
                 <Shirt className="h-4 w-4" />
                 Crie seu mockup
               </Button>
+              <Button
+                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.55_0.18_260)] hover:bg-[oklch(0.48_0.18_260)] text-white"
+                onClick={() => setShowGang(true)}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                Montagem DTF
+              </Button>
               <DTFCalculatorDialog
                 trigger={
                   <Button variant="secondary" className="h-10 px-3 text-xs font-semibold shadow-lg">
@@ -268,6 +277,14 @@ function AppPage() {
         </div>
       )}
 
+
+      {showGang && (
+        <ClientOnly fallback={null}>
+          <Suspense fallback={null}>
+            <DTFGangSheetStudio onClose={() => setShowGang(false)} />
+          </Suspense>
+        </ClientOnly>
+      )}
 
       {/* Overlay do Removedor de Fundos */}
       {showRemover && (
