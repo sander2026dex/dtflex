@@ -134,9 +134,13 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
   const [report, setReport] = useState<{ ok: boolean; lines: string[] } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
+  const [freeSize, setFreeSize] = useState(false);
+  const [zoom, setZoom] = useState(1);
+
   const stageRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [stageScale, setStageScale] = useState(1); // px de tela por cm
+  const [fitScale, setFitScale] = useState(1); // px de tela por cm (encaixe)
+  const stageScale = fitScale * zoom;
 
   const selected = arts.find((a) => a.id === selectedId) ?? null;
   const pxW = cmToPx(widthCm, dpi);
@@ -147,17 +151,40 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
     const compute = () => {
       const el = stageRef.current;
       if (!el) return;
-      const pad = 24;
+      const pad = 72;
       const s = Math.min(
         (el.clientWidth - pad) / widthCm,
         (el.clientHeight - pad) / heightCm,
       );
-      setStageScale(Math.max(0.4, s));
+      setFitScale(Math.max(0.4, s));
     };
     compute();
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, [widthCm, heightCm]);
+
+  /** move a arte selecionada */
+  const nudge = useCallback(
+    (dx: number, dy: number) => {
+      setSelectedId((id) => {
+        if (id)
+          setArts((prev) =>
+            prev.map((a) =>
+              a.id === id
+                ? {
+                    ...a,
+                    xCm: +Math.max(0, Math.min(widthCm - a.wCm, a.xCm + dx)).toFixed(2),
+                    yCm: +Math.max(0, Math.min(heightCm - a.hCm, a.yCm + dy)).toFixed(2),
+                  }
+                : a,
+            ),
+          );
+        return id;
+      });
+    },
+    [widthCm, heightCm],
+  );
+
 
   /** desenha o preview (baixa resolução, só visual) */
   useEffect(() => {
@@ -170,7 +197,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
     const ctx = cv.getContext("2d")!;
     ctx.clearRect(0, 0, w, h);
     // margem (guia visual)
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
     ctx.setLineDash([6, 6]);
     ctx.strokeRect(
       marginCm * stageScale,
@@ -345,8 +372,10 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
       cursorX += bb.w + gapCm;
       shelfH = Math.max(shelfH, bb.h);
     }
-    const needed = cursorY + shelfH + marginCm;
-    if (needed > heightCm) setHeightCm(+Math.ceil(needed).toFixed(0));
+    const needed = Math.ceil(cursorY + shelfH + marginCm);
+    if (freeSize) setHeightCm(Math.max(1, needed));
+    else if (needed > heightCm) setHeightCm(needed);
+
     setArts(placed);
   }
 
@@ -458,6 +487,24 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
 
   const effDpi = selected ? Math.round(selected.pxW / (selected.wCm / CM_PER_INCH)) : 0;
 
+  const stepCm = widthCm > 200 || heightCm > 200 ? 20 : 10;
+  const hTicks = Array.from({ length: Math.floor(widthCm / stepCm) + 1 }, (_, i) => i * stepCm);
+  const vTicks = Array.from({ length: Math.floor(heightCm / stepCm) + 1 }, (_, i) => i * stepCm);
+  const canvasW = Math.max(1, Math.round(widthCm * stageScale));
+  const canvasH = Math.max(1, Math.round(heightCm * stageScale));
+
+  const Step = ({ n, title, children }: { n: string; title: string; children: React.ReactNode }) => (
+    <section className="space-y-2 border-b border-border/60 pb-4">
+      <h3 className="text-[13px] font-black uppercase tracking-[0.14em] text-foreground">
+        {n}. {title}
+      </h3>
+      {children}
+    </section>
+  );
+
+  const fieldCls =
+    "w-full rounded-md border border-border bg-background px-2 py-2 text-center text-lg font-bold outline-none focus:border-primary";
+
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-background">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
@@ -465,42 +512,85 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
           <ArrowLeft className="h-4 w-4" />
           Voltar para ferramenta
         </Button>
-        <span className="text-sm font-semibold text-muted-foreground">
-          Montagem DTF profissional
-        </span>
+        <span className="text-sm font-semibold text-muted-foreground">Montagem DTF profissional</span>
         <div className="w-20" />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col-reverse lg:flex-row">
-        {/* Painel lateral */}
-        <aside className="w-full shrink-0 space-y-4 overflow-auto border-r bg-card/40 p-4 text-sm lg:w-[340px]">
-          <section className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Medidas do material
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1">
-                <span className="text-xs text-muted-foreground">Largura (cm)</span>
+        {/* Painel lateral em etapas */}
+        <aside className="w-full shrink-0 space-y-4 overflow-auto border-r bg-card p-5 text-sm lg:w-[340px]">
+          <div>
+            <h2 className="text-2xl font-black uppercase leading-6 tracking-tight">
+              Monte seu arquivo DTF
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">Parâmetros profissionais aplicados</p>
+          </div>
+
+          <Step n="01" title="Medidas (cm)">
+            <label className="flex items-center gap-2 text-xs font-semibold">
+              <input
+                type="checkbox"
+                checked={freeSize}
+                onChange={(e) => setFreeSize(e.target.checked)}
+              />
+              Arquivo livre (tamanho personalizado)
+            </label>
+            <div className="flex items-end gap-2">
+              <label className="flex-1">
                 <input
                   type="number"
-                  className="w-full rounded-md border bg-background px-2 py-1"
+                  className={fieldCls}
                   value={widthCm}
                   min={1}
                   onChange={(e) => setWidthCm(Math.max(1, Number(e.target.value) || 1))}
                 />
+                <span className="mt-1 block text-center text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Largura
+                </span>
               </label>
-              <label className="space-y-1">
-                <span className="text-xs text-muted-foreground">Comprimento (cm)</span>
+              <span className="pb-6 text-xs text-muted-foreground">X</span>
+              <label className="flex-1">
                 <input
                   type="number"
-                  className="w-full rounded-md border bg-background px-2 py-1"
+                  className={fieldCls}
                   value={heightCm}
                   min={1}
                   onChange={(e) => setHeightCm(Math.max(1, Number(e.target.value) || 1))}
                 />
+                <span className="mt-1 block text-center text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Altura
+                </span>
               </label>
+            </div>
+            {freeSize ? (
+              <Button variant="secondary" className="w-full text-xs font-bold uppercase" onClick={autoArrange}>
+                Ajustar tamanho ao conteúdo
+              </Button>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {[
+                  [28, 100],
+                  [56, 100],
+                  [58, 100],
+                  [60, 100],
+                  [60, 500],
+                ].map(([w, h]) => (
+                  <button
+                    key={`${w}x${h}`}
+                    className="rounded-md border px-2 py-0.5 text-[11px] hover:bg-accent"
+                    onClick={() => {
+                      setWidthCm(w);
+                      setHeightCm(h);
+                    }}
+                  >
+                    {w}×{h}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
               <label className="space-y-1">
-                <span className="text-xs text-muted-foreground">Margem (cm)</span>
+                <span className="text-[11px] uppercase text-muted-foreground">Margem (cm)</span>
                 <input
                   type="number"
                   step="0.1"
@@ -510,7 +600,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-muted-foreground">Espaçamento (cm)</span>
+                <span className="text-[11px] uppercase text-muted-foreground">Espaço (cm)</span>
                 <input
                   type="number"
                   step="0.1"
@@ -520,32 +610,141 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
                 />
               </label>
             </div>
-            <div className="flex flex-wrap gap-1">
-              {[
-                [28, 100],
-                [56, 100],
-                [58, 100],
-                [60, 100],
-                [60, 500],
-              ].map(([w, h]) => (
-                <button
-                  key={`${w}x${h}`}
-                  className="rounded-md border px-2 py-0.5 text-[11px] hover:bg-accent"
-                  onClick={() => {
-                    setWidthCm(w);
-                    setHeightCm(h);
-                  }}
-                >
-                  {w}×{h}
-                </button>
-              ))}
-            </div>
-          </section>
+          </Step>
 
-          <section className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Qualidade / DPI
-            </h3>
+          <Step n="02" title="Resumo">
+            <div className="grid grid-cols-3 gap-2 rounded-md border p-2 text-center">
+              <div>
+                <div className="text-lg font-black">{stats.count}</div>
+                <div className="text-[10px] uppercase text-muted-foreground">Artes</div>
+              </div>
+              <div>
+                <div className="text-lg font-black text-emerald-500">{stats.pct.toFixed(0)}%</div>
+                <div className="text-[10px] uppercase text-muted-foreground">Aproveit.</div>
+              </div>
+              <div>
+                <div className="text-lg font-black">{stats.usedLength.toFixed(0)}</div>
+                <div className="text-[10px] uppercase text-muted-foreground">cm usados</div>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Canvas final: <strong>{pxW} × {pxH} px</strong> · RGBA transparente · {dpi} DPI
+            </p>
+          </Step>
+
+          <Step n="03" title="Adicionar designs">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md bg-foreground px-3 py-4 text-xs font-black uppercase tracking-wide text-background hover:opacity-90">
+              <Upload className="h-4 w-4" />
+              + Subir imagem
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  handleFiles(e.target.files);
+                  e.currentTarget.value = "";
+                }}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 text-[11px] uppercase"
+                disabled={!selected}
+                onClick={() => selected && update(selected.id, { rotation: (selected.rotation + 90) % 360 })}
+              >
+                <RotateCw className="h-3.5 w-3.5" />
+                Girar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 text-[11px] uppercase"
+                disabled={!selected}
+                onClick={() => selected && duplicate(selected)}
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Duplicar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 text-[11px] uppercase text-destructive"
+                disabled={!selected}
+                onClick={() => {
+                  if (!selected) return;
+                  setArts((p) => p.filter((x) => x.id !== selected.id));
+                  setSelectedId(null);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Apagar
+              </Button>
+            </div>
+            <Button className="w-full gap-2" variant="secondary" onClick={autoArrange}>
+              <LayoutGrid className="h-4 w-4" />
+              Organizar automaticamente
+            </Button>
+          </Step>
+
+          {selected && (
+            <Step n="04" title="Arte selecionada">
+              <p className="truncate text-[11px] text-muted-foreground">{selected.name}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1">
+                  <span className="text-[11px] uppercase text-muted-foreground">Largura (cm)</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full rounded-md border bg-background px-2 py-1"
+                    value={selected.wCm}
+                    onChange={(e) => setW(selected, Number(e.target.value))}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[11px] uppercase text-muted-foreground">Altura (cm)</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full rounded-md border bg-background px-2 py-1"
+                    value={selected.hCm}
+                    onChange={(e) => setH(selected, Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={selected.lockRatio}
+                  onChange={(e) => update(selected.id, { lockRatio: e.target.checked })}
+                />
+                Bloquear proporção original
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[11px] uppercase text-muted-foreground">
+                  Rotação livre: {selected.rotation}°
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={359}
+                  value={selected.rotation}
+                  className="w-full"
+                  onChange={(e) => update(selected.id, { rotation: Number(e.target.value) })}
+                />
+              </label>
+              <div className="rounded-md bg-muted/50 p-2 text-[11px] leading-5">
+                Resolução efetiva: <strong>{effDpi} DPI</strong>
+                <br />
+                Pixels originais: {selected.pxW} × {selected.pxH}
+              </div>
+            </Step>
+          )}
+
+          <section className="space-y-2 pb-8">
+            <h3 className="text-[13px] font-black uppercase tracking-[0.14em]">05. Finalizar</h3>
             <div className="flex gap-2">
               {[150, 300, 600].map((d) => (
                 <button
@@ -559,10 +758,6 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Canvas final: <strong>{pxW} × {pxH} px</strong> · RGBA transparente · metadados{" "}
-              {dpi} DPI
-            </p>
             <div className="flex gap-2">
               {(["png", "tiff"] as const).map((f) => (
                 <button
@@ -581,135 +776,6 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
                 TIFF sem suporte seguro no navegador — será gerado PNG sem perda (RGBA).
               </p>
             )}
-          </section>
-
-          <section className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Adicionar designs
-            </h3>
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-3 py-4 text-xs font-semibold hover:bg-accent">
-              <Upload className="h-4 w-4" />
-              Enviar artes (PNG / TIFF / JPG)
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  handleFiles(e.target.files);
-                  e.currentTarget.value = "";
-                }}
-              />
-            </label>
-            <Button className="w-full gap-2" variant="secondary" onClick={autoArrange}>
-              <LayoutGrid className="h-4 w-4" />
-              Organizar automaticamente
-            </Button>
-          </section>
-
-          {selected && (
-            <section className="space-y-2 rounded-lg border p-2">
-              <h3 className="truncate text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                {selected.name}
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Largura (cm)</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full rounded-md border bg-background px-2 py-1"
-                    value={selected.wCm}
-                    onChange={(e) => setW(selected, Number(e.target.value))}
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Altura (cm)</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full rounded-md border bg-background px-2 py-1"
-                    value={selected.hCm}
-                    onChange={(e) => setH(selected, Number(e.target.value))}
-                  />
-                </label>
-              </div>
-              <label className="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={selected.lockRatio}
-                  onChange={(e) => update(selected.id, { lockRatio: e.target.checked })}
-                />
-                Bloquear proporção original
-              </label>
-              <label className="space-y-1 block">
-                <span className="text-xs text-muted-foreground">
-                  Rotação livre: {selected.rotation}°
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={359}
-                  value={selected.rotation}
-                  className="w-full"
-                  onChange={(e) => update(selected.id, { rotation: Number(e.target.value) })}
-                />
-              </label>
-              <div className="rounded-md bg-muted/50 p-2 text-[11px] leading-5">
-                Largura: {selected.wCm} cm
-                <br />
-                Altura: {selected.hCm} cm
-                <br />
-                Resolução efetiva: <strong>{effDpi} DPI</strong>
-                <br />
-                Pixels originais: {selected.pxW} × {selected.pxH}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="gap-1"
-                  onClick={() => update(selected.id, { rotation: (selected.rotation + 90) % 360 })}
-                >
-                  <RotateCw className="h-4 w-4" />
-                  90°
-                </Button>
-                <Button size="sm" variant="secondary" className="gap-1" onClick={() => duplicate(selected)}>
-                  <Copy className="h-4 w-4" />
-                  Duplicar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="gap-1"
-                  onClick={() => {
-                    setArts((p) => p.filter((x) => x.id !== selected.id));
-                    setSelectedId(null);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Excluir
-                </Button>
-              </div>
-            </section>
-          )}
-
-          <section className="space-y-1 rounded-lg border p-2 text-[11px] leading-5">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Aproveitamento
-            </h3>
-            Artes: {stats.count}
-            <br />
-            Área utilizada: {stats.usedArea.toFixed(0)} cm² de {stats.total.toFixed(0)} cm²
-            <br />
-            Aproveitamento: <strong>{stats.pct.toFixed(1)}%</strong>
-            <br />
-            Comprimento utilizado: {stats.usedLength.toFixed(1)} cm
-            <br />
-            Comprimento economizado: {stats.savedLength.toFixed(1)} cm
-          </section>
-
-          <section className="space-y-2 pb-6">
             <Button variant="secondary" className="w-full gap-2" onClick={() => verify()}>
               <ShieldCheck className="h-4 w-4" />
               Verificar arquivo
@@ -732,28 +798,97 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
           </section>
         </aside>
 
-        {/* Palco / fundo visual */}
+        {/* Palco */}
         <div
           ref={stageRef}
-          className="relative flex min-h-[50vh] flex-1 items-center justify-center overflow-auto p-3"
-          style={{
-            backgroundImage:
-              "linear-gradient(45deg,#2a2f3a 25%,transparent 25%),linear-gradient(-45deg,#2a2f3a 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#2a2f3a 75%),linear-gradient(-45deg,transparent 75%,#2a2f3a 75%)",
-            backgroundSize: "24px 24px",
-            backgroundPosition: "0 0,0 12px,12px -12px,-12px 0",
-            backgroundColor: "#1b1f27",
-          }}
+          className="relative flex min-h-[50vh] flex-1 items-center justify-center overflow-auto bg-muted/40 p-8"
         >
-          <canvas
-            ref={canvasRef}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            className="touch-none rounded-sm shadow-2xl ring-1 ring-white/20"
-            style={{ cursor: "grab" }}
-          />
+          {/* Controles de zoom */}
+          <div className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-lg border bg-card p-1 shadow">
+            <button
+              className="h-8 w-8 rounded-md text-lg font-bold hover:bg-accent"
+              onClick={() => setZoom((z) => Math.max(0.25, +(z - 0.15).toFixed(2)))}
+            >
+              −
+            </button>
+            <button
+              className="h-8 rounded-md px-3 text-[11px] font-bold uppercase tracking-wide hover:bg-accent"
+              onClick={() => setZoom(1)}
+            >
+              ⟲ Ajustar
+            </button>
+            <button
+              className="h-8 w-8 rounded-md text-lg font-bold hover:bg-accent"
+              onClick={() => setZoom((z) => Math.min(6, +(z + 0.15).toFixed(2)))}
+            >
+              +
+            </button>
+          </div>
+
+          {/* Setas de posicionamento */}
+          <div className="absolute right-6 top-20 z-10 grid grid-cols-3 gap-1 rounded-lg border bg-card p-1 shadow">
+            <span />
+            <button className="h-7 w-7 rounded hover:bg-accent" onClick={() => nudge(0, -0.5)}>▲</button>
+            <span />
+            <button className="h-7 w-7 rounded hover:bg-accent" onClick={() => nudge(-0.5, 0)}>◀</button>
+            <span />
+            <button className="h-7 w-7 rounded hover:bg-accent" onClick={() => nudge(0.5, 0)}>▶</button>
+            <span />
+            <button className="h-7 w-7 rounded hover:bg-accent" onClick={() => nudge(0, 0.5)}>▼</button>
+            <span />
+          </div>
+
+          {/* Área com régua */}
+          <div className="relative" style={{ paddingLeft: 34, paddingTop: 18 }}>
+            {/* régua horizontal */}
+            <div
+              className="absolute left-[34px] top-0 h-[18px] text-[9px] text-muted-foreground"
+              style={{ width: canvasW }}
+            >
+              {hTicks.map((t) => (
+                <span
+                  key={t}
+                  className="absolute bottom-0 border-l border-border pl-0.5"
+                  style={{ left: t * stageScale, height: 8 }}
+                >
+                  <span className="absolute -top-3 left-0.5 whitespace-nowrap">{t} cm</span>
+                </span>
+              ))}
+            </div>
+            {/* régua vertical */}
+            <div
+              className="absolute left-0 top-[18px] w-[34px] text-[9px] text-muted-foreground"
+              style={{ height: canvasH }}
+            >
+              {vTicks.map((t) => (
+                <span
+                  key={t}
+                  className="absolute right-0 border-t border-border"
+                  style={{ top: t * stageScale, width: 8 }}
+                >
+                  <span className="absolute -top-1.5 right-[10px] whitespace-nowrap">{t} cm</span>
+                </span>
+              ))}
+            </div>
+            <canvas
+              ref={canvasRef}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              className="touch-none bg-card shadow-2xl ring-1 ring-border"
+              style={{
+                cursor: "grab",
+                backgroundImage:
+                  "linear-gradient(45deg,#d9d9d9 25%,transparent 25%),linear-gradient(-45deg,#d9d9d9 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d9d9d9 75%),linear-gradient(-45deg,transparent 75%,#d9d9d9 75%)",
+                backgroundSize: "16px 16px",
+                backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
+                backgroundColor: "#fff",
+              }}
+            />
+          </div>
+
           {busy && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-sm font-semibold text-white">
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 text-sm font-semibold text-white">
               {busy}
             </div>
           )}
@@ -764,3 +899,4 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
 }
 
 export default DTFGangSheetStudio;
+
