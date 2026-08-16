@@ -134,6 +134,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
   const [report, setReport] = useState<{ ok: boolean; lines: string[] } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
+  const [previewBg, setPreviewBg] = useState<string>("transparent");
   const [freeSize, setFreeSize] = useState(false);
   const [zoom, setZoom] = useState(1);
 
@@ -785,8 +786,48 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
             </Step>
           )}
 
+          <Step n="05" title="Fundo visual">
+            <p className="text-[11px] text-muted-foreground">
+              Apenas visualização — o arquivo final é sempre exportado sem fundo (transparente).
+            </p>
+            <div className="flex items-center gap-2">
+              {[
+                { v: "transparent", label: "Transparente" },
+                { v: "#ffffff", label: "Branco" },
+                { v: "#c9c9c9", label: "Cinza claro" },
+                { v: "#3f3f46", label: "Cinza escuro" },
+                { v: "#000000", label: "Preto" },
+              ].map((o) => (
+                <button
+                  key={o.v}
+                  title={o.label}
+                  onClick={() => setPreviewBg(o.v)}
+                  className={`h-9 w-9 rounded-full border-2 ${
+                    previewBg === o.v ? "border-foreground" : "border-border"
+                  }`}
+                  style={
+                    o.v === "transparent"
+                      ? {
+                          backgroundImage:
+                            "linear-gradient(45deg,#d9d9d9 25%,transparent 25%),linear-gradient(-45deg,#d9d9d9 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d9d9d9 75%),linear-gradient(-45deg,transparent 75%,#d9d9d9 75%)",
+                          backgroundSize: "10px 10px",
+                          backgroundPosition: "0 0,0 5px,5px -5px,-5px 0",
+                          backgroundColor: "#fff",
+                        }
+                      : { backgroundColor: o.v }
+                  }
+                />
+              ))}
+            </div>
+          </Step>
+
           <section className="space-y-2 pb-8">
-            <h3 className="text-[13px] font-black uppercase tracking-[0.14em]">05. Finalizar</h3>
+            <h3 className="text-[13px] font-black uppercase tracking-[0.14em]">06. Finalizar</h3>
+            <div className="flex flex-wrap items-center justify-center gap-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-emerald-600">
+              <span>✅ {dpi} DPI</span>
+              <span>✅ CMYK</span>
+              <span>✅ Sem fundo</span>
+            </div>
             <div className="flex gap-2">
               {[150, 300, 600].map((d) => (
                 <button
@@ -822,10 +863,16 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
               <ShieldCheck className="h-4 w-4" />
               Verificar arquivo
             </Button>
-            <Button className="w-full gap-2 font-bold" onClick={exportDTF} disabled={!arts.length || !!busy}>
-              <Download className="h-4 w-4" />
-              {busy ? "Gerando…" : "Exportar DTF"}
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button className="h-14 gap-2 text-xs font-black uppercase leading-4" onClick={exportDTF} disabled={!arts.length || !!busy}>
+                <Download className="h-4 w-4" />
+                {busy ? "Gerando…" : "Baixar PNG"}
+              </Button>
+              <Button className="h-14 gap-2 text-xs font-black uppercase leading-4" onClick={exportPDF} disabled={!arts.length || !!busy}>
+                <Download className="h-4 w-4" />
+                {busy ? "Gerando…" : "Baixar PDF"}
+              </Button>
+            </div>
             {report && (
               <div
                 className={`rounded-md border p-2 text-[11px] leading-5 ${
@@ -920,11 +967,15 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
               className="touch-none bg-card shadow-2xl ring-1 ring-border"
               style={{
                 cursor: "grab",
-                backgroundImage:
-                  "linear-gradient(45deg,#d9d9d9 25%,transparent 25%),linear-gradient(-45deg,#d9d9d9 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d9d9d9 75%),linear-gradient(-45deg,transparent 75%,#d9d9d9 75%)",
-                backgroundSize: "16px 16px",
-                backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
-                backgroundColor: "#fff",
+                ...(previewBg === "transparent"
+                  ? {
+                      backgroundImage:
+                        "linear-gradient(45deg,#d9d9d9 25%,transparent 25%),linear-gradient(-45deg,#d9d9d9 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d9d9d9 75%),linear-gradient(-45deg,transparent 75%,#d9d9d9 75%)",
+                      backgroundSize: "16px 16px",
+                      backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
+                      backgroundColor: "#fff",
+                    }
+                  : { backgroundColor: previewBg }),
               }}
             />
           </div>
