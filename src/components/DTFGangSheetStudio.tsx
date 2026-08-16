@@ -440,50 +440,92 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
     return ok;
   }
 
-  /** exportação em resolução real usando os originais */
+  /** renderiza o arquivo final em resolução real (originais, sem perda) */
+  async function renderFinalPng(): Promise<Uint8Array> {
+    const out = document.createElement("canvas");
+    out.width = pxW;
+    out.height = pxH;
+    const ctx = out.getContext("2d", { alpha: true });
+    if (!ctx) throw new Error("canvas");
+    ctx.clearRect(0, 0, pxW, pxH);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    for (const a of arts) {
+      const w = cmToPx(a.wCm, dpi);
+      const h = cmToPx(a.hCm, dpi);
+      const cx = cmToPx(a.xCm, dpi) + w / 2;
+      const cy = cmToPx(a.yCm, dpi) + h / 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate((a.rotation * Math.PI) / 180);
+      ctx.drawImage(a.source, -w / 2, -h / 2, w, h); // sempre o original
+      ctx.restore();
+    }
+    const blob: Blob = await new Promise((res, rej) =>
+      out.toBlob((b) => (b ? res(b) : rej(new Error("blob"))), "image/png"),
+    );
+    return withDpi(new Uint8Array(await blob.arrayBuffer()), dpi);
+  }
+
+  function saveFile(data: BlobPart, mime: string, name: string) {
+    const url = URL.createObjectURL(new Blob([data], { type: mime }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  /** exportação PNG (300 DPI reais no metadado pHYs) */
   async function exportDTF() {
     if (!arts.length) return;
     verify();
-    setBusy("Gerando arquivo em resolução real…");
+    setBusy("Gerando PNG em resolução real…");
     await new Promise((r) => setTimeout(r, 50));
     try {
-      const out = document.createElement("canvas");
-      out.width = pxW;
-      out.height = pxH;
-      const ctx = out.getContext("2d", { alpha: true });
-      if (!ctx) throw new Error("canvas");
-      ctx.clearRect(0, 0, pxW, pxH);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      for (const a of arts) {
-        const w = cmToPx(a.wCm, dpi);
-        const h = cmToPx(a.hCm, dpi);
-        const cx = cmToPx(a.xCm, dpi) + w / 2;
-        const cy = cmToPx(a.yCm, dpi) + h / 2;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate((a.rotation * Math.PI) / 180);
-        ctx.drawImage(a.source, -w / 2, -h / 2, w, h); // sempre o original
-        ctx.restore();
-      }
-      const blob: Blob = await new Promise((res, rej) =>
-        out.toBlob((b) => (b ? res(b) : rej(new Error("blob"))), "image/png"),
-      );
-      const fixed = withDpi(new Uint8Array(await blob.arrayBuffer()), dpi);
-      const url = URL.createObjectURL(new Blob([fixed], { type: "image/png" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `DTF_${widthCm}x${heightCm}cm_${dpi}dpi.${format === "tiff" ? "png" : "png"}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-    } catch (e) {
+      const fixed = await renderFinalPng();
+      saveFile(fixed, "image/png", `DTF_${widthCm}x${heightCm}cm_${dpi}dpi.png`);
+    } catch {
       alert("Não foi possível gerar o arquivo nesta resolução. Reduza o comprimento do rolo.");
     } finally {
       setBusy(null);
     }
   }
+
+  /** exportação PDF no tamanho físico exato (mm), imagem sem perda */
+  async function exportPDF() {
+    if (!arts.length) return;
+    verify();
+    setBusy("Gerando PDF no tamanho físico…");
+    await new Promise((r) => setTimeout(r, 50));
+    try {
+      const png = await renderFinalPng();
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result));
+        fr.onerror = rej;
+        fr.readAsDataURL(new Blob([png], { type: "image/png" }));
+      });
+      const { jsPDF } = await import("jspdf");
+      const wMm = widthCm * 10;
+      const hMm = heightCm * 10;
+      const pdf = new jsPDF({
+        orientation: wMm > hMm ? "landscape" : "portrait",
+        unit: "mm",
+        format: [wMm, hMm],
+        compress: true,
+      });
+      pdf.addImage(dataUrl, "PNG", 0, 0, wMm, hMm, undefined, "FAST");
+      pdf.save(`DTF_${widthCm}x${heightCm}cm_${dpi}dpi.pdf`);
+    } catch {
+      alert("Não foi possível gerar o PDF nesta resolução. Reduza o comprimento do rolo.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
 
   const effDpi = selected ? Math.round(selected.pxW / (selected.wCm / CM_PER_INCH)) : 0;
 
