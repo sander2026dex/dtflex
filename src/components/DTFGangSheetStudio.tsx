@@ -516,7 +516,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
         <div className="w-20" />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col-reverse lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Painel lateral em etapas */}
         <aside className="w-full shrink-0 space-y-4 overflow-auto border-r bg-card p-5 text-sm lg:w-[340px]">
           <div>
