@@ -467,8 +467,8 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
     return withDpi(new Uint8Array(await blob.arrayBuffer()), dpi);
   }
 
-  function saveFile(data: BlobPart, mime: string, name: string) {
-    const url = URL.createObjectURL(new Blob([data], { type: mime }));
+  function saveFile(data: Uint8Array | BlobPart, mime: string, name: string) {
+    const url = URL.createObjectURL(new Blob([data as BlobPart], { type: mime }));
     const a = document.createElement("a");
     a.href = url;
     a.download = name;
@@ -506,7 +506,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
         const fr = new FileReader();
         fr.onload = () => res(String(fr.result));
         fr.onerror = rej;
-        fr.readAsDataURL(new Blob([png], { type: "image/png" }));
+        fr.readAsDataURL(new Blob([png as unknown as BlobPart], { type: "image/png" }));
       });
       const { jsPDF } = await import("jspdf");
       const wMm = widthCm * 10;
