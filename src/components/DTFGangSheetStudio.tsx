@@ -197,7 +197,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
     const ctx = cv.getContext("2d")!;
     ctx.clearRect(0, 0, w, h);
     // margem (guia visual)
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
     ctx.setLineDash([6, 6]);
     ctx.strokeRect(
       marginCm * stageScale,
