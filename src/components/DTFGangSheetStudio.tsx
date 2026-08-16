@@ -372,8 +372,10 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
       cursorX += bb.w + gapCm;
       shelfH = Math.max(shelfH, bb.h);
     }
-    const needed = cursorY + shelfH + marginCm;
-    if (needed > heightCm) setHeightCm(+Math.ceil(needed).toFixed(0));
+    const needed = Math.ceil(cursorY + shelfH + marginCm);
+    if (freeSize) setHeightCm(Math.max(1, needed));
+    else if (needed > heightCm) setHeightCm(needed);
+
     setArts(placed);
   }
 
