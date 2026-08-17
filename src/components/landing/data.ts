@@ -10,29 +10,30 @@ export const featureItems: FeatureItem[] = [
   },
   {
     icon: "sliders",
-    title: "Estilos Personalizáveis",
-    description: "Controle pontos, densidade, ângulos e comportamento visual para cada tipo de arte e impressão.",
+    title: "Retículas profissionais + Ben-Day",
+    description: "12 formatos de ponto (linhas, ondas, leque, Ben-Day e mais) com controle de densidade, ângulo, nitidez, saturação e brilho.",
   },
   {
     icon: "package",
-    title: "Crie Seus Próprios Pacotes",
-    description: "Monte pacotes de estampas em série e venda como quiser, sem depender de bancos de imagens.",
+    title: "Montagem DTF (gang sheet)",
+    description: "Monte folhas de 58x100 cm ou tamanho livre, organize automaticamente e exporte em PNG ou PDF no tamanho físico exato.",
   },
   {
     icon: "shield",
-    title: "Zero Software Pesado",
-    description: "Chega de travar o PC com programas que comem memória. Roda 100% no navegador, leve e seguro.",
+    title: "Zoom de impressão em tempo real",
+    description: "Preview com zoom até 1600% que simula fielmente a retícula escolhida, exatamente como o arquivo final vai imprimir.",
   },
   {
     icon: "save",
-    title: "Presets Salvos",
-    description: "Reaproveite configurações testadas para acelerar lotes recorrentes e padronizar resultados.",
+    title: "Recorte inteligente e fundo automático",
+    description: "Enquadre em A4/A3 sem cortar a arte, defina o tamanho em cm e remova o fundo por bordas preservando olhos e detalhes.",
   },
   {
     icon: "printer",
     title: "Export A4 e A3 em 300 DPI real",
     description: "Salve em PNG A4 (2480x3508) ou A3 (3508x4961) com metadados pHYs cravados em 300 DPI, prontos para DTF.",
   },
+
 ];
 
 export const testimonialItems: TestimonialItem[] = [

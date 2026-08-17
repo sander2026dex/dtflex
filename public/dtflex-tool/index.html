@@ -941,6 +941,16 @@
           window.__DTF_REMOVE_BG_BY_EDGES = function(canvas){ return removeBackgroundAuto(canvas); };
 
           overlay.querySelector('#dtf-upcrop-ok').onclick = function(){
+            // Transição instantânea: mostra "Aguarde…" e processa no frame seguinte
+            var wait = document.createElement('div');
+            wait.style.cssText = 'position:fixed;inset:0;z-index:1000000;background:rgba(5,8,14,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;font:800 clamp(15px,2.2vw,20px) system-ui;';
+            wait.innerHTML = '<div style="width:46px;height:46px;border-radius:50%;border:4px solid rgba(255,255,255,.18);border-top-color:#22c55e;animation:dtfspin .7s linear infinite"></div>'
+              + '<div>Aguarde… preparando sua arte</div>'
+              + '<div style="font:600 clamp(11px,1.6vw,13px) system-ui;opacity:.7">Isso leva só um instante</div>'
+              + '<style>@keyframes dtfspin{to{transform:rotate(360deg)}}</style>';
+            document.body.appendChild(wait);
+
+            var run = function(){
             var sx = Math.round(rect.x / scale);
             var sy = Math.round(rect.y / scale);
             var sw = Math.round(rect.w / scale);
@@ -973,10 +983,13 @@
               window.__DTF_TARGET_PX = null;
             }
 
-
             overlay.remove();
             onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
+            setTimeout(function(){ wait.remove(); }, 120);
+            };
+            requestAnimationFrame(function(){ requestAnimationFrame(run); });
           };
+
 
 
         }
@@ -1347,6 +1360,108 @@
         document.addEventListener('DOMContentLoaded', bindEmbedded);
         bindEmbedded();
 
+        // ============================================================
+        // ZOOM FIEL: o preview mostra EXATAMENTE a retícula entregue.
+        // Remove filtros CSS (saturate/contrast/brightness) que a tela
+        // aplicava por cima da arte e força render 1:1 pixelado.
+        // ============================================================
+        function trueColorPreview(){
+          if (!V.el) return;
+          try { V.el.style.filter = 'none'; } catch(e){}
+          var n = V.el.parentElement, hops = 0;
+          while (n && hops < 5) {
+            var f = getComputedStyle(n).filter;
+            if (f && f !== 'none') n.style.filter = 'none';
+            n = n.parentElement; hops++;
+          }
+        }
+
+        // ============================================================
+        // Botão/controle de BRILHO ao lado de "Saturação (Compensação)".
+        // Age no parâmetro real de Gama (afeta o arquivo entregue).
+        // ============================================================
+        function reactSet(input, value){
+          var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          setter.call(input, String(value));
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        function findGammaInput(){
+          var labels = Array.prototype.slice.call(document.querySelectorAll('span'));
+          for (var i = 0; i < labels.length; i++) {
+            if ((labels[i].textContent || '').indexOf('Gama / Meios-Tons') > -1) {
+              var box = labels[i].closest('div').parentElement;
+              var inp = box && box.querySelector('input[type=range]');
+              if (inp) return inp;
+            }
+          }
+          return null;
+        }
+        function injectBrightness(){
+          var host = null, spans = document.querySelectorAll('span');
+          for (var i = 0; i < spans.length; i++) {
+            if ((spans[i].textContent || '').indexOf('Saturação (Compensação)') > -1) {
+              host = spans[i].closest('div').parentElement; break;
+            }
+          }
+          if (!host || document.getElementById('dtf-bright-wrap')) return;
+          var wrap = document.createElement('div');
+          wrap.id = 'dtf-bright-wrap';
+          wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:10px;';
+          wrap.innerHTML = '<div style="display:flex;justify-content:space-between;font:600 12px ui-monospace,monospace;color:#94a3b8">'
+            + '<span>Brilho</span><b id="dtf-bright-v" style="color:#fbbf24">0%</b></div>'
+            + '<input id="dtf-bright" type="range" min="-100" max="100" step="5" value="0" style="width:100%;accent-color:#fbbf24;height:4px;cursor:pointer" />'
+            + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+            + '<button data-b="-30" class="dtf-bq" style="flex:1;min-width:64px;padding:5px 8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font:700 11px system-ui;cursor:pointer">Escurecer</button>'
+            + '<button data-b="0" class="dtf-bq" style="flex:1;min-width:64px;padding:5px 8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font:700 11px system-ui;cursor:pointer">Neutro</button>'
+            + '<button data-b="30" class="dtf-bq" style="flex:1;min-width:64px;padding:5px 8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font:700 11px system-ui;cursor:pointer">Clarear</button>'
+            + '</div>'
+            + '<span style="font:400 10px system-ui;color:#64748b">Clareia ou escurece os meios-tons antes da retícula — vale para o arquivo final.</span>';
+          host.appendChild(wrap);
+          var slider = wrap.querySelector('#dtf-bright');
+          var label = wrap.querySelector('#dtf-bright-v');
+          function apply(v){
+            label.textContent = (v > 0 ? '+' : '') + v + '%';
+            var g = findGammaInput();
+            if (!g) return;
+            // 0% -> 1.00 | +100% -> 1.80 | -100% -> 0.30
+            var gamma = v >= 0 ? 1 + (v / 100) * 0.8 : 1 + (v / 100) * 0.7;
+            reactSet(g, gamma.toFixed(2));
+          }
+          slider.addEventListener('input', function(){ apply(+this.value); });
+          wrap.querySelectorAll('.dtf-bq').forEach(function(b){
+            b.addEventListener('click', function(){ slider.value = b.dataset.b; apply(+b.dataset.b); });
+          });
+        }
+
+        // ============================================================
+        // Responsividade: legibilidade em qualquer tela/resolução.
+        // ============================================================
+        (function responsive(){
+          var st = document.createElement('style');
+          st.textContent =
+            'html{-webkit-text-size-adjust:100%}' +
+            '#dtf-viewbar{max-width:96vw;flex-wrap:wrap;justify-content:center}' +
+            '#dtf-viewbar input[type=range]{width:min(210px,38vw)}' +
+            '@media (max-width:900px){' +
+            '  .text-\\[10px\\]{font-size:11px!important}' +
+            '  .text-xs{font-size:12.5px!important}' +
+            '  .text-sm{font-size:14px!important}' +
+            '  #dtf-viewbar{font-size:12px;padding:6px 10px;gap:7px;bottom:8px}' +
+            '}' +
+            '@media (min-width:1800px){' +
+            '  .text-xs{font-size:14px!important}' +
+            '  .text-sm{font-size:15.5px!important}' +
+            '  #dtf-viewbar{font-size:14px}' +
+            '}' +
+            'input[type=range]{min-height:22px}' +
+            'button{touch-action:manipulation}';
+          document.head.appendChild(st);
+        })();
+
+        setInterval(function(){ injectBrightness(); trueColorPreview(); }, 700);
+
+
         setInterval(function(){
           var c = biggestCanvas();
           if (c && !document.getElementById('dtf-upcrop-stage')) {
@@ -1361,7 +1476,7 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v49"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v50"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
