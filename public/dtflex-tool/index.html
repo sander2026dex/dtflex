@@ -994,16 +994,100 @@
 
         }
 
+        // ---- Suporte a PDF e PSD: converte para PNG (300 DPI) antes do fluxo normal ----
+        function dtfLoadScript(src){
+          return new Promise(function(res, rej){
+            if (document.querySelector('script[data-dtf-src="'+src+'"]')) {
+              var ex = document.querySelector('script[data-dtf-src="'+src+'"]');
+              if (ex.__loaded) return res(); ex.addEventListener('load', function(){res();}); ex.addEventListener('error', rej); return;
+            }
+            var s = document.createElement('script');
+            s.src = src; s.async = true; s.setAttribute('data-dtf-src', src);
+            s.onload = function(){ s.__loaded = true; res(); };
+            s.onerror = function(){ rej(new Error('Falha ao carregar ' + src)); };
+            document.head.appendChild(s);
+          });
+        }
+        function dtfIsPdf(file){ return /pdf$/i.test(file.name||'') || /pdf/i.test(file.type||''); }
+        function dtfIsPsd(file){ return /\.(psd|psb)$/i.test(file.name||'') || /photoshop|vnd\.adobe/i.test(file.type||''); }
+        function dtfCanvasToFile(canvas, name){
+          return new Promise(function(res){
+            canvas.toBlob(function(blob){
+              res(new File([blob], name, { type: 'image/png' }));
+            }, 'image/png');
+          });
+        }
+        async function dtfConvertPdf(file){
+          await dtfLoadScript('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js');
+          var pdfjs = window['pdfjsLib'];
+          pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+          var buf = await file.arrayBuffer();
+          var doc = await pdfjs.getDocument({ data: buf }).promise;
+          var page = await doc.getPage(1);
+          // 72pt = 1in → escala 300/72 garante 300 DPI reais
+          var scale = 300 / 72;
+          var vp = page.getViewport({ scale: scale });
+          var maxPx = 12000;
+          if (vp.width > maxPx || vp.height > maxPx) {
+            scale = scale * Math.min(maxPx / vp.width, maxPx / vp.height);
+            vp = page.getViewport({ scale: scale });
+          }
+          var c = document.createElement('canvas');
+          c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+          await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+          return dtfCanvasToFile(c, (file.name||'arte.pdf').replace(/\.[^.]+$/, '') + '.png');
+        }
+        async function dtfConvertPsd(file){
+          await dtfLoadScript('https://cdn.jsdelivr.net/npm/ag-psd@23.1.1/dist/bundle.js');
+          var ag = window['agPsd'];
+          var buf = await file.arrayBuffer();
+          var psd = ag.readPsd(buf, { useImageData: false, skipLayerImageData: true, skipThumbnail: true });
+          var canvas = psd.canvas;
+          if (!canvas) throw new Error('PSD sem imagem composta. Salve o PSD com "Maximizar compatibilidade".');
+          return dtfCanvasToFile(canvas, (file.name||'arte.psd').replace(/\.[^.]+$/, '') + '.png');
+        }
+        function dtfShowConverting(msg){
+          var w = document.createElement('div');
+          w.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(4,8,14,.82);color:#eaf2ff;font:600 15px system-ui,sans-serif;backdrop-filter:blur(4px)';
+          w.textContent = msg;
+          document.body.appendChild(w);
+          return w;
+        }
+
         function installUploadHook(){
           var inputs = document.querySelectorAll('input[type=file]');
           inputs.forEach(function(inp){
             if (inp.__dtfUploadHooked) return;
             inp.__dtfUploadHooked = true;
+            try {
+              var acc = inp.getAttribute('accept') || '';
+              if (!/pdf/i.test(acc)) inp.setAttribute('accept', (acc ? acc + ',' : 'image/*,') + 'application/pdf,.pdf,image/vnd.adobe.photoshop,.psd,.psb');
+            } catch(e){}
             inp.addEventListener('change', function(ev){
               var file = inp.files && inp.files[0];
-              if (!file || !/^image\//.test(file.type)) return;
+              if (!file) return;
               if (window.__DTF_UPLOAD_CROP_DONE) { window.__DTF_UPLOAD_CROP_DONE = false; return; }
+              if (dtfIsPdf(file) || dtfIsPsd(file)) {
+                ev.preventDefault(); ev.stopImmediatePropagation();
+                var waitEl = dtfShowConverting('Convertendo ' + (dtfIsPdf(file) ? 'PDF' : 'PSD') + '… aguarde');
+                (dtfIsPdf(file) ? dtfConvertPdf(file) : dtfConvertPsd(file)).then(function(png){
+                  waitEl.remove();
+                  try {
+                    var dt = new DataTransfer();
+                    dt.items.add(png);
+                    inp.files = dt.files;
+                  } catch(e){}
+                  inp.dispatchEvent(new Event('change', { bubbles: true }));
+                }).catch(function(err){
+                  waitEl.remove();
+                  try { inp.value = ''; } catch(e){}
+                  alert('Não consegui abrir esse arquivo: ' + (err && err.message ? err.message : 'formato não suportado'));
+                });
+                return;
+              }
+              if (!/^image\//.test(file.type)) return;
               ev.preventDefault(); ev.stopImmediatePropagation();
+
               // Detecta transparência: PNG com alpha < 255 → mantém fundo, só reticula (inclui preto).
               window.__DTF_HAS_TRANSPARENCY = false;
               try {
