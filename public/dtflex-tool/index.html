@@ -941,6 +941,16 @@
           window.__DTF_REMOVE_BG_BY_EDGES = function(canvas){ return removeBackgroundAuto(canvas); };
 
           overlay.querySelector('#dtf-upcrop-ok').onclick = function(){
+            // Transição instantânea: mostra "Aguarde…" e processa no frame seguinte
+            var wait = document.createElement('div');
+            wait.style.cssText = 'position:fixed;inset:0;z-index:1000000;background:rgba(5,8,14,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;font:800 clamp(15px,2.2vw,20px) system-ui;';
+            wait.innerHTML = '<div style="width:46px;height:46px;border-radius:50%;border:4px solid rgba(255,255,255,.18);border-top-color:#22c55e;animation:dtfspin .7s linear infinite"></div>'
+              + '<div>Aguarde… preparando sua arte</div>'
+              + '<div style="font:600 clamp(11px,1.6vw,13px) system-ui;opacity:.7">Isso leva só um instante</div>'
+              + '<style>@keyframes dtfspin{to{transform:rotate(360deg)}}</style>';
+            document.body.appendChild(wait);
+
+            var run = function(){
             var sx = Math.round(rect.x / scale);
             var sy = Math.round(rect.y / scale);
             var sw = Math.round(rect.w / scale);
@@ -973,10 +983,13 @@
               window.__DTF_TARGET_PX = null;
             }
 
-
             overlay.remove();
             onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
+            setTimeout(function(){ wait.remove(); }, 120);
+            };
+            requestAnimationFrame(function(){ requestAnimationFrame(run); });
           };
+
 
 
         }
