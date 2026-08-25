@@ -6,10 +6,14 @@ import regataCostas from "@/assets/shirt-regata-costas.png";
 import poloFrente from "@/assets/shirt-polo-frente.png";
 import mangaLongaFrente from "@/assets/shirt-manga-longa-frente.png";
 import mangaLongaCostas from "@/assets/shirt-manga-longa-costas.png";
+import moletomFemFrente from "@/assets/shirt-moletom-fem-frente.png";
+import moletomFemCostas from "@/assets/shirt-moletom-fem-costas.png";
+import babylookFrente from "@/assets/shirt-babylook-frente.png";
+import babylookCostas from "@/assets/shirt-babylook-costas.png";
 import lateral from "@/assets/shirt-lateral.png";
 import dobrada from "@/assets/shirt-dobrada.png";
 
-export type ShirtModel = "careca" | "v" | "regata" | "polo" | "manga-longa" | "dobrada";
+export type ShirtModel = "careca" | "v" | "regata" | "polo" | "manga-longa" | "baby-look" | "moletom-fem" | "dobrada";
 export type ShirtSide = "frente" | "costas" | "lado-esq" | "lado-dir";
 
 const SOURCES: Record<ShirtModel, Record<"frente" | "costas", string>> = {
@@ -18,6 +22,8 @@ const SOURCES: Record<ShirtModel, Record<"frente" | "costas", string>> = {
   regata: { frente: regataFrente, costas: regataCostas },
   polo: { frente: poloFrente, costas: carecaCostas },
   "manga-longa": { frente: mangaLongaFrente, costas: mangaLongaCostas },
+  "baby-look": { frente: babylookFrente, costas: babylookCostas },
+  "moletom-fem": { frente: moletomFemFrente, costas: moletomFemCostas },
   dobrada: { frente: dobrada, costas: dobrada },
 };
 
