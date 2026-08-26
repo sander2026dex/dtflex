@@ -598,8 +598,17 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
   ]);
 
   // Métricas: total de clientes únicos e vendas por mês (últimos 12 meses)
-  const allCodes = codes ?? [];
+  // Remove contas excluídas e deduplica por e-mail (mantém a linha mais recente)
+  const seenEmails = new Set<string>();
+  const allCodes = (codes ?? []).filter((c: any) => {
+    if (c.status === "deleted") return false;
+    const key = String(c.email ?? "").trim().toLowerCase();
+    if (seenEmails.has(key)) return false;
+    seenEmails.add(key);
+    return true;
+  });
   const uniqueEmails = new Set(allCodes.map((c: any) => c.email));
+
   const monthly: Record<string, { mensal: number; anual: number; total: number }> = {};
   const now = new Date();
   for (let i = 11; i >= 0; i--) {
@@ -709,22 +718,33 @@ export const deleteAccess = createServerFn({ method: "POST" })
     await requireAdminSession();
     const db = getDb();
 
-    // Soft-delete: mantém o registro para bloquear futuros logins com mensagem de renovação
-    const { error } = await db
+    // Descobre o e-mail para apagar TODAS as linhas duplicadas do mesmo cliente
+    const { data: row } = await db
       .from("user_access")
-      .update({
-        status: "deleted",
-        active_session_token: null,
-        active_session_started_at: null,
-        active_session_ip: null,
-        active_session_user_agent: null,
-      })
-      .eq("id", data.accessId);
+      .select("email")
+      .eq("id", data.accessId)
+      .maybeSingle();
+
+    const patch = {
+      status: "deleted",
+      active_session_token: null,
+      active_session_started_at: null,
+      active_session_ip: null,
+      active_session_user_agent: null,
+    };
+
+    // Soft-delete: mantém o registro para bloquear futuros logins com mensagem de renovação
+    const query = row?.email
+      ? db.from("user_access").update(patch).eq("email", row.email)
+      : db.from("user_access").update(patch).eq("id", data.accessId);
+
+    const { error } = await query;
     if (error) throw new Error("Não foi possível excluir a conta");
 
     await logSecurity("admin_delete_access", true);
     return { ok: true };
   });
+
 
 export const updateDeviceLimit = createServerFn({ method: "POST" })
   .inputValidator(deviceLimitSchema)
