@@ -709,22 +709,33 @@ export const deleteAccess = createServerFn({ method: "POST" })
     await requireAdminSession();
     const db = getDb();
 
-    // Soft-delete: mantém o registro para bloquear futuros logins com mensagem de renovação
-    const { error } = await db
+    // Descobre o e-mail para apagar TODAS as linhas duplicadas do mesmo cliente
+    const { data: row } = await db
       .from("user_access")
-      .update({
-        status: "deleted",
-        active_session_token: null,
-        active_session_started_at: null,
-        active_session_ip: null,
-        active_session_user_agent: null,
-      })
-      .eq("id", data.accessId);
+      .select("email")
+      .eq("id", data.accessId)
+      .maybeSingle();
+
+    const patch = {
+      status: "deleted",
+      active_session_token: null,
+      active_session_started_at: null,
+      active_session_ip: null,
+      active_session_user_agent: null,
+    };
+
+    // Soft-delete: mantém o registro para bloquear futuros logins com mensagem de renovação
+    const query = row?.email
+      ? db.from("user_access").update(patch).eq("email", row.email)
+      : db.from("user_access").update(patch).eq("id", data.accessId);
+
+    const { error } = await query;
     if (error) throw new Error("Não foi possível excluir a conta");
 
     await logSecurity("admin_delete_access", true);
     return { ok: true };
   });
+
 
 export const updateDeviceLimit = createServerFn({ method: "POST" })
   .inputValidator(deviceLimitSchema)
