@@ -598,8 +598,17 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
   ]);
 
   // Métricas: total de clientes únicos e vendas por mês (últimos 12 meses)
-  const allCodes = codes ?? [];
+  // Remove contas excluídas e deduplica por e-mail (mantém a linha mais recente)
+  const seenEmails = new Set<string>();
+  const allCodes = (codes ?? []).filter((c: any) => {
+    if (c.status === "deleted") return false;
+    const key = String(c.email ?? "").trim().toLowerCase();
+    if (seenEmails.has(key)) return false;
+    seenEmails.add(key);
+    return true;
+  });
   const uniqueEmails = new Set(allCodes.map((c: any) => c.email));
+
   const monthly: Record<string, { mensal: number; anual: number; total: number }> = {};
   const now = new Date();
   for (let i = 11; i >= 0; i--) {
