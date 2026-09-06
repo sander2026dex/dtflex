@@ -621,8 +621,9 @@
         // de entrar no pipeline. A escolha se propaga até o arquivo final.
         // ============================================================
         // Marca na TELA PRINCIPAL o preset de tecido conforme a cor escolhida
-        // no recorte (Branca / Preta / Colorida).
-        window.__DTF_APPLY_SHIRT_PRESET = function(){
+        // no recorte (Branca / Preta / Colorida). Tenta várias vezes porque o
+        // React pode demorar um instante para renderizar os botões.
+        window.__DTF_APPLY_SHIRT_PRESET = function(force){
           var kind = window.__DTF_SHIRT_COLOR || 'black';
           var want = kind === 'colorida' ? 'colorida' : (kind === 'white' ? 'branca' : 'preta');
           var label = want === 'colorida' ? 'camisa colorida' : (want === 'branca' ? 'camisa branca' : 'camisa preta');
@@ -631,11 +632,22 @@
             var t = (btns[i].textContent || '').trim().toLowerCase();
             if (t === label) {
               var cls = btns[i].className || '';
-              if (cls.indexOf('border-indigo-500') === -1) btns[i].click();
+              if (cls.indexOf('border-indigo-500') === -1) {
+                btns[i].click();
+                try { btns[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(e){}
+              }
               return true;
             }
           }
           return false;
+        };
+        window.__DTF_ENSURE_SHIRT_PRESET = function(){
+          if (window.__DTF_APPLY_SHIRT_PRESET()) return;
+          var attempts = 0;
+          var id = setInterval(function(){
+            attempts++;
+            if (window.__DTF_APPLY_SHIRT_PRESET() || attempts > 20) clearInterval(id);
+          }, 250);
         };
 
         function openUploadCropModal(bitmap, onConfirm, onCancel){
