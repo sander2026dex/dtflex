@@ -827,7 +827,9 @@
             overlay.remove(); if (onCancel) onCancel();
           };
           overlay.querySelector('#dtf-upcrop-skip').onclick = function(){
-            overlay.remove(); onConfirm(null, null);
+            overlay.remove();
+            window.__DTF_ENSURE_SHIRT_PRESET && window.__DTF_ENSURE_SHIRT_PRESET();
+            onConfirm(null, null);
           };
 
           // ------------------------------------------------------------------
