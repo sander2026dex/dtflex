@@ -621,8 +621,9 @@
         // de entrar no pipeline. A escolha se propaga até o arquivo final.
         // ============================================================
         // Marca na TELA PRINCIPAL o preset de tecido conforme a cor escolhida
-        // no recorte (Branca / Preta / Colorida).
-        window.__DTF_APPLY_SHIRT_PRESET = function(){
+        // no recorte (Branca / Preta / Colorida). Tenta várias vezes porque o
+        // React pode demorar um instante para renderizar os botões.
+        window.__DTF_APPLY_SHIRT_PRESET = function(force){
           var kind = window.__DTF_SHIRT_COLOR || 'black';
           var want = kind === 'colorida' ? 'colorida' : (kind === 'white' ? 'branca' : 'preta');
           var label = want === 'colorida' ? 'camisa colorida' : (want === 'branca' ? 'camisa branca' : 'camisa preta');
@@ -631,11 +632,22 @@
             var t = (btns[i].textContent || '').trim().toLowerCase();
             if (t === label) {
               var cls = btns[i].className || '';
-              if (cls.indexOf('border-indigo-500') === -1) btns[i].click();
+              if (cls.indexOf('border-indigo-500') === -1) {
+                btns[i].click();
+                try { btns[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(e){}
+              }
               return true;
             }
           }
           return false;
+        };
+        window.__DTF_ENSURE_SHIRT_PRESET = function(){
+          if (window.__DTF_APPLY_SHIRT_PRESET()) return;
+          var attempts = 0;
+          var id = setInterval(function(){
+            attempts++;
+            if (window.__DTF_APPLY_SHIRT_PRESET() || attempts > 20) clearInterval(id);
+          }, 250);
         };
 
         function openUploadCropModal(bitmap, onConfirm, onCancel){
@@ -815,7 +827,9 @@
             overlay.remove(); if (onCancel) onCancel();
           };
           overlay.querySelector('#dtf-upcrop-skip').onclick = function(){
-            overlay.remove(); onConfirm(null, null);
+            overlay.remove();
+            window.__DTF_ENSURE_SHIRT_PRESET && window.__DTF_ENSURE_SHIRT_PRESET();
+            onConfirm(null, null);
           };
 
           // ------------------------------------------------------------------
@@ -834,7 +848,9 @@
               return parseInt(h.substr(0,2),16)*0.299 + parseInt(h.substr(2,2),16)*0.587 + parseInt(h.substr(4,2),16)*0.114;
             })();
             // Simulação da camisa: a arte aparece sobre a cor escolhida.
-            window.__DTF_SHIRT_COLOR = lum < 60 ? 'black' : (lum > 200 ? 'white' : 'colorida');
+            // Só trata como preto/branco cores muito próximas do extremo;
+            // todo o resto (vermelho, azul, amarelo, cinza, etc.) é "colorida".
+            window.__DTF_SHIRT_COLOR = lum < 30 ? 'black' : (lum > 235 ? 'white' : 'colorida');
             // Camisa colorida: arquivo deve vir em PNG sem fundo. Nada é removido, só reticula.
             var isColorida = window.__DTF_SHIRT_COLOR === 'colorida';
             var msgEl = overlay.querySelector('#dtf-colorida-msg');
@@ -1018,7 +1034,10 @@
             }
 
             overlay.remove();
+            // Aplica o preset escolhido na tela principal imediatamente e,
+            // como o React pode renderizar os botões depois, tenta novamente.
             try { window.__DTF_APPLY_SHIRT_PRESET(); } catch(e){}
+            if (window.__DTF_ENSURE_SHIRT_PRESET) window.__DTF_ENSURE_SHIRT_PRESET();
             onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
             setTimeout(function(){ try { window.__DTF_APPLY_SHIRT_PRESET(); } catch(e){} }, 350);
             setTimeout(function(){ try { window.__DTF_APPLY_SHIRT_PRESET(); } catch(e){} }, 1200);
