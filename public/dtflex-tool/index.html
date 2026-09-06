@@ -846,7 +846,9 @@
               return parseInt(h.substr(0,2),16)*0.299 + parseInt(h.substr(2,2),16)*0.587 + parseInt(h.substr(4,2),16)*0.114;
             })();
             // Simulação da camisa: a arte aparece sobre a cor escolhida.
-            window.__DTF_SHIRT_COLOR = lum < 60 ? 'black' : (lum > 200 ? 'white' : 'colorida');
+            // Só trata como preto/branco cores muito próximas do extremo;
+            // todo o resto (vermelho, azul, amarelo, cinza, etc.) é "colorida".
+            window.__DTF_SHIRT_COLOR = lum < 30 ? 'black' : (lum > 235 ? 'white' : 'colorida');
             // Camisa colorida: arquivo deve vir em PNG sem fundo. Nada é removido, só reticula.
             var isColorida = window.__DTF_SHIRT_COLOR === 'colorida';
             var msgEl = overlay.querySelector('#dtf-colorida-msg');
