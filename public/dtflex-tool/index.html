@@ -1034,7 +1034,10 @@
             }
 
             overlay.remove();
+            // Aplica o preset escolhido na tela principal imediatamente e,
+            // como o React pode renderizar os botões depois, tenta novamente.
             try { window.__DTF_APPLY_SHIRT_PRESET(); } catch(e){}
+            if (window.__DTF_ENSURE_SHIRT_PRESET) window.__DTF_ENSURE_SHIRT_PRESET();
             onConfirm(out, window.__DTF_UPLOAD_PAPER || null);
             setTimeout(function(){ try { window.__DTF_APPLY_SHIRT_PRESET(); } catch(e){} }, 350);
             setTimeout(function(){ try { window.__DTF_APPLY_SHIRT_PRESET(); } catch(e){} }, 1200);
