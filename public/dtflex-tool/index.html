@@ -999,6 +999,105 @@
           }
           window.__DTF_REMOVE_BG_BY_EDGES = function(canvas){ return removeBackgroundAuto(canvas); };
 
+          // ------------------------------------------------------------------
+          // COR ESPECÍFICA: remover apenas a cor escolhida OU manter apenas ela
+          // (reticular só ela), dentro da área selecionada. As bordas recebem
+          // descontaminação para nunca sobrar halo/borda branca.
+          // ------------------------------------------------------------------
+          var picking = false;
+          var pickedRGB = null;
+          var cpSwatch = overlay.querySelector('#dtf-cp-swatch');
+          var cpTol = overlay.querySelector('#dtf-cp-tol');
+          var cpTolV = overlay.querySelector('#dtf-cp-tolv');
+          var cpMode = overlay.querySelector('#dtf-cp-mode');
+          if (cpTol) cpTol.addEventListener('input', function(){ cpTolV.textContent = cpTol.value; });
+
+          function redrawPreview(){
+            var p = preview.getContext('2d');
+            p.clearRect(0, 0, dispW, dispH);
+            p.drawImage(work, 0, 0, dispW, dispH);
+          }
+          overlay.querySelector('#dtf-cp-pick').addEventListener('click', function(){
+            picking = !picking;
+            this.style.background = picking ? '#f59e0b' : '#0ea5e9';
+            this.textContent = picking ? 'Clique na cor da arte…' : 'Escolher cor na arte';
+            preview.style.cursor = picking ? 'crosshair' : '';
+          });
+          function pickAt(px, py){
+            var ix = Math.max(0, Math.min(work.width - 1, Math.round(px / scale)));
+            var iy = Math.max(0, Math.min(work.height - 1, Math.round(py / scale)));
+            var dd = work.getContext('2d').getImageData(ix, iy, 1, 1).data;
+            pickedRGB = [dd[0], dd[1], dd[2]];
+            cpSwatch.style.background = 'rgb(' + dd[0] + ',' + dd[1] + ',' + dd[2] + ')';
+            picking = false;
+            var btn = overlay.querySelector('#dtf-cp-pick');
+            btn.style.background = '#0ea5e9';
+            btn.textContent = 'Escolher cor na arte';
+            preview.style.cursor = '';
+          }
+          var cpHistory = [];
+          function pushHistory(){
+            var snap = document.createElement('canvas');
+            snap.width = work.width; snap.height = work.height;
+            snap.getContext('2d').drawImage(work, 0, 0);
+            cpHistory.push(snap);
+            if (cpHistory.length > 8) cpHistory.shift();
+          }
+          overlay.querySelector('#dtf-cp-undo').addEventListener('click', function(){
+            var prev = cpHistory.pop();
+            if (!prev) return;
+            var wc = work.getContext('2d');
+            wc.clearRect(0, 0, work.width, work.height);
+            wc.drawImage(prev, 0, 0);
+            redrawPreview();
+          });
+          overlay.querySelector('#dtf-cp-apply').addEventListener('click', function(){
+            if (!pickedRGB) { alert('Primeiro clique em "Escolher cor na arte" e depois na cor desejada.'); return; }
+            pushHistory();
+            var x0 = Math.max(0, Math.round(rect.x / scale));
+            var y0 = Math.max(0, Math.round(rect.y / scale));
+            var x1 = Math.min(work.width, Math.round((rect.x + rect.w) / scale));
+            var y1 = Math.min(work.height, Math.round((rect.y + rect.h) / scale));
+            if (x1 <= x0 || y1 <= y0) { x0 = 0; y0 = 0; x1 = work.width; y1 = work.height; }
+            var wc = work.getContext('2d');
+            var img = wc.getImageData(x0, y0, x1 - x0, y1 - y0);
+            var d = img.data;
+            var tol = Number(cpTol.value) || 45;
+            var soft = Math.max(6, tol * 0.6);   // faixa de transição (mata o halo)
+            var kr = pickedRGB[0], kg = pickedRGB[1], kb = pickedRGB[2];
+            var keepOnly = cpMode.value === 'only';
+            for (var i = 0; i < d.length; i += 4) {
+              if (d[i+3] === 0) continue;
+              var dist = Math.max(Math.abs(d[i]-kr), Math.abs(d[i+1]-kg), Math.abs(d[i+2]-kb));
+              var a;
+              if (keepOnly) {
+                // mantém só a cor escolhida; o resto some com borda suave
+                if (dist <= tol) a = 1;
+                else if (dist >= tol + soft) a = 0;
+                else a = 1 - (dist - tol) / soft;
+              } else {
+                // remove a cor escolhida; vizinhos parecidos viram transição
+                if (dist <= tol) a = 0;
+                else if (dist >= tol + soft) a = 1;
+                else a = (dist - tol) / soft;
+                if (a < 1) {
+                  // descontaminação: tira a cor removida do pixel translúcido,
+                  // impedindo o contorno claro/branco em volta da arte
+                  if (a > 0.02) {
+                    d[i]   = Math.max(0, Math.min(255, (d[i]   - (1 - a) * kr) / a));
+                    d[i+1] = Math.max(0, Math.min(255, (d[i+1] - (1 - a) * kg) / a));
+                    d[i+2] = Math.max(0, Math.min(255, (d[i+2] - (1 - a) * kb) / a));
+                  }
+                }
+              }
+              d[i+3] = Math.round(d[i+3] * a);
+            }
+            wc.putImageData(img, x0, y0);
+            window.__DTF_HAS_TRANSPARENCY = true;
+            redrawPreview();
+          });
+
+
           overlay.querySelector('#dtf-upcrop-ok').onclick = function(){
             // Transição instantânea: mostra "Aguarde…" e processa no frame seguinte
             var wait = document.createElement('div');
