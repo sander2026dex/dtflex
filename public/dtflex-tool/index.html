@@ -691,6 +691,15 @@
             + '  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input id="dtf-size-lock" type="checkbox" checked style="width:16px;height:16px;" /> manter proporção</label>'
             + '  <span id="dtf-size-px" style="opacity:.7;"></span>'
             + '</div>'
+            + '<div id="dtf-cp-box" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center;font:600 12px system-ui;color:#fff;max-width:820px;background:rgba(255,255,255,.06);border:1px solid #334155;border-radius:10px;padding:10px 12px;">'
+            + '  <span style="width:100%;text-align:center;opacity:.85;">🎯 Cor específica — escolha uma cor da arte e decida o que fazer só com ela, dentro da área selecionada (sem borda branca).</span>'
+            + '  <button id="dtf-cp-pick" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#0ea5e9;color:#fff;font-weight:700;cursor:pointer;">Escolher cor na arte</button>'
+            + '  <span id="dtf-cp-swatch" style="width:28px;height:24px;border-radius:6px;border:2px solid #fff;background:transparent;display:inline-block;"></span>'
+            + '  <label style="display:flex;align-items:center;gap:6px;">Ação: <select id="dtf-cp-mode" style="padding:5px;border-radius:6px;border:1px solid #888;background:#111;color:#fff;"><option value="remove">Remover só esta cor</option><option value="only">Reticular só esta cor</option></select></label>'
+            + '  <label style="display:flex;align-items:center;gap:6px;">Tolerância <input id="dtf-cp-tol" type="range" min="5" max="140" value="45" style="width:120px;" /><span id="dtf-cp-tolv" style="opacity:.8;">45</span></label>'
+            + '  <button id="dtf-cp-apply" style="padding:6px 12px;border-radius:6px;border:0;background:#22c55e;color:#062;font-weight:700;cursor:pointer;">Aplicar na área</button>'
+            + '  <button id="dtf-cp-undo" style="padding:6px 12px;border-radius:6px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Desfazer</button>'
+            + '</div>'
 
 
 
