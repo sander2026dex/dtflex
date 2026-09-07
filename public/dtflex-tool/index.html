@@ -768,6 +768,7 @@
           stage.addEventListener('mousedown', function(e){
             var r = stage.getBoundingClientRect();
             var px = e.clientX - r.left, py = e.clientY - r.top;
+            if (picking) { pickAt(px, py); e.preventDefault(); return; }
             var t = e.target;
             if (t.dataset && t.dataset.pos) {
               drag = { mode:'resize', pos:t.dataset.pos, sx:px, sy:py, ox:rect.x, oy:rect.y, ow:rect.w, oh:rect.h };
