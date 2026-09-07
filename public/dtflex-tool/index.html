@@ -691,6 +691,15 @@
             + '  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input id="dtf-size-lock" type="checkbox" checked style="width:16px;height:16px;" /> manter proporção</label>'
             + '  <span id="dtf-size-px" style="opacity:.7;"></span>'
             + '</div>'
+            + '<div id="dtf-cp-box" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center;font:600 12px system-ui;color:#fff;max-width:820px;background:rgba(255,255,255,.06);border:1px solid #334155;border-radius:10px;padding:10px 12px;">'
+            + '  <span style="width:100%;text-align:center;opacity:.85;">🎯 Cor específica — escolha uma cor da arte e decida o que fazer só com ela, dentro da área selecionada (sem borda branca).</span>'
+            + '  <button id="dtf-cp-pick" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#0ea5e9;color:#fff;font-weight:700;cursor:pointer;">Escolher cor na arte</button>'
+            + '  <span id="dtf-cp-swatch" style="width:28px;height:24px;border-radius:6px;border:2px solid #fff;background:transparent;display:inline-block;"></span>'
+            + '  <label style="display:flex;align-items:center;gap:6px;">Ação: <select id="dtf-cp-mode" style="padding:5px;border-radius:6px;border:1px solid #888;background:#111;color:#fff;"><option value="remove">Remover só esta cor</option><option value="only">Reticular só esta cor</option></select></label>'
+            + '  <label style="display:flex;align-items:center;gap:6px;">Tolerância <input id="dtf-cp-tol" type="range" min="5" max="140" value="45" style="width:120px;" /><span id="dtf-cp-tolv" style="opacity:.8;">45</span></label>'
+            + '  <button id="dtf-cp-apply" style="padding:6px 12px;border-radius:6px;border:0;background:#22c55e;color:#062;font-weight:700;cursor:pointer;">Aplicar na área</button>'
+            + '  <button id="dtf-cp-undo" style="padding:6px 12px;border-radius:6px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Desfazer</button>'
+            + '</div>'
 
 
 
@@ -710,10 +719,14 @@
           var scale = Math.min(maxW / bitmap.width, maxH / bitmap.height, 1);
           var dispW = Math.max(20, Math.round(bitmap.width * scale));
           var dispH = Math.max(20, Math.round(bitmap.height * scale));
+          // Cópia editável da imagem (usada pelo seletor de cor específica)
+          var work = document.createElement('canvas');
+          work.width = bitmap.width; work.height = bitmap.height;
+          work.getContext('2d', { willReadFrequently: true }).drawImage(bitmap, 0, 0);
           var preview = document.createElement('canvas');
           preview.width = dispW; preview.height = dispH;
           preview.style.cssText = 'display:block;background:#111;';
-          preview.getContext('2d').drawImage(bitmap, 0, 0, dispW, dispH);
+          preview.getContext('2d').drawImage(work, 0, 0, dispW, dispH);
           stage.style.width = dispW + 'px'; stage.style.height = dispH + 'px';
           stage.appendChild(preview);
 
@@ -755,6 +768,7 @@
           stage.addEventListener('mousedown', function(e){
             var r = stage.getBoundingClientRect();
             var px = e.clientX - r.left, py = e.clientY - r.top;
+            if (picking) { pickAt(px, py); e.preventDefault(); return; }
             var t = e.target;
             if (t.dataset && t.dataset.pos) {
               drag = { mode:'resize', pos:t.dataset.pos, sx:px, sy:py, ox:rect.x, oy:rect.y, ow:rect.w, oh:rect.h };
@@ -990,6 +1004,105 @@
           }
           window.__DTF_REMOVE_BG_BY_EDGES = function(canvas){ return removeBackgroundAuto(canvas); };
 
+          // ------------------------------------------------------------------
+          // COR ESPECÍFICA: remover apenas a cor escolhida OU manter apenas ela
+          // (reticular só ela), dentro da área selecionada. As bordas recebem
+          // descontaminação para nunca sobrar halo/borda branca.
+          // ------------------------------------------------------------------
+          var picking = false;
+          var pickedRGB = null;
+          var cpSwatch = overlay.querySelector('#dtf-cp-swatch');
+          var cpTol = overlay.querySelector('#dtf-cp-tol');
+          var cpTolV = overlay.querySelector('#dtf-cp-tolv');
+          var cpMode = overlay.querySelector('#dtf-cp-mode');
+          if (cpTol) cpTol.addEventListener('input', function(){ cpTolV.textContent = cpTol.value; });
+
+          function redrawPreview(){
+            var p = preview.getContext('2d');
+            p.clearRect(0, 0, dispW, dispH);
+            p.drawImage(work, 0, 0, dispW, dispH);
+          }
+          overlay.querySelector('#dtf-cp-pick').addEventListener('click', function(){
+            picking = !picking;
+            this.style.background = picking ? '#f59e0b' : '#0ea5e9';
+            this.textContent = picking ? 'Clique na cor da arte…' : 'Escolher cor na arte';
+            preview.style.cursor = picking ? 'crosshair' : '';
+          });
+          function pickAt(px, py){
+            var ix = Math.max(0, Math.min(work.width - 1, Math.round(px / scale)));
+            var iy = Math.max(0, Math.min(work.height - 1, Math.round(py / scale)));
+            var dd = work.getContext('2d').getImageData(ix, iy, 1, 1).data;
+            pickedRGB = [dd[0], dd[1], dd[2]];
+            cpSwatch.style.background = 'rgb(' + dd[0] + ',' + dd[1] + ',' + dd[2] + ')';
+            picking = false;
+            var btn = overlay.querySelector('#dtf-cp-pick');
+            btn.style.background = '#0ea5e9';
+            btn.textContent = 'Escolher cor na arte';
+            preview.style.cursor = '';
+          }
+          var cpHistory = [];
+          function pushHistory(){
+            var snap = document.createElement('canvas');
+            snap.width = work.width; snap.height = work.height;
+            snap.getContext('2d').drawImage(work, 0, 0);
+            cpHistory.push(snap);
+            if (cpHistory.length > 8) cpHistory.shift();
+          }
+          overlay.querySelector('#dtf-cp-undo').addEventListener('click', function(){
+            var prev = cpHistory.pop();
+            if (!prev) return;
+            var wc = work.getContext('2d');
+            wc.clearRect(0, 0, work.width, work.height);
+            wc.drawImage(prev, 0, 0);
+            redrawPreview();
+          });
+          overlay.querySelector('#dtf-cp-apply').addEventListener('click', function(){
+            if (!pickedRGB) { alert('Primeiro clique em "Escolher cor na arte" e depois na cor desejada.'); return; }
+            pushHistory();
+            var x0 = Math.max(0, Math.round(rect.x / scale));
+            var y0 = Math.max(0, Math.round(rect.y / scale));
+            var x1 = Math.min(work.width, Math.round((rect.x + rect.w) / scale));
+            var y1 = Math.min(work.height, Math.round((rect.y + rect.h) / scale));
+            if (x1 <= x0 || y1 <= y0) { x0 = 0; y0 = 0; x1 = work.width; y1 = work.height; }
+            var wc = work.getContext('2d');
+            var img = wc.getImageData(x0, y0, x1 - x0, y1 - y0);
+            var d = img.data;
+            var tol = Number(cpTol.value) || 45;
+            var soft = Math.max(6, tol * 0.6);   // faixa de transição (mata o halo)
+            var kr = pickedRGB[0], kg = pickedRGB[1], kb = pickedRGB[2];
+            var keepOnly = cpMode.value === 'only';
+            for (var i = 0; i < d.length; i += 4) {
+              if (d[i+3] === 0) continue;
+              var dist = Math.max(Math.abs(d[i]-kr), Math.abs(d[i+1]-kg), Math.abs(d[i+2]-kb));
+              var a;
+              if (keepOnly) {
+                // mantém só a cor escolhida; o resto some com borda suave
+                if (dist <= tol) a = 1;
+                else if (dist >= tol + soft) a = 0;
+                else a = 1 - (dist - tol) / soft;
+              } else {
+                // remove a cor escolhida; vizinhos parecidos viram transição
+                if (dist <= tol) a = 0;
+                else if (dist >= tol + soft) a = 1;
+                else a = (dist - tol) / soft;
+                if (a < 1) {
+                  // descontaminação: tira a cor removida do pixel translúcido,
+                  // impedindo o contorno claro/branco em volta da arte
+                  if (a > 0.02) {
+                    d[i]   = Math.max(0, Math.min(255, (d[i]   - (1 - a) * kr) / a));
+                    d[i+1] = Math.max(0, Math.min(255, (d[i+1] - (1 - a) * kg) / a));
+                    d[i+2] = Math.max(0, Math.min(255, (d[i+2] - (1 - a) * kb) / a));
+                  }
+                }
+              }
+              d[i+3] = Math.round(d[i+3] * a);
+            }
+            wc.putImageData(img, x0, y0);
+            window.__DTF_HAS_TRANSPARENCY = true;
+            redrawPreview();
+          });
+
+
           overlay.querySelector('#dtf-upcrop-ok').onclick = function(){
             // Transição instantânea: mostra "Aguarde…" e processa no frame seguinte
             var wait = document.createElement('div');
@@ -1009,7 +1122,7 @@
             out.width = Math.max(1, sw); out.height = Math.max(1, sh);
             // Desenha a imagem inteira dentro do quadro (offsets podem ser
             // negativos): o que sobra fica transparente, nada é cortado.
-            out.getContext('2d').drawImage(bitmap, -sx, -sy, bitmap.width, bitmap.height);
+            out.getContext('2d').drawImage(work, -sx, -sy, work.width, work.height);
 
             var rmBg = overlay.querySelector('#dtf-rmbg');
             var coloridaNow = window.__DTF_SHIRT_COLOR === 'colorida';
@@ -1616,7 +1729,7 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v52"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v54"></script>
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
