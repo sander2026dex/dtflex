@@ -1018,7 +1018,7 @@
             out.width = Math.max(1, sw); out.height = Math.max(1, sh);
             // Desenha a imagem inteira dentro do quadro (offsets podem ser
             // negativos): o que sobra fica transparente, nada é cortado.
-            out.getContext('2d').drawImage(bitmap, -sx, -sy, bitmap.width, bitmap.height);
+            out.getContext('2d').drawImage(work, -sx, -sy, work.width, work.height);
 
             var rmBg = overlay.querySelector('#dtf-rmbg');
             var coloridaNow = window.__DTF_SHIRT_COLOR === 'colorida';
