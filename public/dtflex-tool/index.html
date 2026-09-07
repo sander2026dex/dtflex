@@ -719,10 +719,14 @@
           var scale = Math.min(maxW / bitmap.width, maxH / bitmap.height, 1);
           var dispW = Math.max(20, Math.round(bitmap.width * scale));
           var dispH = Math.max(20, Math.round(bitmap.height * scale));
+          // Cópia editável da imagem (usada pelo seletor de cor específica)
+          var work = document.createElement('canvas');
+          work.width = bitmap.width; work.height = bitmap.height;
+          work.getContext('2d', { willReadFrequently: true }).drawImage(bitmap, 0, 0);
           var preview = document.createElement('canvas');
           preview.width = dispW; preview.height = dispH;
           preview.style.cssText = 'display:block;background:#111;';
-          preview.getContext('2d').drawImage(bitmap, 0, 0, dispW, dispH);
+          preview.getContext('2d').drawImage(work, 0, 0, dispW, dispH);
           stage.style.width = dispW + 'px'; stage.style.height = dispH + 'px';
           stage.appendChild(preview);
 
