@@ -1203,6 +1203,13 @@
                     inp.dispatchEvent(new Event('change', { bubbles: true }));
                   }
                   if (!cropCanvas) { finish(file); return; }
+                  try {
+                    var oc = document.createElement('canvas');
+                    oc.width = cropCanvas.width; oc.height = cropCanvas.height;
+                    oc.getContext('2d').drawImage(cropCanvas, 0, 0);
+                    window.__DTF_ORIGINAL_CANVAS = oc;
+                  } catch (e) {}
+
                   cropCanvas.toBlob(function(blob){
                     var name = (file.name || 'upload.png').replace(/\.[^.]+$/, '') + '_crop.png';
                     var newFile = new File([blob], name, { type: 'image/png' });
