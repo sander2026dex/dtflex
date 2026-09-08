@@ -945,9 +945,13 @@
             var state = new Uint8Array(N); // 0 = não visto, 1 = fundo
             var seedR = new Float32Array(N), seedG = new Float32Array(N), seedB = new Float32Array(N);
 
-            var LOCAL_TOL = 16;   // variação permitida entre pixels vizinhos (gradiente suave do fundo)
-            var GLOBAL_TOL = 52;  // desvio máximo em relação à cor de origem da região de fundo
-            var EDGE_STOP = 34;   // contraste que caracteriza fronteira da arte
+            // "Preservar detalhes": quanto maior, mais conservadora é a remoção.
+            var PRES = window.__DTF_PRESERVE || 'alto';
+            var K = PRES === 'maximo' ? 0.55 : (PRES === 'alto' ? 0.75 : (PRES === 'medio' ? 1 : 1.25));
+            var LOCAL_TOL = 16 * K;   // variação permitida entre pixels vizinhos (gradiente suave do fundo)
+            var GLOBAL_TOL = 52 * K;  // desvio máximo em relação à cor de origem da região de fundo
+            var EDGE_STOP = 34 * K;   // contraste que caracteriza fronteira da arte
+
 
             function gradAt(x, y){
               var i = (y * W + x) * 4;
