@@ -10,4 +10,5 @@ Remoção de fundo é SEMPRE por conectividade com as bordas — nunca por cor. 
 ## Memories
 - [Export 300 DPI](mem://features/export-300dpi) — Patch pHYs injetado no iframe da ferramenta DTFLEXPRO
 - [Segmentação de fundo](mem://features/halftone-bg-segmentation) — Flood-fill de borda, proteção de olhos/cabelo/preto interno, painel de tamanho em cm @300 DPI
+- [DTF inteligente tecidos coloridos](mem://features/dtf-inteligente-tecidos-coloridos) — Base branca adaptativa, preservar detalhes, preview na cor do tecido; preto/branco intocados
 
