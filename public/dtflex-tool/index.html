@@ -1641,7 +1641,228 @@
 
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-a3-v54"></script>
+    <script>
+      // ============================================================
+      // HALFTONE DTF INTELIGENTE — TECIDOS COLORIDOS
+      // Camada NOVA e isolada: só age quando o tecido é colorido.
+      // Preto e branco continuam usando exatamente o fluxo antigo.
+      // Nunca apaga pixels: apenas cria base branca adaptativa e
+      // simula a arte sobre a cor real do tecido.
+      // ============================================================
+      (function () {
+        var S = window.__DTF_SMART = window.__DTF_SMART || {
+          on: true, white: 70, choke: 1, preserve: 'alto'
+        };
+        window.__DTF_PRESERVE = S.preserve;
+
+        function isColored() { return window.__DTF_SHIRT_COLOR === 'colorida'; }
+        function shirtRGB() {
+          var hex = (window.__DTF_SHIRT_HEX || '#78350F').replace('#', '');
+          if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+          var n = parseInt(hex, 16);
+          return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+        }
+        function biggest() {
+          var best = null, area = 0;
+          document.querySelectorAll('canvas').forEach(function (c) {
+            if (c.closest && c.closest('#dtf-upcrop-stage')) return;
+            if (c.closest && c.closest('#dtf-smart-modal')) return;
+            var a = c.width * c.height;
+            if (a > area && c.width > 200) { area = a; best = c; }
+          });
+          return best;
+        }
+        function copyOf(src) {
+          var c = document.createElement('canvas');
+          c.width = src.width; c.height = src.height;
+          c.getContext('2d').drawImage(src, 0, 0);
+          return c;
+        }
+
+        // --- Base branca adaptativa (white underbase) ---------------
+        // Alpha da base = alpha da arte, contraído (choke) e modulado
+        // pelo contraste entre a cor da arte e a cor do tecido.
+        function buildUnderbase(src) {
+          var w = src.width, h = src.height;
+          var ctx = src.getContext('2d');
+          var img = ctx.getImageData(0, 0, w, h);
+          var d = img.data, n = w * h;
+          var sh = shirtRGB();
+          var amount = Math.max(0, Math.min(100, S.white)) / 100;
+
+          var a = new Float32Array(n);
+          for (var i = 0; i < n; i++) a[i] = d[i * 4 + 3];
+
+          // choke: erosão do alpha (min filter) para a base não vazar
+          var r = Math.round(S.choke);
+          if (r > 0) {
+            var tmp = new Float32Array(n);
+            for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+              var m = 255;
+              for (var dx = -r; dx <= r; dx++) {
+                var xx = x + dx; if (xx < 0 || xx >= w) continue;
+                var v = a[y * w + xx]; if (v < m) m = v;
+              }
+              tmp[y * w + x] = m;
+            }
+            for (var x2 = 0; x2 < w; x2++) for (var y2 = 0; y2 < h; y2++) {
+              var m2 = 255;
+              for (var dy = -r; dy <= r; dy++) {
+                var yy = y2 + dy; if (yy < 0 || yy >= h) continue;
+                var v2 = tmp[yy * w + x2]; if (v2 < m2) m2 = v2;
+              }
+              a[y2 * w + x2] = m2;
+            }
+          }
+
+          var out = document.createElement('canvas');
+          out.width = w; out.height = h;
+          var octx = out.getContext('2d');
+          var oimg = octx.createImageData(w, h);
+          var od = oimg.data;
+          for (var p = 0; p < n; p++) {
+            var al = a[p];
+            if (al <= 0) continue;
+            var pr = d[p * 4], pg = d[p * 4 + 1], pb = d[p * 4 + 2];
+            // distância da cor da arte para a cor do tecido (0..1)
+            var dist = Math.min(1, Math.sqrt(
+              (pr - sh.r) * (pr - sh.r) + (pg - sh.g) * (pg - sh.g) + (pb - sh.b) * (pb - sh.b)
+            ) / 441);
+            // pouca diferença com o tecido → mais branco por baixo
+            var cov = amount * (1 - 0.45 * dist);
+            od[p * 4] = 255; od[p * 4 + 1] = 255; od[p * 4 + 2] = 255;
+            od[p * 4 + 3] = Math.max(0, Math.min(255, Math.round(al * cov)));
+          }
+          octx.putImageData(oimg, 0, 0);
+          return out;
+        }
+
+        function composite(src) {
+          var base = buildUnderbase(src);
+          var out = document.createElement('canvas');
+          out.width = src.width; out.height = src.height;
+          var c = out.getContext('2d');
+          c.imageSmoothingEnabled = false;
+          c.drawImage(base, 0, 0);
+          c.drawImage(src, 0, 0);
+          return out;
+        }
+
+        // Hook chamado pela exportação
+        window.__DTF_SMART_APPLY = function (flat) {
+          if (!S.on || !isColored() || S.white <= 0) return flat;
+          try { return composite(flat); } catch (e) { return flat; }
+        };
+
+        // --- Preview na cor da camiseta -----------------------------
+        function download(canvas, name) {
+          canvas.toBlob(function (b) {
+            var u = URL.createObjectURL(b);
+            var a = document.createElement('a');
+            a.href = u; a.download = name;
+            document.body.appendChild(a); a.click();
+            setTimeout(function () { URL.revokeObjectURL(u); a.remove(); }, 1500);
+          }, 'image/png');
+        }
+
+        function openPreview() {
+          var art = biggest();
+          if (!art) { alert('Gere a arte primeiro.'); return; }
+          var sh = window.__DTF_SHIRT_HEX || '#78350F';
+          var flat = copyOf(art);
+          var final = (S.on && isColored()) ? composite(flat) : flat;
+          var orig = window.__DTF_ORIGINAL_CANVAS || null;
+
+          var m = document.createElement('div');
+          m.id = 'dtf-smart-modal';
+          m.style.cssText = 'position:fixed;inset:0;z-index:1000000;background:rgba(10,10,14,.94);display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px;overflow:auto;';
+          m.innerHTML = '<div style="font:800 15px system-ui;color:#fff;">👕 Simulação na camiseta</div>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;font:700 12px system-ui;">'
+            + '<button id="sm-final" style="padding:8px 14px;border-radius:8px;border:0;background:#7c3aed;color:#fff;cursor:pointer;">Halftone final</button>'
+            + '<button id="sm-orig" style="padding:8px 14px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">Arte original</button>'
+            + '<button id="sm-base" style="padding:8px 14px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">Só base branca</button>'
+            + '<button id="sm-close" style="padding:8px 14px;border-radius:8px;border:0;background:#dc2626;color:#fff;cursor:pointer;">Fechar</button>'
+            + '</div>'
+            + '<div id="sm-stage" style="background:' + sh + ';border-radius:14px;padding:26px;box-shadow:0 12px 40px rgba(0,0,0,.6);max-width:92vw;"></div>'
+            + '<div style="font:600 12px system-ui;color:#cbd5e1;text-align:center;max-width:620px;">O fundo desta tela usa a cor real do tecido escolhido. Nada é apagado da arte: a base branca só é somada por baixo.</div>';
+          document.body.appendChild(m);
+
+          var stage = m.querySelector('#sm-stage');
+          function show(canvas) {
+            stage.innerHTML = '';
+            var view = document.createElement('canvas');
+            var maxW = Math.min(window.innerWidth * 0.8, 760);
+            var maxH = window.innerHeight * 0.6;
+            var k = Math.min(maxW / canvas.width, maxH / canvas.height, 1);
+            view.width = Math.max(1, Math.round(canvas.width * k));
+            view.height = Math.max(1, Math.round(canvas.height * k));
+            view.style.cssText = 'display:block;max-width:100%;';
+            var vc = view.getContext('2d');
+            vc.imageSmoothingQuality = 'high';
+            vc.drawImage(canvas, 0, 0, view.width, view.height);
+            stage.appendChild(view);
+          }
+          show(final);
+          m.querySelector('#sm-final').onclick = function () { show(final); };
+          m.querySelector('#sm-base').onclick = function () { show(buildUnderbase(flat)); };
+          m.querySelector('#sm-orig').onclick = function () {
+            if (!orig) { alert('A arte original só fica disponível depois de um novo upload.'); return; }
+            show(orig);
+          };
+          m.querySelector('#sm-close').onclick = function () { m.remove(); };
+        }
+
+        // --- Painel de controle -------------------------------------
+        var panel = null;
+        function buildPanel() {
+          if (panel) return;
+          panel = document.createElement('div');
+          panel.id = 'dtf-smart-panel';
+          panel.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99997;width:240px;background:rgba(17,24,39,.96);border:1px solid #4c1d95;border-radius:12px;padding:12px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;';
+          panel.innerHTML = '<div style="color:#c4b5fd;margin-bottom:8px;">🎽 DTF inteligente — tecido colorido</div>'
+            + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;"><input id="sp-on" type="checkbox" checked /> Base branca adaptativa</label>'
+            + '<div style="margin-bottom:6px;">Cobertura branca <b id="sp-wv">70%</b></div>'
+            + '<input id="sp-w" type="range" min="0" max="100" value="70" style="width:100%;accent-color:#a78bfa;" />'
+            + '<div style="margin:8px 0 6px;">White choke <b id="sp-cv">1 px</b></div>'
+            + '<input id="sp-c" type="range" min="0" max="4" step="1" value="1" style="width:100%;accent-color:#a78bfa;" />'
+            + '<div style="margin:8px 0 4px;">Preservar detalhes</div>'
+            + '<select id="sp-p" style="width:100%;padding:5px;border-radius:6px;background:#111827;color:#e5e7eb;border:1px solid #4b5563;">'
+            + '<option value="baixo">Baixo</option><option value="medio">Médio</option><option value="alto" selected>Alto</option><option value="maximo">Máximo</option></select>'
+            + '<button id="sp-prev" style="width:100%;margin-top:10px;padding:8px;border-radius:8px;border:0;background:#7c3aed;color:#fff;font:800 12px system-ui;cursor:pointer;">👕 Ver na camisa</button>'
+            + '<div style="display:flex;gap:6px;margin-top:8px;">'
+            + '<button id="sp-eb" style="flex:1;padding:7px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">PNG base</button>'
+            + '<button id="sp-ec" style="flex:1;padding:7px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">PNG cores</button>'
+            + '</div>';
+          document.body.appendChild(panel);
+
+          var on = panel.querySelector('#sp-on'), wr = panel.querySelector('#sp-w'),
+              cr = panel.querySelector('#sp-c'), pv = panel.querySelector('#sp-p');
+          on.onchange = function () { S.on = on.checked; };
+          wr.oninput = function () { S.white = +wr.value; panel.querySelector('#sp-wv').textContent = wr.value + '%'; };
+          cr.oninput = function () { S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
+          pv.onchange = function () { S.preserve = pv.value; window.__DTF_PRESERVE = pv.value; };
+          panel.querySelector('#sp-prev').onclick = openPreview;
+          panel.querySelector('#sp-eb').onclick = function () {
+            var art = biggest(); if (!art) return;
+            download(buildUnderbase(copyOf(art)), 'DTFlexPro_base_branca_300dpi.png');
+          };
+          panel.querySelector('#sp-ec').onclick = function () {
+            var art = biggest(); if (!art) return;
+            download(copyOf(art), 'DTFlexPro_cores_300dpi.png');
+          };
+        }
+
+        function tick() {
+          buildPanel();
+          if (!panel) return;
+          panel.style.display = (isColored() && biggest()) ? 'block' : 'none';
+        }
+        document.addEventListener('DOMContentLoaded', tick);
+        setInterval(tick, 800);
+      })();
+    </script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-smart-v56"></script>
+
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
   </head>
