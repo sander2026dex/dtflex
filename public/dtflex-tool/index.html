@@ -604,11 +604,18 @@
 
         // Hook usado na exportação (mantém o nome antigo)
         function compositeTextOverlay(flat){
-          if (!window.__DTF_BENDAY) return flat;
-          // já aplicado ao vivo neste canvas → não aplicar duas vezes
-          if (window.__DTF_BENDAY_LIVE_CANVAS === flat) return flat;
-          try { return renderBenDay(flat); } catch (e) { return flat; }
+          var out = flat;
+          if (window.__DTF_BENDAY && window.__DTF_BENDAY_LIVE_CANVAS !== flat) {
+            try { out = renderBenDay(flat); } catch (e) { out = flat; }
+          }
+          // Camada nova: base branca adaptativa para TECIDOS COLORIDOS.
+          // Nunca apaga pixel algum — só acrescenta branco por baixo da arte.
+          if (typeof window.__DTF_SMART_APPLY === 'function') {
+            try { out = window.__DTF_SMART_APPLY(out) || out; } catch (e) {}
+          }
+          return out;
         }
+
         window.__DTF_RENDER_BENDAY = renderBenDay;
         window.__DTF_APPLY_BENDAY = compositeTextOverlay;
 
