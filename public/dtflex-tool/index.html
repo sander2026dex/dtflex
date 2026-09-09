@@ -1823,22 +1823,105 @@
           return out;
         }
 
-        function composite(src) {
-          var base = buildUnderbase(src);
+        // --- Referência: arte original redimensionada ----------------
+        function refData(w, h) {
+          var orig = window.__DTF_ORIGINAL_CANVAS;
+          if (!orig || !orig.width) return null;
+          try {
+            var t = document.createElement('canvas');
+            t.width = w; t.height = h;
+            var tc = t.getContext('2d');
+            tc.imageSmoothingEnabled = true;
+            tc.drawImage(orig, 0, 0, w, h);
+            return tc.getImageData(0, 0, w, h).data;
+          } catch (e) { return null; }
+        }
+
+        function hexRGB(hex) {
+          hex = String(hex || '#000000').replace('#', '');
+          if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+          var n = parseInt(hex, 16) || 0;
+          return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+        }
+
+        // Regras por cor: preto do olho sólido / sem retícula / remover
+        // e intensidade (quantidade de retícula) de uma cor escolhida.
+        function applyArtRules(src) {
+          var needBlack = S.blackMode !== 'reticula';
+          var needColor = S.colorOn;
+          if (!needBlack && !needColor) return src;
+          var w = src.width, h = src.height;
+          var ref = refData(w, h);
+          if (!ref) return src;
+
           var out = document.createElement('canvas');
-          out.width = src.width; out.height = src.height;
+          out.width = w; out.height = h;
+          var oc = out.getContext('2d');
+          oc.imageSmoothingEnabled = false;
+          oc.drawImage(src, 0, 0);
+          var img = oc.getImageData(0, 0, w, h), d = img.data;
+          var tgt = hexRGB(S.colorHex);
+          var tol = Math.max(1, S.colorTol);
+          var keep = Math.max(0, Math.min(100, S.colorDensity)) / 100;
+
+          for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+              var i = (y * w + x) * 4;
+              var ra = ref[i + 3];
+              if (ra < 16) continue;
+              var rr = ref[i], rg = ref[i + 1], rb = ref[i + 2];
+              var lum = 0.299 * rr + 0.587 * rg + 0.114 * rb;
+
+              if (needBlack && lum <= S.blackLevel) {
+                if (S.blackMode === 'solido') {
+                  d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 255;
+                } else if (S.blackMode === 'remover') {
+                  d[i + 3] = 0;
+                }
+                continue;
+              }
+
+              if (needColor) {
+                var dr = rr - tgt.r, dg = rg - tgt.g, db = rb - tgt.b;
+                if (Math.sqrt(dr * dr + dg * dg + db * db) <= tol) {
+                  if (S.colorMode === 'remover') { d[i + 3] = 0; }
+                  else if (S.colorMode === 'solido') {
+                    d[i] = rr; d[i + 1] = rg; d[i + 2] = rb; d[i + 3] = 255;
+                  } else {
+                    // intensidade: reduz a quantidade de pontos da retícula
+                    if (keep < 1) {
+                      var t = ((x * 7 + y * 13) % 100) / 100;
+                      if (t >= keep) d[i + 3] = 0;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          oc.putImageData(img, 0, 0);
+          return out;
+        }
+
+        function composite(src) {
+          var art = applyArtRules(src);
+          if (S.white <= 0) return art;
+          var base = buildUnderbase(art);
+          var out = document.createElement('canvas');
+          out.width = art.width; out.height = art.height;
           var c = out.getContext('2d');
           c.imageSmoothingEnabled = false;
           c.drawImage(base, 0, 0);
-          c.drawImage(src, 0, 0);
+          c.drawImage(art, 0, 0);
           return out;
         }
 
         // Hook chamado pela exportação
         window.__DTF_SMART_APPLY = function (flat) {
-          if (!S.on || !isColored() || S.white <= 0) return flat;
+          if (!S.on || !isColored()) return flat;
+          if (S.white <= 0 && S.blackMode === 'reticula' && !S.colorOn) return flat;
           try { return composite(flat); } catch (e) { return flat; }
         };
+
 
         // --- Preview na cor da camiseta -----------------------------
         function download(canvas, name) {
