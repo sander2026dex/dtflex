@@ -863,15 +863,21 @@
             // Só trata como preto/branco cores muito próximas do extremo;
             // todo o resto (vermelho, azul, amarelo, cinza, etc.) é "colorida".
             window.__DTF_SHIRT_COLOR = lum < 30 ? 'black' : (lum > 235 ? 'white' : 'colorida');
-            // Camisa colorida: arquivo deve vir em PNG sem fundo. Nada é removido, só reticula.
+            // Camisa colorida: a ferramenta remove o fundo por conectividade
+            // com as bordas (nunca por cor) e adapta a arte ao tecido escolhido.
             var isColorida = window.__DTF_SHIRT_COLOR === 'colorida';
             var msgEl = overlay.querySelector('#dtf-colorida-msg');
             var rmbgEl = overlay.querySelector('#dtf-rmbg');
             if (msgEl) msgEl.style.display = isColorida ? 'block' : 'none';
             if (rmbgEl) {
-              if (isColorida) { rmbgEl.checked = false; rmbgEl.disabled = true; }
-              else { rmbgEl.disabled = false; }
+              rmbgEl.disabled = false;
+              if (isColorida) rmbgEl.checked = true;
             }
+            if (isColorida) {
+              window.__DTF_PRESERVE = 'alto';
+              if (window.__DTF_SMART) window.__DTF_SMART.preserve = 'alto';
+            }
+
             stage.style.background = hex;
             preview.style.background = hex;
           }
