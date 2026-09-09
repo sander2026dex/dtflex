@@ -1733,9 +1733,13 @@
       // ============================================================
       (function () {
         var S = window.__DTF_SMART = window.__DTF_SMART || {
-          on: true, white: 70, choke: 1, preserve: 'alto'
+          on: true, white: 70, choke: 1, preserve: 'alto',
+          blackMode: 'reticula', blackLevel: 60,
+          colorOn: false, colorHex: '#ff0000', colorTol: 60,
+          colorMode: 'reticula', colorDensity: 100
         };
         window.__DTF_PRESERVE = S.preserve;
+
 
         function isColored() { return window.__DTF_SHIRT_COLOR === 'colorida'; }
         function shirtRGB() {
@@ -1819,22 +1823,105 @@
           return out;
         }
 
-        function composite(src) {
-          var base = buildUnderbase(src);
+        // --- Referência: arte original redimensionada ----------------
+        function refData(w, h) {
+          var orig = window.__DTF_ORIGINAL_CANVAS;
+          if (!orig || !orig.width) return null;
+          try {
+            var t = document.createElement('canvas');
+            t.width = w; t.height = h;
+            var tc = t.getContext('2d');
+            tc.imageSmoothingEnabled = true;
+            tc.drawImage(orig, 0, 0, w, h);
+            return tc.getImageData(0, 0, w, h).data;
+          } catch (e) { return null; }
+        }
+
+        function hexRGB(hex) {
+          hex = String(hex || '#000000').replace('#', '');
+          if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+          var n = parseInt(hex, 16) || 0;
+          return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+        }
+
+        // Regras por cor: preto do olho sólido / sem retícula / remover
+        // e intensidade (quantidade de retícula) de uma cor escolhida.
+        function applyArtRules(src) {
+          var needBlack = S.blackMode !== 'reticula';
+          var needColor = S.colorOn;
+          if (!needBlack && !needColor) return src;
+          var w = src.width, h = src.height;
+          var ref = refData(w, h);
+          if (!ref) return src;
+
           var out = document.createElement('canvas');
-          out.width = src.width; out.height = src.height;
+          out.width = w; out.height = h;
+          var oc = out.getContext('2d');
+          oc.imageSmoothingEnabled = false;
+          oc.drawImage(src, 0, 0);
+          var img = oc.getImageData(0, 0, w, h), d = img.data;
+          var tgt = hexRGB(S.colorHex);
+          var tol = Math.max(1, S.colorTol);
+          var keep = Math.max(0, Math.min(100, S.colorDensity)) / 100;
+
+          for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+              var i = (y * w + x) * 4;
+              var ra = ref[i + 3];
+              if (ra < 16) continue;
+              var rr = ref[i], rg = ref[i + 1], rb = ref[i + 2];
+              var lum = 0.299 * rr + 0.587 * rg + 0.114 * rb;
+
+              if (needBlack && lum <= S.blackLevel) {
+                if (S.blackMode === 'solido') {
+                  d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 255;
+                } else if (S.blackMode === 'remover') {
+                  d[i + 3] = 0;
+                }
+                continue;
+              }
+
+              if (needColor) {
+                var dr = rr - tgt.r, dg = rg - tgt.g, db = rb - tgt.b;
+                if (Math.sqrt(dr * dr + dg * dg + db * db) <= tol) {
+                  if (S.colorMode === 'remover') { d[i + 3] = 0; }
+                  else if (S.colorMode === 'solido') {
+                    d[i] = rr; d[i + 1] = rg; d[i + 2] = rb; d[i + 3] = 255;
+                  } else {
+                    // intensidade: reduz a quantidade de pontos da retícula
+                    if (keep < 1) {
+                      var t = ((x * 7 + y * 13) % 100) / 100;
+                      if (t >= keep) d[i + 3] = 0;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          oc.putImageData(img, 0, 0);
+          return out;
+        }
+
+        function composite(src) {
+          var art = applyArtRules(src);
+          if (S.white <= 0) return art;
+          var base = buildUnderbase(art);
+          var out = document.createElement('canvas');
+          out.width = art.width; out.height = art.height;
           var c = out.getContext('2d');
           c.imageSmoothingEnabled = false;
           c.drawImage(base, 0, 0);
-          c.drawImage(src, 0, 0);
+          c.drawImage(art, 0, 0);
           return out;
         }
 
         // Hook chamado pela exportação
         window.__DTF_SMART_APPLY = function (flat) {
-          if (!S.on || !isColored() || S.white <= 0) return flat;
+          if (!S.on || !isColored()) return flat;
+          if (S.white <= 0 && S.blackMode === 'reticula' && !S.colorOn) return flat;
           try { return composite(flat); } catch (e) { return flat; }
         };
+
 
         // --- Preview na cor da camiseta -----------------------------
         function download(canvas, name) {
@@ -1903,7 +1990,7 @@
           if (panel) return;
           panel = document.createElement('div');
           panel.id = 'dtf-smart-panel';
-          panel.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:99997;width:240px;background:rgba(17,24,39,.96);border:1px solid #4c1d95;border-radius:12px;padding:12px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;';
+          panel.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:99997;width:240px;background:rgba(17,24,39,.96);border:1px solid #4c1d95;border-radius:12px;padding:12px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;max-height:78vh;overflow:auto;';
           panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:#c4b5fd;margin-bottom:8px;"><span>🎽 DTF inteligente — tecido colorido</span>'
             + '<button id="sp-toggle" title="Ocultar" style="border:0;background:#312e81;color:#ddd6fe;border-radius:6px;width:22px;height:22px;line-height:1;cursor:pointer;font:800 12px system-ui;">▾</button></div>'
             + '<div id="sp-body">'
@@ -1915,6 +2002,20 @@
             + '<div style="margin:8px 0 4px;">Preservar detalhes</div>'
             + '<select id="sp-p" style="width:100%;padding:5px;border-radius:6px;background:#111827;color:#e5e7eb;border:1px solid #4b5563;">'
             + '<option value="baixo">Baixo</option><option value="medio">Médio</option><option value="alto" selected>Alto</option><option value="maximo">Máximo</option></select>'
+            + '<div style="margin:10px 0 4px;color:#c4b5fd;">⚫ Preto (olhos, pupilas, contornos)</div>'
+            + '<select id="sp-bm" style="width:100%;padding:5px;border-radius:6px;background:#111827;color:#e5e7eb;border:1px solid #4b5563;">'
+            + '<option value="reticula" selected>Com retícula (padrão)</option><option value="solido">Sem retícula (preto sólido)</option><option value="remover">Remover o preto</option></select>'
+            + '<div style="margin:6px 0 4px;">Limite do preto <b id="sp-blv">60</b></div>'
+            + '<input id="sp-bl" type="range" min="10" max="140" step="5" value="60" style="width:100%;accent-color:#a78bfa;" />'
+            + '<div style="margin:10px 0 4px;color:#c4b5fd;">🎯 Cor específica</div>'
+            + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;"><input id="sp-con" type="checkbox" /> Aplicar regra a uma cor</label>'
+            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><input id="sp-ch" type="color" value="#ff0000" style="width:38px;height:26px;border:0;background:none;cursor:pointer;" /><button id="sp-pick" style="flex:1;padding:6px;border-radius:6px;border:0;background:#374151;color:#e5e7eb;font:700 11px system-ui;cursor:pointer;">Pegar cor da arte</button></div>'
+            + '<select id="sp-cm" style="width:100%;padding:5px;border-radius:6px;background:#111827;color:#e5e7eb;border:1px solid #4b5563;">'
+            + '<option value="reticula" selected>Reticular por intensidade</option><option value="solido">Sem retícula (chapado)</option><option value="remover">Remover essa cor</option></select>'
+            + '<div style="margin:6px 0 4px;">Tolerância da cor <b id="sp-ctv">60</b></div>'
+            + '<input id="sp-ct" type="range" min="10" max="180" step="5" value="60" style="width:100%;accent-color:#a78bfa;" />'
+            + '<div style="margin:6px 0 4px;">Quantidade de retícula <b id="sp-cdv">100%</b></div>'
+            + '<input id="sp-cd" type="range" min="5" max="100" step="5" value="100" style="width:100%;accent-color:#a78bfa;" />'
             + '<button id="sp-prev" style="width:100%;margin-top:10px;padding:8px;border-radius:8px;border:0;background:#7c3aed;color:#fff;font:800 12px system-ui;cursor:pointer;">👕 Ver na camisa</button>'
             + '</div>';
           document.body.appendChild(panel);
@@ -1935,6 +2036,54 @@
           wr.oninput = function () { S.white = +wr.value; panel.querySelector('#sp-wv').textContent = wr.value + '%'; };
           cr.oninput = function () { S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
           pv.onchange = function () { S.preserve = pv.value; window.__DTF_PRESERVE = pv.value; };
+
+          var bm = panel.querySelector('#sp-bm'), bl = panel.querySelector('#sp-bl'),
+              con = panel.querySelector('#sp-con'), ch = panel.querySelector('#sp-ch'),
+              cm = panel.querySelector('#sp-cm'), ct = panel.querySelector('#sp-ct'),
+              cd = panel.querySelector('#sp-cd');
+          bm.onchange = function () { S.blackMode = bm.value; };
+          bl.oninput = function () { S.blackLevel = +bl.value; panel.querySelector('#sp-blv').textContent = bl.value; };
+          con.onchange = function () { S.colorOn = con.checked; };
+          ch.oninput = function () { S.colorHex = ch.value; };
+          cm.onchange = function () { S.colorMode = cm.value; };
+          ct.oninput = function () { S.colorTol = +ct.value; panel.querySelector('#sp-ctv').textContent = ct.value; };
+          cd.oninput = function () { S.colorDensity = +cd.value; panel.querySelector('#sp-cdv').textContent = cd.value + '%'; };
+
+          // Conta-gotas: clique na arte para capturar a cor
+          panel.querySelector('#sp-pick').onclick = function () {
+            var src = window.__DTF_ORIGINAL_CANVAS || biggest();
+            var view = biggest();
+            if (!view) { alert('Gere a arte primeiro.'); return; }
+            var note = document.createElement('div');
+            note.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:1000001;background:#7c3aed;color:#fff;padding:8px 14px;border-radius:8px;font:800 12px system-ui;';
+            note.textContent = 'Clique na arte para escolher a cor (ESC cancela)';
+            document.body.appendChild(note);
+            view.style.cursor = 'crosshair';
+            function done() {
+              note.remove(); view.style.cursor = '';
+              view.removeEventListener('click', onClick, true);
+              document.removeEventListener('keydown', onKey, true);
+            }
+            function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); done(); } }
+            function onClick(e) {
+              e.preventDefault(); e.stopPropagation();
+              var r = view.getBoundingClientRect();
+              var nx = (e.clientX - r.left) / r.width, ny = (e.clientY - r.top) / r.height;
+              var s = src || view;
+              var px = Math.max(0, Math.min(s.width - 1, Math.round(nx * s.width)));
+              var py = Math.max(0, Math.min(s.height - 1, Math.round(ny * s.height)));
+              try {
+                var p = s.getContext('2d').getImageData(px, py, 1, 1).data;
+                var hex = '#' + [p[0], p[1], p[2]].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
+                S.colorHex = hex; ch.value = hex;
+                S.colorOn = true; con.checked = true;
+              } catch (err) { alert('Não foi possível ler a cor.'); }
+              done();
+            }
+            view.addEventListener('click', onClick, true);
+            document.addEventListener('keydown', onKey, true);
+          };
+
           panel.querySelector('#sp-prev').onclick = openPreview;
         }
 
