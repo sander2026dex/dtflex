@@ -658,7 +658,9 @@
             var t = (btns[i].textContent || '').trim().toLowerCase();
             if (t === label) {
               var cls = btns[i].className || '';
-              if (cls.indexOf('border-indigo-500') === -1) {
+              // Camisa colorida: sempre reaplica, pois os parâmetros da retícula
+              // são recalculados a partir da cor real do tecido escolhido.
+              if (want === 'colorida' || force || cls.indexOf('border-indigo-500') === -1) {
                 btns[i].click();
                 try { btns[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(e){}
               }
