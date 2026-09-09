@@ -1849,7 +1849,9 @@
           panel = document.createElement('div');
           panel.id = 'dtf-smart-panel';
           panel.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:99997;width:240px;background:rgba(17,24,39,.96);border:1px solid #4c1d95;border-radius:12px;padding:12px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;';
-          panel.innerHTML = '<div style="color:#c4b5fd;margin-bottom:8px;">🎽 DTF inteligente — tecido colorido</div>'
+          panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:#c4b5fd;margin-bottom:8px;"><span>🎽 DTF inteligente — tecido colorido</span>'
+            + '<button id="sp-toggle" title="Ocultar" style="border:0;background:#312e81;color:#ddd6fe;border-radius:6px;width:22px;height:22px;line-height:1;cursor:pointer;font:800 12px system-ui;">▾</button></div>'
+            + '<div id="sp-body">'
             + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;"><input id="sp-on" type="checkbox" checked /> Base branca adaptativa</label>'
             + '<div style="margin-bottom:6px;">Cobertura branca <b id="sp-wv">70%</b></div>'
             + '<input id="sp-w" type="range" min="0" max="100" value="70" style="width:100%;accent-color:#a78bfa;" />'
@@ -1862,8 +1864,18 @@
             + '<div style="display:flex;gap:6px;margin-top:8px;">'
             + '<button id="sp-eb" style="flex:1;padding:7px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">PNG base</button>'
             + '<button id="sp-ec" style="flex:1;padding:7px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">PNG cores</button>'
-            + '</div>';
+            + '</div></div>';
           document.body.appendChild(panel);
+
+          var tg = panel.querySelector('#sp-toggle'), body = panel.querySelector('#sp-body');
+          tg.onclick = function () {
+            var hidden = body.style.display === 'none';
+            body.style.display = hidden ? 'block' : 'none';
+            tg.textContent = hidden ? '▾' : '▸';
+            tg.title = hidden ? 'Ocultar' : 'Mostrar';
+            panel.style.width = hidden ? '240px' : 'auto';
+          };
+
 
           var on = panel.querySelector('#sp-on'), wr = panel.querySelector('#sp-w'),
               cr = panel.querySelector('#sp-c'), pv = panel.querySelector('#sp-p');
