@@ -335,7 +335,7 @@
         HTMLAnchorElement.prototype.click = function(){
           if (this.download && this.getAttribute('data-dpi-fixed') !== 'true' && typeof this.href === 'string') {
             if (this.href.indexOf('data:image/png') === 0) {
-              fixAnchorSync(this);
+              if (!fixAnchorSync(this)) return;
               return origAnchorClick.apply(this, arguments);
             }
             if (this.href.indexOf('blob:') === 0) {
@@ -348,7 +348,7 @@
         document.addEventListener('click', function(e){
           var a = e.target && e.target.closest ? e.target.closest('a[download]') : null;
           if (a && a.getAttribute('data-dpi-fixed') !== 'true' && typeof a.href === 'string') {
-            if (a.href.indexOf('data:image/png') === 0) { fixAnchorSync(a); return; }
+            if (a.href.indexOf('data:image/png') === 0) { if (!fixAnchorSync(a)) { e.preventDefault(); e.stopImmediatePropagation(); } return; }
             if (a.href.indexOf('blob:') === 0) { e.preventDefault(); e.stopImmediatePropagation(); forceFixedPngDownload(a); }
           }
         }, true);
