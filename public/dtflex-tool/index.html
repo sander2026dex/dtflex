@@ -1849,8 +1849,9 @@
         // e intensidade (quantidade de retícula) de uma cor escolhida.
         function applyArtRules(src) {
           var needBlack = S.blackMode !== 'reticula';
+          var needShadow = S.shadowMode === 'reticula';
           var needColor = S.colorOn;
-          if (!needBlack && !needColor) return src;
+          if (!needBlack && !needShadow && !needColor) return src;
           var w = src.width, h = src.height;
           var ref = refData(w, h);
           if (!ref) return src;
