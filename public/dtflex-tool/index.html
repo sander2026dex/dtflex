@@ -1037,9 +1037,11 @@
 
             var rmBg = overlay.querySelector('#dtf-rmbg');
             var coloridaNow = window.__DTF_SHIRT_COLOR === 'colorida';
-            if (rmBg && rmBg.checked && !coloridaNow) {
+            if (coloridaNow) window.__DTF_PRESERVE = window.__DTF_PRESERVE || 'alto';
+            if (rmBg && rmBg.checked) {
               try { removeBackgroundAuto(out); window.__DTF_HAS_TRANSPARENCY = true; } catch(e){}
             }
+
 
             // Reamostra para o tamanho em cm escolhido (300 DPI reais).
             var wCm = parseFloat(inW.value), hCm = parseFloat(inH.value);
