@@ -2127,7 +2127,10 @@
         // Hook chamado pela exportação
         window.__DTF_SMART_APPLY = function (flat) {
           if (!S.on || !isColored()) return flat;
-          if (S.white <= 0 && S.blackMode === 'reticula' && S.shadowMode !== 'reticula' && !S.colorOn) return flat;
+          if (S.white <= 0 && S.blackMode === 'reticula' && S.shadowMode !== 'reticula' && !S.colorOn
+              && !(S.htAdaptive && S.htIntensity < 100)
+              && !(window.__DTF_USER_MASK && window.__DTF_USER_MASK.w)) return flat;
+
           try { return composite(flat); } catch (e) { return flat; }
         };
 
