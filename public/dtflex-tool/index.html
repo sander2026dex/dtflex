@@ -2074,11 +2074,42 @@
                   }
                 }
               }
+
+              // HALFTONE ADAPTATIVO: áreas escuras mantêm densidade suficiente
+              // para não perder detalhe; áreas claras perdem pontos primeiro.
+              if (needHT && lum > S.shadowLevel) {
+                var soft = Math.max(0, Math.min(1, S.htIntensity / 100));
+                var light = Math.min(1, (lum - S.shadowLevel) / Math.max(1, 255 - S.shadowLevel));
+                var hkeep = soft + (1 - soft) * (1 - light); // clareia = menos pontos
+                if (hkeep < 1) {
+                  var ht = ((x * 11 + y * 17) % 100) / 100;
+                  if (ht >= hkeep) d[i + 3] = 0;
+                }
+              }
             }
           }
+
+          // CORREÇÃO MANUAL: pincéis preservar (2) / remover (1)
+          if (needUser) {
+            var um = window.__DTF_USER_MASK;
+            for (var uy = 0; uy < h; uy++) {
+              var my = Math.min(um.h - 1, Math.floor(uy / h * um.h));
+              for (var ux = 0; ux < w; ux++) {
+                var mv = um.data[my * um.w + Math.min(um.w - 1, Math.floor(ux / w * um.w))];
+                if (!mv) continue;
+                var ui = (uy * w + ux) * 4;
+                if (mv === 1) { d[ui + 3] = 0; }
+                else if (mv === 2 && ref[ui + 3] > 8) {
+                  d[ui] = ref[ui]; d[ui + 1] = ref[ui + 1]; d[ui + 2] = ref[ui + 2]; d[ui + 3] = 255;
+                }
+              }
+            }
+          }
+
           oc.putImageData(img, 0, 0);
           return out;
         }
+
 
         function composite(src) {
           var art = applyArtRules(src);
