@@ -2110,11 +2110,19 @@
           panel.querySelector('#sp-prev').onclick = openPreview;
         }
 
+        var lastHex = null;
         function tick() {
           buildPanel();
           if (!panel) return;
+          var hx = (window.__DTF_SHIRT_HEX || '') + '|' + (window.__DTF_SHIRT_COLOR || '');
+          if (hx !== lastHex) {
+            lastHex = hx;
+            if (S.auto) { applyFabricAuto(); }
+            refreshPanelUI();
+          }
           panel.style.display = (isColored() && biggest()) ? 'block' : 'none';
         }
+
         document.addEventListener('DOMContentLoaded', tick);
         setInterval(tick, 800);
       })();
