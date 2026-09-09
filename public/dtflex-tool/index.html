@@ -973,11 +973,15 @@
             var seedR = new Float32Array(N), seedG = new Float32Array(N), seedB = new Float32Array(N);
 
             // "Preservar detalhes": quanto maior, mais conservadora é a remoção.
+            var SM = window.__DTF_SMART || {};
             var PRES = window.__DTF_PRESERVE || 'alto';
             var K = PRES === 'maximo' ? 0.55 : (PRES === 'alto' ? 0.75 : (PRES === 'medio' ? 1 : 1.25));
+            // Tolerância de remoção do fundo (100 = padrão)
+            K *= Math.max(0.3, Math.min(2, (SM.bgTol == null ? 100 : SM.bgTol) / 100));
             var LOCAL_TOL = 16 * K;   // variação permitida entre pixels vizinhos (gradiente suave do fundo)
             var GLOBAL_TOL = 52 * K;  // desvio máximo em relação à cor de origem da região de fundo
             var EDGE_STOP = 34 * K;   // contraste que caracteriza fronteira da arte
+
 
 
             function gradAt(x, y){
@@ -1076,12 +1080,76 @@
               for (p = 0; p < N; p++) if (state[p] && !keep[p]) state[p] = 0;
             })();
 
+            // ----------------------------------------------------------------
+            // PROTECTED MASK — elementos principais (pessoas, cabelo, roupas,
+            // textos, logotipos, contornos). O preto que encosta na arte volta
+            // a ser arte: é contorno/cabelo, nunca fundo.
+            // ----------------------------------------------------------------
+            var prot = new Uint8Array(N);
+            (function buildProtectedMask(){
+              var SMx = window.__DTF_SMART || {};
+              var protectArt = SMx.protectArt !== false;
+              var protectBlack = SMx.protectBlack !== false;
+              var lvl = Math.max(10, Math.min(160, SMx.blackLevel == null ? 60 : SMx.blackLevel));
+              var R = Math.max(2, Math.round(Math.min(W, H) * 0.012));
+              var p, i;
+              for (p = 0; p < N; p++) if (!state[p]) prot[p] = 1;
+              if (!protectArt) return;
+              var q2 = new Int32Array(N), h3 = 0, t3 = 0, dist = new Int16Array(N);
+              for (p = 0; p < N; p++) if (prot[p]) { q2[t3++] = p; dist[p] = 0; }
+              while (h3 < t3) {
+                p = q2[h3++];
+                if (dist[p] >= R) continue;
+                var x3 = p % W, y3 = (p / W) | 0;
+                var nb3 = [x3 + 1 < W ? p + 1 : -1, x3 - 1 >= 0 ? p - 1 : -1,
+                           y3 + 1 < H ? p + W : -1, y3 - 1 >= 0 ? p - W : -1];
+                for (var k3 = 0; k3 < 4; k3++) {
+                  var np3 = nb3[k3];
+                  if (np3 < 0 || prot[np3]) continue;
+                  i = np3 * 4;
+                  var lm3 = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+                  if (!(protectBlack && lm3 <= lvl)) continue; // recupera só preto de contorno
+                  prot[np3] = 1; dist[np3] = dist[p] + 1; q2[t3++] = np3;
+                }
+              }
+              for (p = 0; p < N; p++) if (prot[p]) state[p] = 0;
+            })();
+
             var removed = 0;
             for (var p2 = 0; p2 < N; p2++) if (state[p2]) { d[p2*4+3] = 0; removed++; }
             // Segurança: se quase tudo seria apagado, a detecção falhou — não altera nada.
             if (removed > N * 0.97) return canvas;
+
+            // Suavização da máscara: antialias nas bordas do recorte.
+            var smooth = Math.round((window.__DTF_SMART || {}).maskSmooth || 0);
+            if (smooth > 0) {
+              var rad = Math.max(1, Math.min(3, smooth));
+              var al = new Float32Array(N), tmpA = new Float32Array(N), pi;
+              for (pi = 0; pi < N; pi++) al[pi] = d[pi * 4 + 3];
+              var xa, ya, ka, acc, cnt, idx;
+              for (ya = 0; ya < H; ya++) for (xa = 0; xa < W; xa++) {
+                acc = 0; cnt = 0;
+                for (ka = -rad; ka <= rad; ka++) { idx = xa + ka; if (idx < 0 || idx >= W) continue; acc += al[ya * W + idx]; cnt++; }
+                tmpA[ya * W + xa] = acc / cnt;
+              }
+              for (xa = 0; xa < W; xa++) for (ya = 0; ya < H; ya++) {
+                acc = 0; cnt = 0;
+                for (ka = -rad; ka <= rad; ka++) { idx = ya + ka; if (idx < 0 || idx >= H) continue; acc += tmpA[idx * W + xa]; cnt++; }
+                al[ya * W + xa] = acc / cnt;
+              }
+              // só suaviza a franja: núcleo da arte e fundo puro ficam intactos
+              for (pi = 0; pi < N; pi++) {
+                var orig = d[pi * 4 + 3];
+                if (orig > 0 && orig < 255) continue;
+                var bl = al[pi];
+                if (bl > 8 && bl < 247) d[pi * 4 + 3] = Math.round(bl);
+              }
+            }
+
+            window.__DTF_LAST_MASK = { w: W, h: H, bg: state, prot: prot };
             ctx.putImageData(img, 0, 0);
             return canvas;
+
           }
 
           window.__DTF_REMOVE_BG_BY_EDGES = function(canvas){ return removeBackgroundAuto(canvas); };
@@ -1737,7 +1805,10 @@
           blackMode: 'reticula', blackLevel: 60,
           shadowMode: 'reticula', shadowLevel: 170,
           colorOn: false, colorHex: '#ff0000', colorTol: 60,
-          colorMode: 'reticula', colorDensity: 100, auto: true
+          colorMode: 'reticula', colorDensity: 100, auto: true,
+          protectArt: true, protectBlack: true, bgTol: 100, maskSmooth: 1,
+          htIntensity: 100, htAdaptive: true
+
         };
         window.__DTF_PRESERVE = S.preserve;
 
@@ -1904,10 +1975,15 @@
         // Regras por cor: preto do olho sólido / sem retícula / remover
         // e intensidade (quantidade de retícula) de uma cor escolhida.
         function applyArtRules(src) {
+          // 🛡️ Preservar arte principal: o preto da arte nunca é removido.
+          if (S.protectArt && S.blackMode === 'remover') S.blackMode = 'reticula';
           var needBlack = S.blackMode !== 'reticula';
           var needShadow = S.shadowMode === 'reticula';
           var needColor = S.colorOn;
-          if (!needBlack && !needShadow && !needColor) return src;
+          var needHT = S.htAdaptive && S.htIntensity < 100;
+          var needUser = !!(window.__DTF_USER_MASK && window.__DTF_USER_MASK.w);
+          if (!needBlack && !needShadow && !needColor && !needHT && !needUser) return src;
+
           var w = src.width, h = src.height;
           var ref = refData(w, h);
           if (!ref) return src;
@@ -1998,11 +2074,42 @@
                   }
                 }
               }
+
+              // HALFTONE ADAPTATIVO: áreas escuras mantêm densidade suficiente
+              // para não perder detalhe; áreas claras perdem pontos primeiro.
+              if (needHT && lum > S.shadowLevel) {
+                var soft = Math.max(0, Math.min(1, S.htIntensity / 100));
+                var light = Math.min(1, (lum - S.shadowLevel) / Math.max(1, 255 - S.shadowLevel));
+                var hkeep = soft + (1 - soft) * (1 - light); // clareia = menos pontos
+                if (hkeep < 1) {
+                  var ht = ((x * 11 + y * 17) % 100) / 100;
+                  if (ht >= hkeep) d[i + 3] = 0;
+                }
+              }
             }
           }
+
+          // CORREÇÃO MANUAL: pincéis preservar (2) / remover (1)
+          if (needUser) {
+            var um = window.__DTF_USER_MASK;
+            for (var uy = 0; uy < h; uy++) {
+              var my = Math.min(um.h - 1, Math.floor(uy / h * um.h));
+              for (var ux = 0; ux < w; ux++) {
+                var mv = um.data[my * um.w + Math.min(um.w - 1, Math.floor(ux / w * um.w))];
+                if (!mv) continue;
+                var ui = (uy * w + ux) * 4;
+                if (mv === 1) { d[ui + 3] = 0; }
+                else if (mv === 2 && ref[ui + 3] > 8) {
+                  d[ui] = ref[ui]; d[ui + 1] = ref[ui + 1]; d[ui + 2] = ref[ui + 2]; d[ui + 3] = 255;
+                }
+              }
+            }
+          }
+
           oc.putImageData(img, 0, 0);
           return out;
         }
+
 
         function composite(src) {
           var art = applyArtRules(src);
@@ -2020,7 +2127,10 @@
         // Hook chamado pela exportação
         window.__DTF_SMART_APPLY = function (flat) {
           if (!S.on || !isColored()) return flat;
-          if (S.white <= 0 && S.blackMode === 'reticula' && S.shadowMode !== 'reticula' && !S.colorOn) return flat;
+          if (S.white <= 0 && S.blackMode === 'reticula' && S.shadowMode !== 'reticula' && !S.colorOn
+              && !(S.htAdaptive && S.htIntensity < 100)
+              && !(window.__DTF_USER_MASK && window.__DTF_USER_MASK.w)) return flat;
+
           try { return composite(flat); } catch (e) { return flat; }
         };
 
@@ -2098,7 +2208,17 @@
             + '<div id="sp-body">'
             + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;"><input id="sp-auto" type="checkbox" checked /> Motor universal (calcula pela cor)</label>'
             + '<div id="sp-fab" style="font:600 11px system-ui;color:#a5b4fc;margin-bottom:8px;line-height:1.35;">—</div>'
+            + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer;color:#fde68a;"><input id="sp-pa" type="checkbox" checked /> 🛡️ Preservar arte principal</label>'
+            + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;color:#fde68a;"><input id="sp-pb" type="checkbox" checked /> ⚫ Proteger preto da arte</label>'
+            + '<div style="margin:2px 0 4px;">Tolerância do fundo <b id="sp-btv">100%</b></div>'
+            + '<input id="sp-bt" type="range" min="30" max="200" step="5" value="100" style="width:100%;accent-color:#a78bfa;" />'
+            + '<div style="margin:8px 0 4px;">Suavização da máscara <b id="sp-msv">1 px</b></div>'
+            + '<input id="sp-ms" type="range" min="0" max="3" step="1" value="1" style="width:100%;accent-color:#a78bfa;" />'
+            + '<div style="margin:8px 0 4px;">Intensidade do halftone <b id="sp-hiv">100%</b></div>'
+            + '<input id="sp-hi" type="range" min="30" max="100" step="5" value="100" style="width:100%;accent-color:#a78bfa;" />'
+            + '<button id="sp-mask" style="width:100%;margin:8px 0 10px;padding:8px;border-radius:8px;border:0;background:#0ea5e9;color:#08202e;font:800 12px system-ui;cursor:pointer;">🎭 Máscara e pincéis</button>'
             + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;"><input id="sp-on" type="checkbox" checked /> Base branca adaptativa</label>'
+
 
             + '<div style="margin-bottom:6px;">Cobertura branca <b id="sp-wv">70%</b></div>'
             + '<input id="sp-w" type="range" min="0" max="100" value="70" style="width:100%;accent-color:#a78bfa;" />'
@@ -2148,6 +2268,19 @@
             if (S.auto) { applyFabricAuto(); refreshPanelUI(); }
           };
           on.onchange = function () { S.on = on.checked; };
+          var pa = panel.querySelector('#sp-pa'), pb = panel.querySelector('#sp-pb'),
+              bt = panel.querySelector('#sp-bt'), ms = panel.querySelector('#sp-ms'),
+              hi = panel.querySelector('#sp-hi');
+          pa.onchange = function () {
+            S.protectArt = pa.checked;
+            if (S.protectArt && S.blackMode === 'remover') { S.blackMode = 'reticula'; refreshPanelUI(); }
+          };
+          pb.onchange = function () { S.protectBlack = pb.checked; };
+          bt.oninput = function () { S.bgTol = +bt.value; panel.querySelector('#sp-btv').textContent = bt.value + '%'; };
+          ms.oninput = function () { S.maskSmooth = +ms.value; panel.querySelector('#sp-msv').textContent = ms.value + ' px'; };
+          hi.oninput = function () { S.htIntensity = +hi.value; panel.querySelector('#sp-hiv').textContent = hi.value + '%'; };
+          panel.querySelector('#sp-mask').onclick = openMask;
+
           wr.oninput = function () { S.auto = false; if (au) au.checked = false; S.white = +wr.value; panel.querySelector('#sp-wv').textContent = wr.value + '%'; };
           cr.oninput = function () { S.auto = false; if (au) au.checked = false; S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
           pv.onchange = function () { S.preserve = pv.value; window.__DTF_PRESERVE = pv.value; };
