@@ -1975,10 +1975,15 @@
         // Regras por cor: preto do olho sólido / sem retícula / remover
         // e intensidade (quantidade de retícula) de uma cor escolhida.
         function applyArtRules(src) {
+          // 🛡️ Preservar arte principal: o preto da arte nunca é removido.
+          if (S.protectArt && S.blackMode === 'remover') S.blackMode = 'reticula';
           var needBlack = S.blackMode !== 'reticula';
           var needShadow = S.shadowMode === 'reticula';
           var needColor = S.colorOn;
-          if (!needBlack && !needShadow && !needColor) return src;
+          var needHT = S.htAdaptive && S.htIntensity < 100;
+          var needUser = !!(window.__DTF_USER_MASK && window.__DTF_USER_MASK.w);
+          if (!needBlack && !needShadow && !needColor && !needHT && !needUser) return src;
+
           var w = src.width, h = src.height;
           var ref = refData(w, h);
           if (!ref) return src;
