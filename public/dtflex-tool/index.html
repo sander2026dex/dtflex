@@ -1733,9 +1733,13 @@
       // ============================================================
       (function () {
         var S = window.__DTF_SMART = window.__DTF_SMART || {
-          on: true, white: 70, choke: 1, preserve: 'alto'
+          on: true, white: 70, choke: 1, preserve: 'alto',
+          blackMode: 'reticula', blackLevel: 60,
+          colorOn: false, colorHex: '#ff0000', colorTol: 60,
+          colorMode: 'reticula', colorDensity: 100
         };
         window.__DTF_PRESERVE = S.preserve;
+
 
         function isColored() { return window.__DTF_SHIRT_COLOR === 'colorida'; }
         function shirtRGB() {
