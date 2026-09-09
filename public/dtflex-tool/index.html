@@ -1024,6 +1024,58 @@
               visit(cx, cy+1, cp); visit(cx, cy-1, cp);
             }
 
+            // ----------------------------------------------------------------
+            // PROTEÇÃO DE DETALHES INTERNOS (olhos de animais, brilhos, dentes):
+            // abertura morfológica na máscara de fundo. Vazamentos finos e
+            // manchas pequenas dentro da arte são devolvidos; o fundo real
+            // (grande e contínuo) continua removido.
+            // ----------------------------------------------------------------
+            (function protectInternalDetails(){
+              var r = Math.max(2, Math.round(Math.min(W, H) * 0.006));
+              var tmp = new Uint8Array(N), ero = new Uint8Array(N);
+              // erosão (min) horizontal depois vertical
+              var x, y, p, k, v;
+              for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+                v = 1;
+                for (k = -r; k <= r; k++) { var xx = x + k; if (xx < 0 || xx >= W) continue; if (!state[y*W+xx]) { v = 0; break; } }
+                tmp[y*W+x] = v;
+              }
+              for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+                v = 1;
+                for (k = -r; k <= r; k++) { var yy = y + k; if (yy < 0 || yy >= H) continue; if (!tmp[yy*W+x]) { v = 0; break; } }
+                ero[y*W+x] = v;
+              }
+              // dilatação (max) horizontal depois vertical
+              for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+                v = 0;
+                for (k = -r; k <= r; k++) { var xd = x + k; if (xd < 0 || xd >= W) continue; if (ero[y*W+xd]) { v = 1; break; } }
+                tmp[y*W+x] = v;
+              }
+              for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+                v = 0;
+                for (k = -r; k <= r; k++) { var yd = y + k; if (yd < 0 || yd >= H) continue; if (tmp[yd*W+x]) { v = 1; break; } }
+                ero[y*W+x] = v;
+              }
+              // borda da imagem sempre continua como fundo
+              for (x = 0; x < W; x++) { if (state[x]) ero[x] = 1; if (state[(H-1)*W+x]) ero[(H-1)*W+x] = 1; }
+              for (y = 0; y < H; y++) { if (state[y*W]) ero[y*W] = 1; if (state[y*W+W-1]) ero[y*W+W-1] = 1; }
+              // reconecta o fundo verdadeiro a partir das bordas
+              var keep = new Uint8Array(N), qs = new Int32Array(N), h2 = 0, t2 = 0;
+              function push(p){ if (p < 0 || p >= N) return; if (keep[p] || !state[p] ) return; keep[p] = 1; qs[t2++] = p; }
+              for (x = 0; x < W; x++) { push(x); push((H-1)*W + x); }
+              for (y = 0; y < H; y++) { push(y*W); push(y*W + W - 1); }
+              while (h2 < t2) {
+                p = qs[h2++];
+                var px = p % W, py = (p / W) | 0;
+                if (px + 1 < W && ero[p+1]) push(p+1);
+                if (px - 1 >= 0 && ero[p-1]) push(p-1);
+                if (py + 1 < H && ero[p+W]) push(p+W);
+                if (py - 1 >= 0 && ero[p-W]) push(p-W);
+              }
+              // devolve tudo que não faz parte do fundo reconectado
+              for (p = 0; p < N; p++) if (state[p] && !keep[p]) state[p] = 0;
+            })();
+
             var removed = 0;
             for (var p2 = 0; p2 < N; p2++) if (state[p2]) { d[p2*4+3] = 0; removed++; }
             // Segurança: se quase tudo seria apagado, a detecção falhou — não altera nada.
@@ -1031,6 +1083,7 @@
             ctx.putImageData(img, 0, 0);
             return canvas;
           }
+
           window.__DTF_REMOVE_BG_BY_EDGES = function(canvas){ return removeBackgroundAuto(canvas); };
 
 
