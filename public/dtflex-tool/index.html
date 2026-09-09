@@ -1080,12 +1080,76 @@
               for (p = 0; p < N; p++) if (state[p] && !keep[p]) state[p] = 0;
             })();
 
+            // ----------------------------------------------------------------
+            // PROTECTED MASK — elementos principais (pessoas, cabelo, roupas,
+            // textos, logotipos, contornos). O preto que encosta na arte volta
+            // a ser arte: é contorno/cabelo, nunca fundo.
+            // ----------------------------------------------------------------
+            var prot = new Uint8Array(N);
+            (function buildProtectedMask(){
+              var SMx = window.__DTF_SMART || {};
+              var protectArt = SMx.protectArt !== false;
+              var protectBlack = SMx.protectBlack !== false;
+              var lvl = Math.max(10, Math.min(160, SMx.blackLevel == null ? 60 : SMx.blackLevel));
+              var R = Math.max(2, Math.round(Math.min(W, H) * 0.012));
+              var p, i;
+              for (p = 0; p < N; p++) if (!state[p]) prot[p] = 1;
+              if (!protectArt) return;
+              var q2 = new Int32Array(N), h3 = 0, t3 = 0, dist = new Int16Array(N);
+              for (p = 0; p < N; p++) if (prot[p]) { q2[t3++] = p; dist[p] = 0; }
+              while (h3 < t3) {
+                p = q2[h3++];
+                if (dist[p] >= R) continue;
+                var x3 = p % W, y3 = (p / W) | 0;
+                var nb3 = [x3 + 1 < W ? p + 1 : -1, x3 - 1 >= 0 ? p - 1 : -1,
+                           y3 + 1 < H ? p + W : -1, y3 - 1 >= 0 ? p - W : -1];
+                for (var k3 = 0; k3 < 4; k3++) {
+                  var np3 = nb3[k3];
+                  if (np3 < 0 || prot[np3]) continue;
+                  i = np3 * 4;
+                  var lm3 = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+                  if (!(protectBlack && lm3 <= lvl)) continue; // recupera só preto de contorno
+                  prot[np3] = 1; dist[np3] = dist[p] + 1; q2[t3++] = np3;
+                }
+              }
+              for (p = 0; p < N; p++) if (prot[p]) state[p] = 0;
+            })();
+
             var removed = 0;
             for (var p2 = 0; p2 < N; p2++) if (state[p2]) { d[p2*4+3] = 0; removed++; }
             // Segurança: se quase tudo seria apagado, a detecção falhou — não altera nada.
             if (removed > N * 0.97) return canvas;
+
+            // Suavização da máscara: antialias nas bordas do recorte.
+            var smooth = Math.round((window.__DTF_SMART || {}).maskSmooth || 0);
+            if (smooth > 0) {
+              var rad = Math.max(1, Math.min(3, smooth));
+              var al = new Float32Array(N), tmpA = new Float32Array(N), pi;
+              for (pi = 0; pi < N; pi++) al[pi] = d[pi * 4 + 3];
+              var xa, ya, ka, acc, cnt, idx;
+              for (ya = 0; ya < H; ya++) for (xa = 0; xa < W; xa++) {
+                acc = 0; cnt = 0;
+                for (ka = -rad; ka <= rad; ka++) { idx = xa + ka; if (idx < 0 || idx >= W) continue; acc += al[ya * W + idx]; cnt++; }
+                tmpA[ya * W + xa] = acc / cnt;
+              }
+              for (xa = 0; xa < W; xa++) for (ya = 0; ya < H; ya++) {
+                acc = 0; cnt = 0;
+                for (ka = -rad; ka <= rad; ka++) { idx = ya + ka; if (idx < 0 || idx >= H) continue; acc += tmpA[idx * W + xa]; cnt++; }
+                al[ya * W + xa] = acc / cnt;
+              }
+              // só suaviza a franja: núcleo da arte e fundo puro ficam intactos
+              for (pi = 0; pi < N; pi++) {
+                var orig = d[pi * 4 + 3];
+                if (orig > 0 && orig < 255) continue;
+                var bl = al[pi];
+                if (bl > 8 && bl < 247) d[pi * 4 + 3] = Math.round(bl);
+              }
+            }
+
+            window.__DTF_LAST_MASK = { w: W, h: H, bg: state, prot: prot };
             ctx.putImageData(img, 0, 0);
             return canvas;
+
           }
 
           window.__DTF_REMOVE_BG_BY_EDGES = function(canvas){ return removeBackgroundAuto(canvas); };
