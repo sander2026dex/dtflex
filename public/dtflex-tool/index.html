@@ -1797,7 +1797,10 @@
           if (!art) { alert('Gere a arte primeiro.'); return; }
           var sh = window.__DTF_SHIRT_HEX || '#78350F';
           var flat = copyOf(art);
-          var final = (S.on && isColored()) ? composite(flat) : flat;
+          // Usa exatamente o mesmo processamento da exportação: o que aparece
+          // aqui sobre a cor da camisa é literalmente o arquivo final.
+          var final = flat;
+          try { final = (typeof window.__DTF_SMART_APPLY === 'function' ? (window.__DTF_SMART_APPLY(flat) || flat) : flat); } catch (e) { final = flat; }
           var orig = window.__DTF_ORIGINAL_CANVAS || null;
 
           var m = document.createElement('div');
