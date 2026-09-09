@@ -1735,6 +1735,7 @@
         var S = window.__DTF_SMART = window.__DTF_SMART || {
           on: true, white: 70, choke: 1, preserve: 'alto',
           blackMode: 'reticula', blackLevel: 60,
+          shadowMode: 'reticula', shadowLevel: 170,
           colorOn: false, colorHex: '#ff0000', colorTol: 60,
           colorMode: 'reticula', colorDensity: 100
         };
@@ -1848,8 +1849,9 @@
         // e intensidade (quantidade de retícula) de uma cor escolhida.
         function applyArtRules(src) {
           var needBlack = S.blackMode !== 'reticula';
+          var needShadow = S.shadowMode === 'reticula';
           var needColor = S.colorOn;
-          if (!needBlack && !needColor) return src;
+          if (!needBlack && !needShadow && !needColor) return src;
           var w = src.width, h = src.height;
           var ref = refData(w, h);
           if (!ref) return src;
@@ -1879,6 +1881,19 @@
                   d[i + 3] = 0;
                 }
                 continue;
+              }
+
+              // SOMBRAS: tons escuros acima do preto recebem retícula
+              // proporcional — quanto mais escura a sombra, mais pontos.
+              if (needShadow && lum > S.blackLevel && lum <= S.shadowLevel) {
+                var range = Math.max(1, S.shadowLevel - S.blackLevel);
+                var shade = 1 - (lum - S.blackLevel) / range; // 0..1 (1 = mais escura)
+                // mínimo de pontos para a sombra não sumir
+                var skeep = 0.12 + 0.88 * shade;
+                if (skeep < 1) {
+                  var st = ((x * 7 + y * 13) % 100) / 100;
+                  if (st >= skeep) d[i + 3] = 0;
+                }
               }
 
               if (needColor) {
@@ -1918,7 +1933,7 @@
         // Hook chamado pela exportação
         window.__DTF_SMART_APPLY = function (flat) {
           if (!S.on || !isColored()) return flat;
-          if (S.white <= 0 && S.blackMode === 'reticula' && !S.colorOn) return flat;
+          if (S.white <= 0 && S.blackMode === 'reticula' && S.shadowMode !== 'reticula' && !S.colorOn) return flat;
           try { return composite(flat); } catch (e) { return flat; }
         };
 
@@ -2007,6 +2022,11 @@
             + '<option value="reticula" selected>Com retícula (padrão)</option><option value="solido">Sem retícula (preto sólido)</option><option value="remover">Remover o preto</option></select>'
             + '<div style="margin:6px 0 4px;">Limite do preto <b id="sp-blv">60</b></div>'
             + '<input id="sp-bl" type="range" min="10" max="140" step="5" value="60" style="width:100%;accent-color:#a78bfa;" />'
+            + '<div style="margin:10px 0 4px;color:#c4b5fd;">🌫️ Sombras</div>'
+            + '<select id="sp-sm" style="width:100%;padding:5px;border-radius:6px;background:#111827;color:#e5e7eb;border:1px solid #4b5563;">'
+            + '<option value="reticula" selected>Reticular sombras (padrão)</option><option value="nada">Não reticular (chapado)</option></select>'
+            + '<div style="margin:6px 0 4px;">Alcance da sombra <b id="sp-slv">170</b></div>'
+            + '<input id="sp-sl" type="range" min="70" max="230" step="5" value="170" style="width:100%;accent-color:#a78bfa;" />'
             + '<div style="margin:10px 0 4px;color:#c4b5fd;">🎯 Cor específica</div>'
             + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;"><input id="sp-con" type="checkbox" /> Aplicar regra a uma cor</label>'
             + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><input id="sp-ch" type="color" value="#ff0000" style="width:38px;height:26px;border:0;background:none;cursor:pointer;" /><button id="sp-pick" style="flex:1;padding:6px;border-radius:6px;border:0;background:#374151;color:#e5e7eb;font:700 11px system-ui;cursor:pointer;">Pegar cor da arte</button></div>'
@@ -2043,6 +2063,9 @@
               cd = panel.querySelector('#sp-cd');
           bm.onchange = function () { S.blackMode = bm.value; };
           bl.oninput = function () { S.blackLevel = +bl.value; panel.querySelector('#sp-blv').textContent = bl.value; };
+          var sm = panel.querySelector('#sp-sm'), sl = panel.querySelector('#sp-sl');
+          sm.onchange = function () { S.shadowMode = sm.value; };
+          sl.oninput = function () { S.shadowLevel = +sl.value; panel.querySelector('#sp-slv').textContent = sl.value; };
           con.onchange = function () { S.colorOn = con.checked; };
           ch.oninput = function () { S.colorHex = ch.value; };
           cm.onchange = function () { S.colorMode = cm.value; };
