@@ -2052,10 +2052,16 @@
 
           var on = panel.querySelector('#sp-on'), wr = panel.querySelector('#sp-w'),
               cr = panel.querySelector('#sp-c'), pv = panel.querySelector('#sp-p');
+          var au = panel.querySelector('#sp-auto');
+          au.onchange = function () {
+            S.auto = au.checked;
+            if (S.auto) { applyFabricAuto(); refreshPanelUI(); }
+          };
           on.onchange = function () { S.on = on.checked; };
-          wr.oninput = function () { S.white = +wr.value; panel.querySelector('#sp-wv').textContent = wr.value + '%'; };
-          cr.oninput = function () { S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
+          wr.oninput = function () { S.auto = false; if (au) au.checked = false; S.white = +wr.value; panel.querySelector('#sp-wv').textContent = wr.value + '%'; };
+          cr.oninput = function () { S.auto = false; if (au) au.checked = false; S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
           pv.onchange = function () { S.preserve = pv.value; window.__DTF_PRESERVE = pv.value; };
+
 
           var bm = panel.querySelector('#sp-bm'), bl = panel.querySelector('#sp-bl'),
               con = panel.querySelector('#sp-con'), ch = panel.querySelector('#sp-ch'),
