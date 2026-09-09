@@ -2268,6 +2268,19 @@
             if (S.auto) { applyFabricAuto(); refreshPanelUI(); }
           };
           on.onchange = function () { S.on = on.checked; };
+          var pa = panel.querySelector('#sp-pa'), pb = panel.querySelector('#sp-pb'),
+              bt = panel.querySelector('#sp-bt'), ms = panel.querySelector('#sp-ms'),
+              hi = panel.querySelector('#sp-hi');
+          pa.onchange = function () {
+            S.protectArt = pa.checked;
+            if (S.protectArt && S.blackMode === 'remover') { S.blackMode = 'reticula'; refreshPanelUI(); }
+          };
+          pb.onchange = function () { S.protectBlack = pb.checked; };
+          bt.oninput = function () { S.bgTol = +bt.value; panel.querySelector('#sp-btv').textContent = bt.value + '%'; };
+          ms.oninput = function () { S.maskSmooth = +ms.value; panel.querySelector('#sp-msv').textContent = ms.value + ' px'; };
+          hi.oninput = function () { S.htIntensity = +hi.value; panel.querySelector('#sp-hiv').textContent = hi.value + '%'; };
+          panel.querySelector('#sp-mask').onclick = openMask;
+
           wr.oninput = function () { S.auto = false; if (au) au.checked = false; S.white = +wr.value; panel.querySelector('#sp-wv').textContent = wr.value + '%'; };
           cr.oninput = function () { S.auto = false; if (au) au.checked = false; S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
           pv.onchange = function () { S.preserve = pv.value; window.__DTF_PRESERVE = pv.value; };
