@@ -11,5 +11,6 @@ Regras:
 - A cor da camiseta NUNCA apaga pixel. Nada de color key. Preto da arte (cabelo, barba, olhos, sombras, contornos) sempre preservado.
 - Remoção de fundo continua só por conectividade com as bordas; o seletor "Preservar detalhes" (baixo/médio/alto/máximo → `window.__DTF_PRESERVE`) multiplica LOCAL_TOL/GLOBAL_TOL/EDGE_STOP (1.25 / 1 / 0.75 / 0.55).
 - Base branca adaptativa (`window.__DTF_SMART_APPLY`): alpha da arte, contraído pelo choke (0–4 px), modulado pelo contraste entre a cor do pixel e a cor do tecido — menos contraste = mais branco. Só soma branco por baixo, nunca subtrai.
-- Painel flutuante aparece somente quando `window.__DTF_SHIRT_COLOR === 'colorida'`, no canto inferior direito: cobertura branca, choke, preservar detalhes, "Ver na camisa", exportar PNG da base branca e PNG das cores.
+- Painel flutuante aparece somente quando `window.__DTF_SHIRT_COLOR === 'colorida'`, no canto inferior direito: cobertura branca, choke, preservar detalhes, regras de preto, regras de cor específica, "Ver na camisa".
+- Sombras: no modo colorida as sombras (tons entre `blackLevel` e `shadowLevel`, padrão 60–170) são reticuladas por padrão com densidade proporcional ao quão escura é a sombra; opção de desligar no painel.
 - Preview simula a arte sobre a cor real do tecido, com alternância Halftone final / Arte original / Só base branca.
