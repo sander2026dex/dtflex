@@ -2036,6 +2036,54 @@
           wr.oninput = function () { S.white = +wr.value; panel.querySelector('#sp-wv').textContent = wr.value + '%'; };
           cr.oninput = function () { S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
           pv.onchange = function () { S.preserve = pv.value; window.__DTF_PRESERVE = pv.value; };
+
+          var bm = panel.querySelector('#sp-bm'), bl = panel.querySelector('#sp-bl'),
+              con = panel.querySelector('#sp-con'), ch = panel.querySelector('#sp-ch'),
+              cm = panel.querySelector('#sp-cm'), ct = panel.querySelector('#sp-ct'),
+              cd = panel.querySelector('#sp-cd');
+          bm.onchange = function () { S.blackMode = bm.value; };
+          bl.oninput = function () { S.blackLevel = +bl.value; panel.querySelector('#sp-blv').textContent = bl.value; };
+          con.onchange = function () { S.colorOn = con.checked; };
+          ch.oninput = function () { S.colorHex = ch.value; };
+          cm.onchange = function () { S.colorMode = cm.value; };
+          ct.oninput = function () { S.colorTol = +ct.value; panel.querySelector('#sp-ctv').textContent = ct.value; };
+          cd.oninput = function () { S.colorDensity = +cd.value; panel.querySelector('#sp-cdv').textContent = cd.value + '%'; };
+
+          // Conta-gotas: clique na arte para capturar a cor
+          panel.querySelector('#sp-pick').onclick = function () {
+            var src = window.__DTF_ORIGINAL_CANVAS || biggest();
+            var view = biggest();
+            if (!view) { alert('Gere a arte primeiro.'); return; }
+            var note = document.createElement('div');
+            note.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:1000001;background:#7c3aed;color:#fff;padding:8px 14px;border-radius:8px;font:800 12px system-ui;';
+            note.textContent = 'Clique na arte para escolher a cor (ESC cancela)';
+            document.body.appendChild(note);
+            view.style.cursor = 'crosshair';
+            function done() {
+              note.remove(); view.style.cursor = '';
+              view.removeEventListener('click', onClick, true);
+              document.removeEventListener('keydown', onKey, true);
+            }
+            function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); done(); } }
+            function onClick(e) {
+              e.preventDefault(); e.stopPropagation();
+              var r = view.getBoundingClientRect();
+              var nx = (e.clientX - r.left) / r.width, ny = (e.clientY - r.top) / r.height;
+              var s = src || view;
+              var px = Math.max(0, Math.min(s.width - 1, Math.round(nx * s.width)));
+              var py = Math.max(0, Math.min(s.height - 1, Math.round(ny * s.height)));
+              try {
+                var p = s.getContext('2d').getImageData(px, py, 1, 1).data;
+                var hex = '#' + [p[0], p[1], p[2]].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
+                S.colorHex = hex; ch.value = hex;
+                S.colorOn = true; con.checked = true;
+              } catch (err) { alert('Não foi possível ler a cor.'); }
+              done();
+            }
+            view.addEventListener('click', onClick, true);
+            document.addEventListener('keydown', onKey, true);
+          };
+
           panel.querySelector('#sp-prev').onclick = openPreview;
         }
 
