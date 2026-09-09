@@ -243,26 +243,45 @@
           }
           return finalName;
         }
+        // Pergunta o nome do arquivo antes de salvar (Salvar como...)
+        function askFileName(suggested){
+          var base = suggested || 'DTFlexPro_300dpi.png';
+          try {
+            var ans = window.prompt('Salvar como — nome do arquivo:', base);
+            if (ans === null) return null; // cancelou
+            ans = String(ans).trim();
+            if (!ans) ans = base;
+            if (!/\.png$/i.test(ans)) ans += '.png';
+            return ans.replace(/[\\/:*?"<>|]/g, '-');
+          } catch (e) { return base; }
+        }
         function fixAnchorSync(a){
+          var name = askFileName(normalizeDownloadName(a.download));
+          if (name === null) return false;
           a.href = fixDataUrl(a.href);
-          a.download = normalizeDownloadName(a.download);
+          a.download = name;
           a.setAttribute('data-dpi-fixed', 'true');
+          return true;
         }
         var origAnchorClick = HTMLAnchorElement.prototype.click;
         async function forceFixedPngDownload(a){
+          var name = askFileName(normalizeDownloadName(a.download));
+          if (name === null) return;
           try {
             var res = await fetch(a.href, { cache: 'no-store' });
             var fixed = ensureDpi(new Uint8Array(await res.arrayBuffer()));
             var url = URL.createObjectURL(new Blob([fixed], { type: 'image/png' }));
             var dl = document.createElement('a');
             dl.href = url;
-            dl.download = normalizeDownloadName(a.download);
+            dl.download = name;
             dl.setAttribute('data-dpi-fixed', 'true');
             document.body.appendChild(dl);
             origAnchorClick.call(dl);
             setTimeout(function(){ URL.revokeObjectURL(url); dl.remove(); }, 1500);
           } catch(e) {
-            fixAnchorSync(a);
+            a.href = fixDataUrl(a.href);
+            a.download = name;
+            a.setAttribute('data-dpi-fixed', 'true');
             origAnchorClick.call(a);
           }
         }
@@ -316,7 +335,7 @@
         HTMLAnchorElement.prototype.click = function(){
           if (this.download && this.getAttribute('data-dpi-fixed') !== 'true' && typeof this.href === 'string') {
             if (this.href.indexOf('data:image/png') === 0) {
-              fixAnchorSync(this);
+              if (!fixAnchorSync(this)) return;
               return origAnchorClick.apply(this, arguments);
             }
             if (this.href.indexOf('blob:') === 0) {
@@ -329,7 +348,7 @@
         document.addEventListener('click', function(e){
           var a = e.target && e.target.closest ? e.target.closest('a[download]') : null;
           if (a && a.getAttribute('data-dpi-fixed') !== 'true' && typeof a.href === 'string') {
-            if (a.href.indexOf('data:image/png') === 0) { fixAnchorSync(a); return; }
+            if (a.href.indexOf('data:image/png') === 0) { if (!fixAnchorSync(a)) { e.preventDefault(); e.stopImmediatePropagation(); } return; }
             if (a.href.indexOf('blob:') === 0) { e.preventDefault(); e.stopImmediatePropagation(); forceFixedPngDownload(a); }
           }
         }, true);
@@ -1778,7 +1797,10 @@
           if (!art) { alert('Gere a arte primeiro.'); return; }
           var sh = window.__DTF_SHIRT_HEX || '#78350F';
           var flat = copyOf(art);
-          var final = (S.on && isColored()) ? composite(flat) : flat;
+          // Usa exatamente o mesmo processamento da exportação: o que aparece
+          // aqui sobre a cor da camisa é literalmente o arquivo final.
+          var final = flat;
+          try { final = (typeof window.__DTF_SMART_APPLY === 'function' ? (window.__DTF_SMART_APPLY(flat) || flat) : flat); } catch (e) { final = flat; }
           var orig = window.__DTF_ORIGINAL_CANVAS || null;
 
           var m = document.createElement('div');
@@ -1827,7 +1849,9 @@
           panel = document.createElement('div');
           panel.id = 'dtf-smart-panel';
           panel.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:99997;width:240px;background:rgba(17,24,39,.96);border:1px solid #4c1d95;border-radius:12px;padding:12px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;';
-          panel.innerHTML = '<div style="color:#c4b5fd;margin-bottom:8px;">🎽 DTF inteligente — tecido colorido</div>'
+          panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:#c4b5fd;margin-bottom:8px;"><span>🎽 DTF inteligente — tecido colorido</span>'
+            + '<button id="sp-toggle" title="Ocultar" style="border:0;background:#312e81;color:#ddd6fe;border-radius:6px;width:22px;height:22px;line-height:1;cursor:pointer;font:800 12px system-ui;">▾</button></div>'
+            + '<div id="sp-body">'
             + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;"><input id="sp-on" type="checkbox" checked /> Base branca adaptativa</label>'
             + '<div style="margin-bottom:6px;">Cobertura branca <b id="sp-wv">70%</b></div>'
             + '<input id="sp-w" type="range" min="0" max="100" value="70" style="width:100%;accent-color:#a78bfa;" />'
@@ -1840,8 +1864,18 @@
             + '<div style="display:flex;gap:6px;margin-top:8px;">'
             + '<button id="sp-eb" style="flex:1;padding:7px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">PNG base</button>'
             + '<button id="sp-ec" style="flex:1;padding:7px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">PNG cores</button>'
-            + '</div>';
+            + '</div></div>';
           document.body.appendChild(panel);
+
+          var tg = panel.querySelector('#sp-toggle'), body = panel.querySelector('#sp-body');
+          tg.onclick = function () {
+            var hidden = body.style.display === 'none';
+            body.style.display = hidden ? 'block' : 'none';
+            tg.textContent = hidden ? '▾' : '▸';
+            tg.title = hidden ? 'Ocultar' : 'Mostrar';
+            panel.style.width = hidden ? '240px' : 'auto';
+          };
+
 
           var on = panel.querySelector('#sp-on'), wr = panel.querySelector('#sp-w'),
               cr = panel.querySelector('#sp-c'), pv = panel.querySelector('#sp-p');
@@ -1869,7 +1903,94 @@
         setInterval(tick, 800);
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-smart-v58"></script>
+    <script>
+      // ============================================================
+      // UPLOAD POR LINK (Pinterest, Google, etc.)
+      // Baixa a imagem do endereço colado e injeta no mesmo fluxo do
+      // upload normal (recorte, preset de tecido, halftone, 300 DPI).
+      // ============================================================
+      (function () {
+        function findInput() {
+          var ins = Array.prototype.slice.call(document.querySelectorAll('input[type=file]'));
+          for (var i = 0; i < ins.length; i++) {
+            var acc = (ins[i].accept || '').toLowerCase();
+            if (!acc || acc.indexOf('image') !== -1 || acc.indexOf('.png') !== -1) return ins[i];
+          }
+          return ins[0] || null;
+        }
+        function proxies(url) {
+          var e = encodeURIComponent(url);
+          return [url,
+            'https://images.weserv.nl/?url=' + encodeURIComponent(url.replace(/^https?:\/\//, '')) + '&output=png&n=-1',
+            'https://corsproxy.io/?url=' + e];
+        }
+        async function fetchImage(url) {
+          var list = proxies(url), lastErr = null;
+          for (var i = 0; i < list.length; i++) {
+            try {
+              var res = await fetch(list[i], { mode: 'cors', cache: 'no-store' });
+              if (!res.ok) throw new Error('HTTP ' + res.status);
+              var blob = await res.blob();
+              if (blob.size > 0 && /image\//.test(blob.type || 'image/png')) return blob;
+            } catch (err) { lastErr = err; }
+          }
+          throw lastErr || new Error('falhou');
+        }
+        function nameFrom(url) {
+          try {
+            var p = new URL(url).pathname.split('/').pop() || 'imagem';
+            if (!/\.(png|jpe?g|webp|gif|bmp)$/i.test(p)) p += '.png';
+            return p;
+          } catch (e) { return 'imagem-link.png'; }
+        }
+        async function importFromUrl(url, btn) {
+          var input = findInput();
+          if (!input) { alert('Abra a área de upload da ferramenta primeiro.'); return; }
+          var old = btn.textContent;
+          btn.textContent = '⏳ Baixando...';
+          btn.disabled = true;
+          try {
+            var blob = await fetchImage(url.trim());
+            var file = new File([blob], nameFrom(url), { type: blob.type || 'image/png' });
+            var dt = new DataTransfer();
+            dt.items.add(file);
+            input.files = dt.files;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          } catch (e) {
+            alert('Não consegui baixar essa imagem. Copie o link direto da imagem (clique com o botão direito na imagem > "Copiar endereço da imagem") e tente de novo.');
+          } finally {
+            btn.textContent = old;
+            btn.disabled = false;
+          }
+        }
+
+        var bar = null;
+        function build() {
+          if (bar) return;
+          bar = document.createElement('div');
+          bar.style.cssText = 'position:fixed;top:12px;right:12px;z-index:99996;display:flex;gap:6px;align-items:center;background:rgba(17,24,39,.96);border:1px solid #334155;border-radius:10px;padding:7px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 8px 24px rgba(0,0,0,.45);';
+          bar.innerHTML = '<input id="dtf-url" type="url" placeholder="Colar link da imagem (Pinterest, etc.)" style="width:230px;padding:6px 8px;border-radius:7px;border:1px solid #475569;background:#0b1220;color:#e5e7eb;font:600 12px system-ui;" />'
+            + '<button id="dtf-url-go" style="padding:7px 10px;border-radius:7px;border:0;background:#0ea5e9;color:#062;font:800 12px system-ui;cursor:pointer;">🔗 Carregar</button>';
+          document.body.appendChild(bar);
+          var inp = bar.querySelector('#dtf-url'), go = bar.querySelector('#dtf-url-go');
+          go.onclick = function () {
+            var v = (inp.value || '').trim();
+            if (!/^https?:\/\//i.test(v)) { alert('Cole um endereço de imagem começando com http.'); return; }
+            importFromUrl(v, go);
+          };
+          inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go.click(); });
+        }
+        function tick() {
+          build();
+          if (!bar) return;
+          bar.style.display = findInput() ? 'flex' : 'none';
+        }
+        document.addEventListener('DOMContentLoaded', tick);
+        setInterval(tick, 900);
+      })();
+    </script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-smart-v59"></script>
 
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">
