@@ -2208,7 +2208,17 @@
             + '<div id="sp-body">'
             + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;"><input id="sp-auto" type="checkbox" checked /> Motor universal (calcula pela cor)</label>'
             + '<div id="sp-fab" style="font:600 11px system-ui;color:#a5b4fc;margin-bottom:8px;line-height:1.35;">—</div>'
+            + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer;color:#fde68a;"><input id="sp-pa" type="checkbox" checked /> 🛡️ Preservar arte principal</label>'
+            + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;color:#fde68a;"><input id="sp-pb" type="checkbox" checked /> ⚫ Proteger preto da arte</label>'
+            + '<div style="margin:2px 0 4px;">Tolerância do fundo <b id="sp-btv">100%</b></div>'
+            + '<input id="sp-bt" type="range" min="30" max="200" step="5" value="100" style="width:100%;accent-color:#a78bfa;" />'
+            + '<div style="margin:8px 0 4px;">Suavização da máscara <b id="sp-msv">1 px</b></div>'
+            + '<input id="sp-ms" type="range" min="0" max="3" step="1" value="1" style="width:100%;accent-color:#a78bfa;" />'
+            + '<div style="margin:8px 0 4px;">Intensidade do halftone <b id="sp-hiv">100%</b></div>'
+            + '<input id="sp-hi" type="range" min="30" max="100" step="5" value="100" style="width:100%;accent-color:#a78bfa;" />'
+            + '<button id="sp-mask" style="width:100%;margin:8px 0 10px;padding:8px;border-radius:8px;border:0;background:#0ea5e9;color:#08202e;font:800 12px system-ui;cursor:pointer;">🎭 Máscara e pincéis</button>'
             + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;"><input id="sp-on" type="checkbox" checked /> Base branca adaptativa</label>'
+
 
             + '<div style="margin-bottom:6px;">Cobertura branca <b id="sp-wv">70%</b></div>'
             + '<input id="sp-w" type="range" min="0" max="100" value="70" style="width:100%;accent-color:#a78bfa;" />'
