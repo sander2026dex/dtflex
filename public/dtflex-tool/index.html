@@ -243,26 +243,45 @@
           }
           return finalName;
         }
+        // Pergunta o nome do arquivo antes de salvar (Salvar como...)
+        function askFileName(suggested){
+          var base = suggested || 'DTFlexPro_300dpi.png';
+          try {
+            var ans = window.prompt('Salvar como — nome do arquivo:', base);
+            if (ans === null) return null; // cancelou
+            ans = String(ans).trim();
+            if (!ans) ans = base;
+            if (!/\.png$/i.test(ans)) ans += '.png';
+            return ans.replace(/[\\/:*?"<>|]/g, '-');
+          } catch (e) { return base; }
+        }
         function fixAnchorSync(a){
+          var name = askFileName(normalizeDownloadName(a.download));
+          if (name === null) return false;
           a.href = fixDataUrl(a.href);
-          a.download = normalizeDownloadName(a.download);
+          a.download = name;
           a.setAttribute('data-dpi-fixed', 'true');
+          return true;
         }
         var origAnchorClick = HTMLAnchorElement.prototype.click;
         async function forceFixedPngDownload(a){
+          var name = askFileName(normalizeDownloadName(a.download));
+          if (name === null) return;
           try {
             var res = await fetch(a.href, { cache: 'no-store' });
             var fixed = ensureDpi(new Uint8Array(await res.arrayBuffer()));
             var url = URL.createObjectURL(new Blob([fixed], { type: 'image/png' }));
             var dl = document.createElement('a');
             dl.href = url;
-            dl.download = normalizeDownloadName(a.download);
+            dl.download = name;
             dl.setAttribute('data-dpi-fixed', 'true');
             document.body.appendChild(dl);
             origAnchorClick.call(dl);
             setTimeout(function(){ URL.revokeObjectURL(url); dl.remove(); }, 1500);
           } catch(e) {
-            fixAnchorSync(a);
+            a.href = fixDataUrl(a.href);
+            a.download = name;
+            a.setAttribute('data-dpi-fixed', 'true');
             origAnchorClick.call(a);
           }
         }
