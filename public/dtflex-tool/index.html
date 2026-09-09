@@ -2063,6 +2063,9 @@
               cd = panel.querySelector('#sp-cd');
           bm.onchange = function () { S.blackMode = bm.value; };
           bl.oninput = function () { S.blackLevel = +bl.value; panel.querySelector('#sp-blv').textContent = bl.value; };
+          var sm = panel.querySelector('#sp-sm'), sl = panel.querySelector('#sp-sl');
+          sm.onchange = function () { S.shadowMode = sm.value; };
+          sl.oninput = function () { S.shadowLevel = +sl.value; panel.querySelector('#sp-slv').textContent = sl.value; };
           con.onchange = function () { S.colorOn = con.checked; };
           ch.oninput = function () { S.colorHex = ch.value; };
           cm.onchange = function () { S.colorMode = cm.value; };
