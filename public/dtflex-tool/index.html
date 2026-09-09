@@ -1883,6 +1883,19 @@
                 continue;
               }
 
+              // SOMBRAS: tons escuros acima do preto recebem retícula
+              // proporcional — quanto mais escura a sombra, mais pontos.
+              if (needShadow && lum > S.blackLevel && lum <= S.shadowLevel) {
+                var range = Math.max(1, S.shadowLevel - S.blackLevel);
+                var shade = 1 - (lum - S.blackLevel) / range; // 0..1 (1 = mais escura)
+                // mínimo de pontos para a sombra não sumir
+                var skeep = 0.12 + 0.88 * shade;
+                if (skeep < 1) {
+                  var st = ((x * 7 + y * 13) % 100) / 100;
+                  if (st >= skeep) d[i + 3] = 0;
+                }
+              }
+
               if (needColor) {
                 var dr = rr - tgt.r, dg = rg - tgt.g, db = rb - tgt.b;
                 if (Math.sqrt(dr * dr + dg * dg + db * db) <= tol) {
