@@ -1912,6 +1912,36 @@
           var ref = refData(w, h);
           if (!ref) return src;
 
+          // REMOVER PRETO SÓ DO FUNDO: a remoção de preto nunca toca
+          // pixels internos da arte (olhos, cabelo, roupa, contornos).
+          // Só apaga preto que esteja CONECTADO ao fundo já transparente
+          // (bordas), igual ao motor de segmentação por conectividade.
+          var bgDark = null;
+          if (S.blackMode === 'remover') {
+            var NP = w * h;
+            bgDark = new Uint8Array(NP);
+            var bq = new Int32Array(NP), bh = 0, bt = 0;
+            function bpush(p) { if (p < 0 || p >= NP || bgDark[p]) return; bgDark[p] = 1; bq[bt++] = p; }
+            for (var sp = 0; sp < NP; sp++) {
+              var si = sp * 4;
+              if (ref[si + 3] < 16) bpush(sp); // fundo transparente = origem
+            }
+            while (bh < bt) {
+              var bp = bq[bh++], bx = bp % w, by = (bp / w) | 0;
+              var nb = [bp - 1, bp + 1, bp - w, bp + w];
+              for (var nix = 0; nix < 4; nix++) {
+                var np2 = nb[nix];
+                if (np2 < 0 || np2 >= NP || bgDark[np2]) continue;
+                // não atravessa bordas da imagem
+                if ((nix === 0 && bx === 0) || (nix === 1 && bx === w - 1)) continue;
+                var ni = np2 * 4;
+                if (ref[ni + 3] < 16) { bpush(np2); continue; }
+                var nlum = 0.299 * ref[ni] + 0.587 * ref[ni + 1] + 0.114 * ref[ni + 2];
+                if (nlum <= S.blackLevel) bpush(np2); // preto conectado ao fundo
+              }
+            }
+          }
+
           var out = document.createElement('canvas');
           out.width = w; out.height = h;
           var oc = out.getContext('2d');
