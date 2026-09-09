@@ -1883,14 +1883,6 @@
           cr.oninput = function () { S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
           pv.onchange = function () { S.preserve = pv.value; window.__DTF_PRESERVE = pv.value; };
           panel.querySelector('#sp-prev').onclick = openPreview;
-          panel.querySelector('#sp-eb').onclick = function () {
-            var art = biggest(); if (!art) return;
-            download(buildUnderbase(copyOf(art)), 'DTFlexPro_base_branca_300dpi.png');
-          };
-          panel.querySelector('#sp-ec').onclick = function () {
-            var art = biggest(); if (!art) return;
-            download(copyOf(art), 'DTFlexPro_cores_300dpi.png');
-          };
         }
 
         function tick() {
