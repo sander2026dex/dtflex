@@ -1990,7 +1990,7 @@
           if (panel) return;
           panel = document.createElement('div');
           panel.id = 'dtf-smart-panel';
-          panel.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:99997;width:240px;background:rgba(17,24,39,.96);border:1px solid #4c1d95;border-radius:12px;padding:12px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;';
+          panel.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:99997;width:240px;background:rgba(17,24,39,.96);border:1px solid #4c1d95;border-radius:12px;padding:12px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;max-height:78vh;overflow:auto;';
           panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:#c4b5fd;margin-bottom:8px;"><span>🎽 DTF inteligente — tecido colorido</span>'
             + '<button id="sp-toggle" title="Ocultar" style="border:0;background:#312e81;color:#ddd6fe;border-radius:6px;width:22px;height:22px;line-height:1;cursor:pointer;font:800 12px system-ui;">▾</button></div>'
             + '<div id="sp-body">'
