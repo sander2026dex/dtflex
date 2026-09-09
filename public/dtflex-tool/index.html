@@ -1737,7 +1737,7 @@
           blackMode: 'reticula', blackLevel: 60,
           shadowMode: 'reticula', shadowLevel: 170,
           colorOn: false, colorHex: '#ff0000', colorTol: 60,
-          colorMode: 'reticula', colorDensity: 100
+          colorMode: 'reticula', colorDensity: 100, auto: true
         };
         window.__DTF_PRESERVE = S.preserve;
 
@@ -1749,6 +1749,62 @@
           var n = parseInt(hex, 16);
           return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
         }
+
+        // ===== MOTOR UNIVERSAL DE COR DO TECIDO =====================
+        // A cor do tecido é uma VARIÁVEL: qualquer HEX/RGB entra e o
+        // motor calcula luminosidade, saturação e contraste para decidir
+        // quanta base branca, choke, alcance de sombra e limite de preto
+        // aquela cor exige. NUNCA usa a cor do tecido para apagar pixels.
+        function fabricProfile() {
+          var c = shirtRGB();
+          var lum = (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) / 255;      // 0..1
+          var mx = Math.max(c.r, c.g, c.b), mn = Math.min(c.r, c.g, c.b);
+          var sat = mx === 0 ? 0 : (mx - mn) / mx;                         // 0..1
+          // contraste do tecido contra tinta branca e contra tinta preta
+          var vsWhite = 1 - lum, vsBlack = lum;
+          // tecido escuro ou muito saturado exige mais base branca
+          var white = Math.round(Math.min(95, Math.max(25,
+            30 + vsWhite * 55 + sat * 18)));
+          // tecido claro precisa de menos branco e menos choke
+          var choke = lum > 0.78 ? 0 : (lum > 0.45 ? 1 : 2);
+          // sombras: em tecido escuro, ampliar o alcance para não sumirem
+          var shadowLevel = Math.round(130 + (1 - lum) * 90);              // 130..220
+          var blackLevel = Math.round(45 + (1 - lum) * 35);                // 45..80
+          var name = lum < 0.18 ? 'muito escuro' : lum < 0.42 ? 'escuro'
+            : lum < 0.68 ? 'médio' : lum < 0.86 ? 'claro' : 'muito claro';
+          return { lum: lum, sat: sat, vsWhite: vsWhite, vsBlack: vsBlack,
+                   white: white, choke: choke, shadowLevel: shadowLevel,
+                   blackLevel: blackLevel, name: name };
+        }
+        function applyFabricAuto() {
+          var f = fabricProfile();
+          S.white = f.white;
+          S.choke = f.choke;
+          S.shadowLevel = f.shadowLevel;
+          S.blackLevel = f.blackLevel;
+          // preto da arte sempre preservado; nunca "remover" automático
+          if (S.blackMode === 'remover') S.blackMode = 'reticula';
+          S.preserve = f.lum > 0.8 ? 'medio' : 'alto';
+          window.__DTF_PRESERVE = S.preserve;
+          return f;
+        }
+        function refreshPanelUI() {
+          if (!panel) return;
+          var f = fabricProfile();
+          var q = function (id) { return panel.querySelector(id); };
+          var fab = q('#sp-fab');
+          if (fab) fab.innerHTML = 'Tecido ' + f.name + ' · luz ' + Math.round(f.lum * 100)
+            + '% · saturação ' + Math.round(f.sat * 100) + '%<br/>base branca ' + S.white
+            + '% · choke ' + S.choke + 'px · sombra até ' + S.shadowLevel;
+          if (q('#sp-w')) { q('#sp-w').value = S.white; q('#sp-wv').textContent = S.white + '%'; }
+          if (q('#sp-c')) { q('#sp-c').value = S.choke; q('#sp-cv').textContent = S.choke + ' px'; }
+          if (q('#sp-bl')) { q('#sp-bl').value = S.blackLevel; q('#sp-blv').textContent = S.blackLevel; }
+          if (q('#sp-sl')) { q('#sp-sl').value = S.shadowLevel; q('#sp-slv').textContent = S.shadowLevel; }
+          if (q('#sp-p')) q('#sp-p').value = S.preserve;
+          if (q('#sp-bm')) q('#sp-bm').value = S.blackMode;
+          if (q('#sp-auto')) q('#sp-auto').checked = !!S.auto;
+        }
+
         function biggest() {
           var best = null, area = 0;
           document.querySelectorAll('canvas').forEach(function (c) {
@@ -2009,7 +2065,10 @@
           panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:#c4b5fd;margin-bottom:8px;"><span>🎽 DTF inteligente — tecido colorido</span>'
             + '<button id="sp-toggle" title="Ocultar" style="border:0;background:#312e81;color:#ddd6fe;border-radius:6px;width:22px;height:22px;line-height:1;cursor:pointer;font:800 12px system-ui;">▾</button></div>'
             + '<div id="sp-body">'
+            + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;"><input id="sp-auto" type="checkbox" checked /> Motor universal (calcula pela cor)</label>'
+            + '<div id="sp-fab" style="font:600 11px system-ui;color:#a5b4fc;margin-bottom:8px;line-height:1.35;">—</div>'
             + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;"><input id="sp-on" type="checkbox" checked /> Base branca adaptativa</label>'
+
             + '<div style="margin-bottom:6px;">Cobertura branca <b id="sp-wv">70%</b></div>'
             + '<input id="sp-w" type="range" min="0" max="100" value="70" style="width:100%;accent-color:#a78bfa;" />'
             + '<div style="margin:8px 0 6px;">White choke <b id="sp-cv">1 px</b></div>'
@@ -2052,10 +2111,16 @@
 
           var on = panel.querySelector('#sp-on'), wr = panel.querySelector('#sp-w'),
               cr = panel.querySelector('#sp-c'), pv = panel.querySelector('#sp-p');
+          var au = panel.querySelector('#sp-auto');
+          au.onchange = function () {
+            S.auto = au.checked;
+            if (S.auto) { applyFabricAuto(); refreshPanelUI(); }
+          };
           on.onchange = function () { S.on = on.checked; };
-          wr.oninput = function () { S.white = +wr.value; panel.querySelector('#sp-wv').textContent = wr.value + '%'; };
-          cr.oninput = function () { S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
+          wr.oninput = function () { S.auto = false; if (au) au.checked = false; S.white = +wr.value; panel.querySelector('#sp-wv').textContent = wr.value + '%'; };
+          cr.oninput = function () { S.auto = false; if (au) au.checked = false; S.choke = +cr.value; panel.querySelector('#sp-cv').textContent = cr.value + ' px'; };
           pv.onchange = function () { S.preserve = pv.value; window.__DTF_PRESERVE = pv.value; };
+
 
           var bm = panel.querySelector('#sp-bm'), bl = panel.querySelector('#sp-bl'),
               con = panel.querySelector('#sp-con'), ch = panel.querySelector('#sp-ch'),
@@ -2110,11 +2175,19 @@
           panel.querySelector('#sp-prev').onclick = openPreview;
         }
 
+        var lastHex = null;
         function tick() {
           buildPanel();
           if (!panel) return;
+          var hx = (window.__DTF_SHIRT_HEX || '') + '|' + (window.__DTF_SHIRT_COLOR || '');
+          if (hx !== lastHex) {
+            lastHex = hx;
+            if (S.auto) { applyFabricAuto(); }
+            refreshPanelUI();
+          }
           panel.style.display = (isColored() && biggest()) ? 'block' : 'none';
         }
+
         document.addEventListener('DOMContentLoaded', tick);
         setInterval(tick, 800);
       })();
