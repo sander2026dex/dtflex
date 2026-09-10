@@ -2412,7 +2412,15 @@
               con = panel.querySelector('#sp-con'), ch = panel.querySelector('#sp-ch'),
               cm = panel.querySelector('#sp-cm'), ct = panel.querySelector('#sp-ct'),
               cd = panel.querySelector('#sp-cd');
-          bm.onchange = function () { S.blackMode = bm.value; };
+          bm.onchange = function () {
+            if (bm.value === 'remover' && S.protectArt) {
+              S.protectArt = false;
+              var pae = panel.querySelector('#sp-pa'); if (pae) pae.checked = false;
+              alert('"Preservar arte principal" foi desligado para permitir remover o preto. Mesmo assim, só o preto ligado ao fundo é apagado.');
+            }
+            S.blackMode = bm.value;
+          };
+
           bl.oninput = function () { S.blackLevel = +bl.value; panel.querySelector('#sp-blv').textContent = bl.value; };
           var sm = panel.querySelector('#sp-sm'), sl = panel.querySelector('#sp-sl');
           sm.onchange = function () { S.shadowMode = sm.value; };
