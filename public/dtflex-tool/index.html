@@ -1874,6 +1874,12 @@
           if (q('#sp-p')) q('#sp-p').value = S.preserve;
           if (q('#sp-bm')) q('#sp-bm').value = S.blackMode;
           if (q('#sp-auto')) q('#sp-auto').checked = !!S.auto;
+          if (q('#sp-pa')) q('#sp-pa').checked = S.protectArt !== false;
+          if (q('#sp-pb')) q('#sp-pb').checked = S.protectBlack !== false;
+          if (q('#sp-bt')) { q('#sp-bt').value = S.bgTol; q('#sp-btv').textContent = S.bgTol + '%'; }
+          if (q('#sp-ms')) { q('#sp-ms').value = S.maskSmooth; q('#sp-msv').textContent = S.maskSmooth + ' px'; }
+          if (q('#sp-hi')) { q('#sp-hi').value = S.htIntensity; q('#sp-hiv').textContent = S.htIntensity + '%'; }
+
         }
 
         function biggest() {
