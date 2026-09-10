@@ -2196,7 +2196,129 @@
           m.querySelector('#sm-close').onclick = function () { m.remove(); };
         }
 
+        // --- Máscara: visualização + pincéis de correção manual -----
+        // vermelho = removido · verde = preservado · preto = protegido
+        function openMask() {
+          var art = biggest();
+          if (!art) { alert('Gere a arte primeiro.'); return; }
+          var lm = window.__DTF_LAST_MASK || null;
+          var MW = 420;
+          var k = Math.min(1, MW / art.width);
+          var vw = Math.max(1, Math.round(art.width * k));
+          var vh = Math.max(1, Math.round(art.height * k));
+
+          var um = window.__DTF_USER_MASK;
+          if (!um || um.w !== vw || um.h !== vh) {
+            um = window.__DTF_USER_MASK = { w: vw, h: vh, data: new Uint8Array(vw * vh) };
+          }
+
+          var m = document.createElement('div');
+          m.id = 'dtf-smart-modal';
+          m.style.cssText = 'position:fixed;inset:0;z-index:1000000;background:rgba(8,10,16,.95);display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px;overflow:auto;';
+          m.innerHTML = '<div style="font:800 15px system-ui;color:#fff;">🎭 Máscara — vermelho sai · verde fica · preto protegido</div>'
+            + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font:700 12px system-ui;">'
+            + '<button id="mk-keep" style="padding:8px 12px;border-radius:8px;border:0;background:#16a34a;color:#fff;cursor:pointer;">🖌️ Pincel preservar</button>'
+            + '<button id="mk-del" style="padding:8px 12px;border-radius:8px;border:0;background:#dc2626;color:#fff;cursor:pointer;">🖌️ Pincel remover</button>'
+            + '<button id="mk-era" style="padding:8px 12px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">🧽 Borracha</button>'
+            + '<button id="mk-clr" style="padding:8px 12px;border-radius:8px;border:0;background:#374151;color:#e5e7eb;cursor:pointer;">Limpar pinceladas</button>'
+            + '<button id="mk-ba" style="padding:8px 12px;border-radius:8px;border:0;background:#7c3aed;color:#fff;cursor:pointer;">👁️ Antes/depois</button>'
+            + '<button id="mk-close" style="padding:8px 12px;border-radius:8px;border:0;background:#0ea5e9;color:#062;cursor:pointer;">Aplicar e fechar</button>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:8px;color:#cbd5e1;font:700 12px system-ui;">Tamanho do pincel <input id="mk-size" type="range" min="4" max="80" step="2" value="24" style="width:160px;accent-color:#a78bfa;" /><b id="mk-sv">24</b></div>'
+            + '<div id="mk-stage" style="background:#111827;border-radius:12px;padding:10px;"></div>'
+            + '<div style="font:600 12px system-ui;color:#94a3b8;max-width:620px;text-align:center;">As pinceladas valem para a arte final: verde devolve a arte original, vermelho deixa transparente.</div>';
+          document.body.appendChild(m);
+
+          var stage = m.querySelector('#mk-stage');
+          var view = document.createElement('canvas');
+          view.width = vw; view.height = vh;
+          view.style.cssText = 'display:block;max-width:88vw;cursor:crosshair;touch-action:none;';
+          stage.appendChild(view);
+          var vc = view.getContext('2d');
+
+          var base = document.createElement('canvas');
+          base.width = vw; base.height = vh;
+          base.getContext('2d').drawImage(art, 0, 0, vw, vh);
+
+          var overlayOn = true;
+          function draw() {
+            vc.clearRect(0, 0, vw, vh);
+            // xadrez de transparência
+            vc.fillStyle = '#1f2937'; vc.fillRect(0, 0, vw, vh);
+            vc.drawImage(base, 0, 0);
+            if (!overlayOn) return;
+            var img = vc.getImageData(0, 0, vw, vh), d = img.data;
+            var bImg = base.getContext('2d').getImageData(0, 0, vw, vh).data;
+            var protS = null, bgS = null;
+            if (lm) {
+              protS = lm.prot; bgS = lm.bg;
+            }
+            for (var y = 0; y < vh; y++) for (var x = 0; x < vw; x++) {
+              var p = y * vw + x, i = p * 4;
+              var mv = um.data[p];
+              var a = bImg[i + 3];
+              var src = null;
+              if (mv === 1) src = [220, 38, 38];
+              else if (mv === 2) src = [22, 163, 74];
+              else if (lm) {
+                var lx = Math.min(lm.w - 1, Math.floor(x / vw * lm.w));
+                var ly = Math.min(lm.h - 1, Math.floor(y / vh * lm.h));
+                var lp = ly * lm.w + lx;
+                if (bgS && bgS[lp]) src = [220, 38, 38];
+                else if (protS && protS[lp]) src = [17, 17, 17];
+                else src = [22, 163, 74];
+              } else {
+                src = a > 8 ? [22, 163, 74] : [220, 38, 38];
+              }
+              d[i] = Math.round(d[i] * 0.45 + src[0] * 0.55);
+              d[i + 1] = Math.round(d[i + 1] * 0.45 + src[1] * 0.55);
+              d[i + 2] = Math.round(d[i + 2] * 0.45 + src[2] * 0.55);
+              d[i + 3] = 255;
+            }
+            vc.putImageData(img, 0, 0);
+          }
+          draw();
+
+          var tool = 2, size = 24, painting = false;
+          var sizeEl = m.querySelector('#mk-size');
+          sizeEl.oninput = function () { size = +sizeEl.value; m.querySelector('#mk-sv').textContent = sizeEl.value; };
+          function setTool(t, btn) {
+            tool = t;
+            ['#mk-keep', '#mk-del', '#mk-era'].forEach(function (id) { m.querySelector(id).style.outline = ''; });
+            btn.style.outline = '3px solid #fbbf24';
+          }
+          m.querySelector('#mk-keep').onclick = function () { setTool(2, this); };
+          m.querySelector('#mk-del').onclick = function () { setTool(1, this); };
+          m.querySelector('#mk-era').onclick = function () { setTool(0, this); };
+          setTool(2, m.querySelector('#mk-keep'));
+
+          function paintAt(ev) {
+            var r = view.getBoundingClientRect();
+            var cx = Math.round((ev.clientX - r.left) / r.width * vw);
+            var cy = Math.round((ev.clientY - r.top) / r.height * vh);
+            var rad = Math.max(1, Math.round(size / 2 * (vw / Math.max(1, r.width))));
+            for (var y = cy - rad; y <= cy + rad; y++) {
+              if (y < 0 || y >= vh) continue;
+              for (var x = cx - rad; x <= cx + rad; x++) {
+                if (x < 0 || x >= vw) continue;
+                var dx = x - cx, dy = y - cy;
+                if (dx * dx + dy * dy > rad * rad) continue;
+                um.data[y * vw + x] = tool;
+              }
+            }
+            draw();
+          }
+          view.addEventListener('pointerdown', function (e) { painting = true; view.setPointerCapture(e.pointerId); paintAt(e); });
+          view.addEventListener('pointermove', function (e) { if (painting) paintAt(e); });
+          view.addEventListener('pointerup', function () { painting = false; });
+
+          m.querySelector('#mk-clr').onclick = function () { um.data.fill(0); draw(); };
+          m.querySelector('#mk-ba').onclick = function () { overlayOn = !overlayOn; draw(); };
+          m.querySelector('#mk-close').onclick = function () { m.remove(); };
+        }
+
         // --- Painel de controle -------------------------------------
+
         var panel = null;
         function buildPanel() {
           if (panel) return;
