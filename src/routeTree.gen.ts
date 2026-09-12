@@ -19,6 +19,7 @@ import { Route as PedidoRouteImport } from './routes/pedido'
 import { Route as SobreHalftoneRouteImport } from './routes/sobre-halftone'
 import { Route as ValidateAccessCodeRouteImport } from './routes/validate-access-code'
 import { Route as VerifyAdminRouteImport } from './routes/verify-admin'
+import { Route as ApiDriveFileRouteImport } from './routes/api/drive-file'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
 import { Route as ApiPublicDesktopActivateRouteImport } from './routes/api/public/desktop-activate'
 import { Route as ApiPublicDownloadWindowsRouteImport } from './routes/api/public/download-windows'
@@ -75,6 +76,11 @@ const VerifyAdminRoute = VerifyAdminRouteImport.update({
   path: '/verify-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDriveFileRoute = ApiDriveFileRouteImport.update({
+  id: '/api/drive-file',
+  path: '/api/drive-file',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   id: '/api/stripe-webhook',
   path: '/api/stripe-webhook',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/sobre-halftone': typeof SobreHalftoneRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
+  '/api/drive-file': typeof ApiDriveFileRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/api/public/desktop-activate': typeof ApiPublicDesktopActivateRoute
   '/api/public/download-windows': typeof ApiPublicDownloadWindowsRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/sobre-halftone': typeof SobreHalftoneRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
+  '/api/drive-file': typeof ApiDriveFileRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/api/public/desktop-activate': typeof ApiPublicDesktopActivateRoute
   '/api/public/download-windows': typeof ApiPublicDownloadWindowsRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/sobre-halftone': typeof SobreHalftoneRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
   '/verify-admin': typeof VerifyAdminRoute
+  '/api/drive-file': typeof ApiDriveFileRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/api/public/desktop-activate': typeof ApiPublicDesktopActivateRoute
   '/api/public/download-windows': typeof ApiPublicDownloadWindowsRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/sobre-halftone'
     | '/validate-access-code'
     | '/verify-admin'
+    | '/api/drive-file'
     | '/api/stripe-webhook'
     | '/api/public/desktop-activate'
     | '/api/public/download-windows'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/sobre-halftone'
     | '/validate-access-code'
     | '/verify-admin'
+    | '/api/drive-file'
     | '/api/stripe-webhook'
     | '/api/public/desktop-activate'
     | '/api/public/download-windows'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/sobre-halftone'
     | '/validate-access-code'
     | '/verify-admin'
+    | '/api/drive-file'
     | '/api/stripe-webhook'
     | '/api/public/desktop-activate'
     | '/api/public/download-windows'
@@ -222,6 +234,7 @@ export interface RootRouteChildren {
   SobreHalftoneRoute: typeof SobreHalftoneRoute
   ValidateAccessCodeRoute: typeof ValidateAccessCodeRoute
   VerifyAdminRoute: typeof VerifyAdminRoute
+  ApiDriveFileRoute: typeof ApiDriveFileRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ApiPublicDesktopActivateRoute: typeof ApiPublicDesktopActivateRoute
   ApiPublicDownloadWindowsRoute: typeof ApiPublicDownloadWindowsRoute
@@ -301,6 +314,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/drive-file': {
+      id: '/api/drive-file'
+      path: '/api/drive-file'
+      fullPath: '/api/drive-file'
+      preLoaderRoute: typeof ApiDriveFileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/stripe-webhook': {
       id: '/api/stripe-webhook'
       path: '/api/stripe-webhook'
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   SobreHalftoneRoute: SobreHalftoneRoute,
   ValidateAccessCodeRoute: ValidateAccessCodeRoute,
   VerifyAdminRoute: VerifyAdminRoute,
+  ApiDriveFileRoute: ApiDriveFileRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ApiPublicDesktopActivateRoute: ApiPublicDesktopActivateRoute,
   ApiPublicDownloadWindowsRoute: ApiPublicDownloadWindowsRoute,
