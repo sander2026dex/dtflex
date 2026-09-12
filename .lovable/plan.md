@@ -1,59 +1,44 @@
-## O que vou construir
+# Biblioteca DTFLEXPRO conectada ao Google Drive
 
-### 1. Página pública `/pedido`
-Cliente faz tudo numa tela:
-- Upload da imagem (PNG/JPG, até 20MB)
-- Nome, WhatsApp, e-mail
-- Observações (opcional: efeito desejado, cor, tamanho)
-- Botão "Pagar R$ 5,00 via Pix"
-  - Abre checkout InfinitePay (link único por pedido)
-- Após pagar, tela confirma e mostra botão "Enviar comprovante no WhatsApp" → `wa.me/5511943152441` com mensagem pré-preenchida contendo o nº do pedido
+## O que será construído
 
-### 2. Botão flutuante WhatsApp em todo o site
-- Componente já existe (`WhatsAppFloat.tsx`) — atualizo o número para `5511943152441` e mensagem padrão
+### 1. Nova experiência da área do cliente
+- Transformar a área protegida em uma plataforma visual DTFLEXPRO, inspirada na organização do site de referência, sem copiar nome, marca ou textos.
+- Manter toda a ferramenta de halftone atual intacta.
+- Criar navegação clara entre **Biblioteca**, **Halftone** e as ferramentas já existentes.
+- Usar somente nome, identidade visual e conteúdo da DTFLEXPRO.
 
-### 3. Banco de dados
-Nova tabela `halftone_orders`:
-- `id` (uuid)
-- `order_code` (texto curto tipo `HF-A3B9X2` para o cliente referenciar)
-- `customer_name`, `customer_phone`, `customer_email`
-- `image_path` (caminho no Storage)
-- `notes` (texto)
-- `amount` (numeric, default 5)
-- `payment_status` ('pending' | 'paid' | 'failed')
-- `delivery_status` ('aguardando_pagamento' | 'aguardando_envio' | 'enviado')
-- `infinitepay_transaction_id`
-- `paid_at`, `delivered_at`, `created_at`, `updated_at`
-- RLS: insert público (qualquer um cria pedido), select/update só admin
+### 2. Biblioteca de artes do Google Drive
+- Usar a pasta informada como raiz da biblioteca.
+- Mostrar pastas em cartões com capa, nome e quantidade de itens quando disponível.
+- Permitir abrir subpastas, voltar pelo caminho de navegação e pesquisar pelo nome.
+- Mostrar imagens e arquivos compatíveis em grade, com prévia, tipo e data.
+- Permitir abrir ou baixar o arquivo original sem expor credenciais do Google Drive.
+- Atualizar automaticamente quando arquivos ou pastas forem organizados no Drive.
 
-Bucket Storage `halftone-uploads` (privado).
+### 3. Capas e organização
+- Usar como capa a primeira imagem compatível encontrada em cada pasta.
+- Quando não houver imagem, mostrar uma capa DTFLEXPRO consistente com o tipo da pasta.
+- Diferenciar visualmente pastas, imagens, PDFs e arquivos de arte.
+- Adicionar estados claros de carregamento, pasta vazia e falha de conexão.
 
-### 4. Webhook InfinitePay estendido
-Reaproveito `/api/public/infinitepay-webhook` adicionando lógica: se o `transaction_id` ou um campo customizado (`external_reference`) bater com um `halftone_orders.id`, atualiza `payment_status='paid'` e `delivery_status='aguardando_envio'` (sem criar acesso de assinatura — só marca o pedido).
+### 4. Segurança e acesso
+- A biblioteca ficará dentro da área já protegida por código e dispositivo.
+- Todas as consultas ao Google Drive ocorrerão no servidor.
+- A conexão será do proprietário da DTFLEXPRO; clientes não precisarão conectar contas Google.
+- Acesso restrito à pasta raiz informada e aos seus descendentes.
 
-### 5. Painel admin — nova aba "Pedidos Halftone"
-Em `/admin`, adiciono aba que lista pedidos:
-- Filtros por status (todos / aguardando envio / enviados)
-- Cada linha: código, cliente, WhatsApp (com botão abrir conversa), preview da imagem, botão download, botão "Marcar como enviado", botão copiar dados
-
-### 6. Server functions (`src/lib/halftone-orders.functions.ts`)
-- `createHalftoneOrder` (público) — recebe metadados, faz upload da imagem assinada, gera `order_code`, devolve `{ orderId, checkoutUrl }`
-- `getHalftoneOrder` (público, por id) — para tela de confirmação
-- `listHalftoneOrders` (admin) — lista pedidos
-- `markHalftoneOrderDelivered` (admin)
-- `getHalftoneImageUrl` (admin) — URL assinada para download
+### 5. Compatibilidade e validação
+- Ajustar o novo painel para computador, tablet e celular.
+- Preservar login, expiração, avisos, administrador, halftone e demais ferramentas existentes.
+- Validar abertura de pastas, busca, capas, downloads e retorno à ferramenta de halftone.
+- Garantir títulos e descrições próprios da DTFLEXPRO na nova página.
 
 ## Detalhes técnicos
+- Criar funções seguras para listar pastas, arquivos e buscar conteúdo via Google Drive.
+- Criar entrega protegida de miniaturas e arquivos pelo próprio site.
+- Manter cache curto para navegação rápida sem impedir atualizações do Drive.
+- Não alterar o arquivo minificado nem o processamento atual do halftone.
 
-- Upload via Storage com nome único; URL assinada de 24h para download admin
-- Checkout InfinitePay: monto o link no padrão já usado no projeto (`pricingOptions`) parametrizado com `order_id` no `external_reference`/query string para o webhook conseguir casar
-- Mensagem WhatsApp padrão após pagamento: *"Olá! Acabei de pagar o pedido HF-XXXX. Segue o comprovante."* + anexa a foto manualmente
-- Validação Zod em todos os inputs (nome 2-80, telefone 10-13 dígitos, email válido, notas até 500)
-- Sem autocriar conta de usuário — pedido é "anônimo", identificado só por `order_code` + e-mail
-
-## O que NÃO vou fazer (fora do escopo)
-- Integração automática com WhatsApp (envio do arquivo) — você manda manualmente como combinado
-- Geração automática do halftone — você roda na ferramenta DTFlexPRO
-- Não mexo no fluxo de assinatura existente (mensal/anual)
-
-Posso seguir?
+## Resultado esperado
+Ao entrar, o cliente verá uma biblioteca profissional DTFLEXPRO com pastas e capas do Google Drive, podendo navegar e baixar artes, além de abrir a ferramenta de halftone e os recursos atuais no mesmo ambiente.
