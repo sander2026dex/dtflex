@@ -16,6 +16,8 @@ export const Route = createFileRoute("/")({
         content:
           "Transforme imagens em arte halftone com controle profissional, exportação em alta resolução e assinatura mensal ou anual.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
     links: [{ rel: "canonical", href: "https://www.dtflexpro.com" }],
   }),

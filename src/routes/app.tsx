@@ -1,13 +1,14 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, ChevronDown, ChevronUp, Shirt, LayoutGrid } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft, ChevronDown, ChevronUp, Shirt, LayoutGrid, Library } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
 
 const ShirtStudioCanvas = lazy(() => import("@/components/landing/shirt-studio/ShirtStudioCanvas"));
 const DTFGangSheetStudio = lazy(() => import("@/components/DTFGangSheetStudio"));
+const ArtLibrary = lazy(() => import("@/components/ArtLibrary"));
 
 function AppError() {
   return (
@@ -25,6 +26,10 @@ export const Route = createFileRoute("/app")({
     meta: [
       { title: "DTFLEXPRO Halftone Engine" },
       { name: "description", content: "Ferramenta profissional DTFLEXPRO Halftone Engine para retículas DTF — Rosette CMYK e Round Clean." },
+      { property: "og:title", content: "DTFLEXPRO | Biblioteca e Halftone" },
+      { property: "og:description", content: "Biblioteca de artes e ferramentas profissionais DTFLEXPRO para impressão DTF." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   beforeLoad: async () => {
@@ -64,6 +69,7 @@ function AppPage() {
   const [showRemover, setShowRemover] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
   const [showGang, setShowGang] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(true);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -254,6 +260,13 @@ function AppPage() {
                 <LayoutGrid className="h-4 w-4" />
                 Montagem DTF
               </Button>
+              <Button
+                className="h-10 px-3 text-xs font-semibold shadow-lg"
+                onClick={() => setShowLibrary(true)}
+              >
+                <Library className="h-4 w-4" />
+                Biblioteca de artes
+              </Button>
               <DTFCalculatorDialog
                 trigger={
                   <Button variant="secondary" className="h-10 px-3 text-xs font-semibold shadow-lg">
@@ -282,6 +295,14 @@ function AppPage() {
         <ClientOnly fallback={null}>
           <Suspense fallback={null}>
             <DTFGangSheetStudio onClose={() => setShowGang(false)} />
+          </Suspense>
+        </ClientOnly>
+      )}
+
+      {showLibrary && (
+        <ClientOnly fallback={null}>
+          <Suspense fallback={<div className="fixed inset-0 z-[100] grid place-items-center bg-background text-muted-foreground">Carregando biblioteca…</div>}>
+            <ArtLibrary onOpenHalftone={() => setShowLibrary(false)} />
           </Suspense>
         </ClientOnly>
       )}
