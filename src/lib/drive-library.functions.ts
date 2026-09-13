@@ -1,15 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { assertAccessAuthenticated } from "@/lib/access-guard.server";
-import { DRIVE_ROOT_FOLDER_ID, listDriveChildren } from "@/lib/drive-library.server";
 
-const folderSchema = z.object({ folderId: z.string().min(10).max(256).optional() });
+const folderSchema = z.object({
+  path: z.array(z.string().min(10).max(256)).min(1).max(20).optional(),
+});
 
 export const listArtLibrary = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => folderSchema.parse(input))
   .handler(async ({ data }) => {
+    const { assertAccessAuthenticated } = await import("@/lib/access-guard.server");
+    const { DRIVE_ROOT_FOLDER_ID, listDriveChildren } = await import("@/lib/drive-library.server");
     await assertAccessAuthenticated();
-    const folderId = data.folderId ?? DRIVE_ROOT_FOLDER_ID;
-    const files = await listDriveChildren(folderId);
-    return { folderId, rootId: DRIVE_ROOT_FOLDER_ID, files };
+    const path = data.path ?? [DRIVE_ROOT_FOLDER_ID];
+    const files = await listDriveChildren(path);
+    return { path, rootId: DRIVE_ROOT_FOLDER_ID, files };
   });

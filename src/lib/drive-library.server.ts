@@ -56,10 +56,16 @@ export async function assertInsideLibrary(fileId: string) {
   throw new Error("Arquivo fora da biblioteca permitida.");
 }
 
-export async function listDriveChildren(parentId: string): Promise<DriveLibraryItem[]> {
-  await assertInsideLibrary(parentId);
+async function resolveFolderId(fileId: string) {
+  if (fileId === DRIVE_ROOT_FOLDER_ID) return fileId;
+  const file = await readDriveFile(fileId);
+  return file.shortcutDetails?.targetId ?? fileId;
+}
+
+async function listChildrenUnchecked(parentId: string): Promise<DriveLibraryItem[]> {
+  const resolvedParentId = await resolveFolderId(parentId);
   const params = new URLSearchParams({
-    q: `'${parentId.replaceAll("'", "\\'")}' in parents and trashed = false`,
+    q: `'${resolvedParentId.replaceAll("'", "\\'")}' in parents and trashed = false`,
     fields: "files(id,name,mimeType,modifiedTime,size,shortcutDetails(targetId,targetMimeType))",
     pageSize: "1000",
     orderBy: "folder,name",
@@ -86,4 +92,28 @@ export async function listDriveChildren(parentId: string): Promise<DriveLibraryI
       targetMimeType,
     };
   });
+}
+
+export async function validateLibraryPath(path: string[]) {
+  if (!path.length || path[0] !== DRIVE_ROOT_FOLDER_ID || path.length > 20) {
+    throw new Error("Caminho inválido na biblioteca.");
+  }
+  for (let index = 1; index < path.length; index += 1) {
+    const children = await listChildrenUnchecked(path[index - 1]);
+    const child = children.find((item) => item.id === path[index]);
+    if (!child?.isFolder) throw new Error("Pasta fora da biblioteca permitida.");
+  }
+}
+
+export async function listDriveChildren(path: string[]): Promise<DriveLibraryItem[]> {
+  await validateLibraryPath(path);
+  return listChildrenUnchecked(path[path.length - 1]);
+}
+
+export async function assertFileInFolderPath(fileId: string, path: string[]) {
+  await validateLibraryPath(path);
+  const children = await listChildrenUnchecked(path[path.length - 1]);
+  if (!children.some((item) => item.id === fileId)) {
+    throw new Error("Arquivo fora da biblioteca permitida.");
+  }
 }
