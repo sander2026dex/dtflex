@@ -11,7 +11,8 @@ export const Route = createFileRoute("/api/drive-file")({
         try {
           const { assertAccessAuthenticated } = await import("@/lib/access-guard.server");
           await assertAccessAuthenticated();
-          const { assertFileInFolderPath, driveFetch, findDriveFolderCover, readDriveFile } = await import("@/lib/drive-library.server");
+          const { assertFileInFolderPath, driveFetch, findDriveFolderCover, readDriveFile } =
+            await import("@/lib/drive-library.server");
           const url = new URL(request.url);
           const requestedId = url.searchParams.get("id");
           const coverFolderId = url.searchParams.get("coverFolder");
@@ -39,18 +40,29 @@ export const Route = createFileRoute("/api/drive-file")({
             return new Response("Pastas não podem ser baixadas.", { status: 400 });
           }
 
-          const previewThumbnail = download ? undefined : thumbnailLink ?? metadata.thumbnailLink;
+          const previewThumbnail = download ? undefined : (thumbnailLink ?? metadata.thumbnailLink);
           const response = previewThumbnail
             ? await fetch(previewThumbnail)
-            : await driveFetch(`/files/${encodeURIComponent(actualId)}?alt=media&supportsAllDrives=true`);
+            : await driveFetch(
+                `/files/${encodeURIComponent(actualId)}?alt=media&supportsAllDrives=true`,
+              );
           if (!response.ok || !response.body) {
             const message = await response.text();
-            return new Response(`Arquivo indisponível (${response.status}): ${message}`, { status: response.status });
+            return new Response(`Arquivo indisponível (${response.status}): ${message}`, {
+              status: response.status,
+            });
           }
           const headers = new Headers();
-          headers.set("Content-Type", response.headers.get("content-type") ?? actualMime ?? "application/octet-stream");
-          headers.set("Cache-Control", download ? "private, no-store" : "private, max-age=300, stale-while-revalidate=600");
-          if (download) headers.set("Content-Disposition", `attachment; filename="${safeName(metadata.name)}"`);
+          headers.set(
+            "Content-Type",
+            response.headers.get("content-type") ?? actualMime ?? "application/octet-stream",
+          );
+          headers.set(
+            "Cache-Control",
+            download ? "private, no-store" : "private, max-age=300, stale-while-revalidate=600",
+          );
+          if (download)
+            headers.set("Content-Disposition", `attachment; filename="${safeName(metadata.name)}"`);
           return new Response(response.body, { status: 200, headers });
         } catch (error) {
           console.error("Falha ao acessar arquivo da biblioteca:", error);

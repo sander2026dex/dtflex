@@ -50,8 +50,11 @@ export async function driveFetch(path: string, init?: RequestInit) {
 }
 
 export async function readDriveFile(fileId: string) {
-  const fields = "id,name,mimeType,modifiedTime,size,parents,thumbnailLink,shortcutDetails(targetId,targetMimeType)";
-  const response = await driveFetch(`/files/${encodeURIComponent(fileId)}?fields=${encodeURIComponent(fields)}&supportsAllDrives=true`);
+  const fields =
+    "id,name,mimeType,modifiedTime,size,parents,thumbnailLink,shortcutDetails(targetId,targetMimeType)";
+  const response = await driveFetch(
+    `/files/${encodeURIComponent(fileId)}?fields=${encodeURIComponent(fields)}&supportsAllDrives=true`,
+  );
   const text = await response.text();
   if (!response.ok) throw new Error(`Falha ao ler arquivo do Drive (${response.status}): ${text}`);
   return JSON.parse(text) as DriveFileMetadata;
@@ -93,7 +96,8 @@ async function fetchChildren(parentId: string): Promise<DriveLibraryItem[]> {
   const resolvedParentId = await resolveFolderId(parentId);
   const params = new URLSearchParams({
     q: `'${resolvedParentId.replaceAll("'", "\\'")}' in parents and trashed = false`,
-    fields: "files(id,name,mimeType,modifiedTime,size,thumbnailLink,shortcutDetails(targetId,targetMimeType))",
+    fields:
+      "files(id,name,mimeType,modifiedTime,size,thumbnailLink,shortcutDetails(targetId,targetMimeType))",
     pageSize: "1000",
     orderBy: "folder,name",
     supportsAllDrives: "true",
@@ -102,7 +106,11 @@ async function fetchChildren(parentId: string): Promise<DriveLibraryItem[]> {
   const response = await driveFetch(`/files?${params.toString()}`);
   const text = await response.text();
   if (!response.ok) throw new Error(`Falha ao listar o Drive (${response.status}): ${text}`);
-  const parsed = JSON.parse(text) as { files?: Array<DriveLibraryItem & { shortcutDetails?: { targetId?: string; targetMimeType?: string } }> };
+  const parsed = JSON.parse(text) as {
+    files?: Array<
+      DriveLibraryItem & { shortcutDetails?: { targetId?: string; targetMimeType?: string } }
+    >;
+  };
   return (parsed.files ?? []).map((file) => {
     const targetId = file.shortcutDetails?.targetId;
     const targetMimeType = file.shortcutDetails?.targetMimeType;
@@ -155,13 +163,19 @@ function normalizeLibraryPath(path: string[]) {
   return path.filter((folderId, index) => index === 0 || folderId !== path[index - 1]);
 }
 
-export async function listDriveChildren(path: string[], force = false): Promise<DriveLibraryItem[]> {
+export async function listDriveChildren(
+  path: string[],
+  force = false,
+): Promise<DriveLibraryItem[]> {
   const normalizedPath = normalizeLibraryPath(path);
   await validateLibraryPath(normalizedPath, force);
   return listChildrenUnchecked(normalizedPath[normalizedPath.length - 1], force);
 }
 
-export async function findDriveFolderCover(path: string[], folderId: string): Promise<DriveLibraryItem | null> {
+export async function findDriveFolderCover(
+  path: string[],
+  folderId: string,
+): Promise<DriveLibraryItem | null> {
   const normalizedPath = normalizeLibraryPath(path);
   await validateLibraryPath(normalizedPath);
   const siblings = await listChildrenUnchecked(normalizedPath[normalizedPath.length - 1]);
@@ -171,7 +185,8 @@ export async function findDriveFolderCover(path: string[], folderId: string): Pr
   const resolvedFolderId = await resolveFolderId(folder.id);
   const params = new URLSearchParams({
     q: `'${resolvedFolderId.replaceAll("'", "\\'")}' in parents and trashed = false and mimeType contains 'image/'`,
-    fields: "files(id,name,mimeType,modifiedTime,size,thumbnailLink,shortcutDetails(targetId,targetMimeType))",
+    fields:
+      "files(id,name,mimeType,modifiedTime,size,thumbnailLink,shortcutDetails(targetId,targetMimeType))",
     pageSize: "1",
     orderBy: "name",
     supportsAllDrives: "true",
