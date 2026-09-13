@@ -256,7 +256,7 @@ export default function ArtLibrary({
                 {(item.mimeType.startsWith("image/") || item.mimeType === "application/pdf") && (
                   <Button
                     size="sm"
-                    className="h-8 bg-primary px-2 text-primary-foreground hover:bg-primary/90"
+                    className="h-8 bg-amber-400 px-2 text-black hover:bg-amber-300"
                     onClick={() =>
                       onUseInHalftone({
                         url: `/api/drive-file?id=${encodeURIComponent(item.id)}&path=${encodeURIComponent(pathKey)}&download=1`,

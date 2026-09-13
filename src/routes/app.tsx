@@ -266,7 +266,7 @@ function AppPage() {
       )}
       <iframe
         ref={iframeRef}
-        src="/dtflex-tool/index.html?v=dpi300-smart-v67"
+        src="/dtflex-tool/index.html?v=dpi300-smart-v68"
         title="DTFLEXPRO Halftone Engine"
         style={{
           position: "fixed",

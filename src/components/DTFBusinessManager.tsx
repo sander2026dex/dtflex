@@ -214,6 +214,7 @@ export default function DTFBusinessManager({
           <div>
             <p className="font-black">DTFLEXPRO</p>
             <p className="text-xs text-muted-foreground">Gestão de produção</p>
+            <p className="max-w-40 truncate text-[10px] text-amber-400">{accountEmail}</p>
           </div>
           <Button
             variant="ghost"
@@ -279,10 +280,7 @@ export default function DTFBusinessManager({
               className="pl-9"
             />
           </div>
-          <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={onClose}
-          >
+          <Button className="bg-amber-400 text-black hover:bg-amber-300" onClick={onClose}>
             <ArrowLeft className="size-4" />
             <span className="hidden sm:inline">Voltar para ferramenta</span>
             <span className="sm:hidden">Voltar</span>
@@ -1165,7 +1163,7 @@ function SettingsPanel({
           Salvar configurações
         </Button>
         <Button variant="outline" onClick={reset}>
-          Restaurar demonstração
+          Zerar informações
         </Button>
       </div>
     </>
