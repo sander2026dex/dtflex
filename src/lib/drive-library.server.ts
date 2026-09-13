@@ -11,7 +11,18 @@ export type DriveLibraryItem = {
   isShortcut: boolean;
   targetId?: string;
   targetMimeType?: string;
+  thumbnailLink?: string;
 };
+
+type DriveFileMetadata = DriveLibraryItem & {
+  parents?: string[];
+  thumbnailLink?: string;
+  shortcutDetails?: { targetId?: string; targetMimeType?: string };
+};
+
+const LIST_CACHE_TTL_MS = 30_000;
+const listCache = new Map<string, { expiresAt: number; files: DriveLibraryItem[] }>();
+const inFlightLists = new Map<string, Promise<DriveLibraryItem[]>>();
 
 function driveHeaders() {
   const lovableKey = process.env["LOVABLE_API_KEY"];
@@ -28,15 +39,22 @@ export async function driveFetch(path: string, init?: RequestInit) {
   const auth = driveHeaders();
   headers.set("Authorization", auth.Authorization);
   headers.set("X-Connection-Api-Key", auth["X-Connection-Api-Key"]);
-  return fetch(`${GATEWAY_BASE_URL}${path}`, { ...init, headers });
+  let response: Response | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    response = await fetch(`${GATEWAY_BASE_URL}${path}`, { ...init, headers });
+    if (response.status !== 429 && response.status < 500) return response;
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
+  }
+  if (!response) throw new Error("Google Drive indisponível.");
+  return response;
 }
 
 export async function readDriveFile(fileId: string) {
-  const fields = "id,name,mimeType,modifiedTime,size,parents,shortcutDetails(targetId,targetMimeType)";
+  const fields = "id,name,mimeType,modifiedTime,size,parents,thumbnailLink,shortcutDetails(targetId,targetMimeType)";
   const response = await driveFetch(`/files/${encodeURIComponent(fileId)}?fields=${encodeURIComponent(fields)}&supportsAllDrives=true`);
   const text = await response.text();
   if (!response.ok) throw new Error(`Falha ao ler arquivo do Drive (${response.status}): ${text}`);
-  return JSON.parse(text) as DriveLibraryItem & { parents?: string[]; shortcutDetails?: { targetId?: string; targetMimeType?: string } };
+  return JSON.parse(text) as DriveFileMetadata;
 }
 
 export async function assertInsideLibrary(fileId: string) {
@@ -71,11 +89,11 @@ async function resolveFolderId(fileId: string) {
   throw new Error("Caminho de atalhos muito profundo.");
 }
 
-async function listChildrenUnchecked(parentId: string): Promise<DriveLibraryItem[]> {
+async function fetchChildren(parentId: string): Promise<DriveLibraryItem[]> {
   const resolvedParentId = await resolveFolderId(parentId);
   const params = new URLSearchParams({
     q: `'${resolvedParentId.replaceAll("'", "\\'")}' in parents and trashed = false`,
-    fields: "files(id,name,mimeType,modifiedTime,size,shortcutDetails(targetId,targetMimeType))",
+    fields: "files(id,name,mimeType,modifiedTime,size,thumbnailLink,shortcutDetails(targetId,targetMimeType))",
     pageSize: "1000",
     orderBy: "folder,name",
     supportsAllDrives: "true",
@@ -99,16 +117,35 @@ async function listChildrenUnchecked(parentId: string): Promise<DriveLibraryItem
       isShortcut: file.mimeType === "application/vnd.google-apps.shortcut",
       targetId,
       targetMimeType,
+      thumbnailLink: file.thumbnailLink,
     };
   });
 }
 
-export async function validateLibraryPath(path: string[]) {
+async function listChildrenUnchecked(parentId: string, force = false): Promise<DriveLibraryItem[]> {
+  if (!force) {
+    const cached = listCache.get(parentId);
+    if (cached && cached.expiresAt > Date.now()) return cached.files;
+    const pending = inFlightLists.get(parentId);
+    if (pending) return pending;
+  }
+
+  const request = fetchChildren(parentId)
+    .then((files) => {
+      listCache.set(parentId, { files, expiresAt: Date.now() + LIST_CACHE_TTL_MS });
+      return files;
+    })
+    .finally(() => inFlightLists.delete(parentId));
+  inFlightLists.set(parentId, request);
+  return request;
+}
+
+export async function validateLibraryPath(path: string[], force = false) {
   if (!path.length || path[0] !== DRIVE_ROOT_FOLDER_ID || path.length > 20) {
     throw new Error("Caminho inválido na biblioteca.");
   }
   for (let index = 1; index < path.length; index += 1) {
-    const children = await listChildrenUnchecked(path[index - 1]);
+    const children = await listChildrenUnchecked(path[index - 1], force);
     const child = children.find((item) => item.id === path[index] || item.targetId === path[index]);
     if (!child?.isFolder) throw new Error("Pasta fora da biblioteca permitida.");
   }
@@ -118,10 +155,10 @@ function normalizeLibraryPath(path: string[]) {
   return path.filter((folderId, index) => index === 0 || folderId !== path[index - 1]);
 }
 
-export async function listDriveChildren(path: string[]): Promise<DriveLibraryItem[]> {
+export async function listDriveChildren(path: string[], force = false): Promise<DriveLibraryItem[]> {
   const normalizedPath = normalizeLibraryPath(path);
-  await validateLibraryPath(normalizedPath);
-  return listChildrenUnchecked(normalizedPath[normalizedPath.length - 1]);
+  await validateLibraryPath(normalizedPath, force);
+  return listChildrenUnchecked(normalizedPath[normalizedPath.length - 1], force);
 }
 
 export async function assertFileInFolderPath(fileId: string, path: string[]) {

@@ -20,12 +20,14 @@ export const Route = createFileRoute("/api/drive-file")({
           const download = url.searchParams.get("download") === "1";
           let fileId = requestedId;
           let validationPath = path;
+          let thumbnailLink: string | undefined;
 
           if (coverFolderId) {
             const folderPath = [...path, coverFolderId];
             const children = await listDriveChildren(folderPath);
             const image = children.find((item) => item.mimeType.startsWith("image/"));
             fileId = image?.id ?? null;
+            thumbnailLink = image?.thumbnailLink;
             validationPath = folderPath;
             if (!fileId) return new Response(null, { status: 404 });
           }
@@ -39,14 +41,17 @@ export const Route = createFileRoute("/api/drive-file")({
             return new Response("Pastas não podem ser baixadas.", { status: 400 });
           }
 
-          const response = await driveFetch(`/files/${encodeURIComponent(actualId)}?alt=media&supportsAllDrives=true`);
+          const previewThumbnail = download ? undefined : thumbnailLink ?? metadata.thumbnailLink;
+          const response = previewThumbnail
+            ? await fetch(previewThumbnail)
+            : await driveFetch(`/files/${encodeURIComponent(actualId)}?alt=media&supportsAllDrives=true`);
           if (!response.ok || !response.body) {
             const message = await response.text();
             return new Response(`Arquivo indisponível (${response.status}): ${message}`, { status: response.status });
           }
           const headers = new Headers();
           headers.set("Content-Type", response.headers.get("content-type") ?? actualMime ?? "application/octet-stream");
-          headers.set("Cache-Control", download ? "private, no-store" : "private, max-age=300");
+          headers.set("Cache-Control", download ? "private, no-store" : "private, max-age=300, stale-while-revalidate=600");
           if (download) headers.set("Content-Disposition", `attachment; filename="${safeName(metadata.name)}"`);
           return new Response(response.body, { status: 200, headers });
         } catch (error) {
