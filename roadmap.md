@@ -8,4 +8,4 @@
 
 - [x] Integrar o projeto Gestão DTF enviado ao menu Ferramentas
 - [x] Reorganizar e refinar as categorias da biblioteca
-- [ ] Validar a Gestão DTF e as ferramentas existentes
+- [x] Validar a Gestão DTF e as ferramentas existentes
