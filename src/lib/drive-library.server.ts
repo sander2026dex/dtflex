@@ -58,8 +58,17 @@ export async function assertInsideLibrary(fileId: string) {
 
 async function resolveFolderId(fileId: string) {
   if (fileId === DRIVE_ROOT_FOLDER_ID) return fileId;
-  const file = await readDriveFile(fileId);
-  return file.shortcutDetails?.targetId ?? fileId;
+  let current = fileId;
+  const visited = new Set<string>();
+  for (let depth = 0; depth < 10; depth += 1) {
+    if (visited.has(current)) throw new Error("Atalho circular na biblioteca.");
+    visited.add(current);
+    const file = await readDriveFile(current);
+    const targetId = file.shortcutDetails?.targetId;
+    if (!targetId) return current;
+    current = targetId;
+  }
+  throw new Error("Caminho de atalhos muito profundo.");
 }
 
 async function listChildrenUnchecked(parentId: string): Promise<DriveLibraryItem[]> {
@@ -100,7 +109,7 @@ export async function validateLibraryPath(path: string[]) {
   }
   for (let index = 1; index < path.length; index += 1) {
     const children = await listChildrenUnchecked(path[index - 1]);
-    const child = children.find((item) => item.id === path[index]);
+    const child = children.find((item) => item.id === path[index] || item.targetId === path[index]);
     if (!child?.isFolder) throw new Error("Pasta fora da biblioteca permitida.");
   }
 }
