@@ -13,6 +13,7 @@ Remoção de fundo é SEMPRE por conectividade com as bordas — nunca por cor. 
 - [DTF inteligente tecidos coloridos](mem://features/dtf-inteligente-tecidos-coloridos) — Base branca adaptativa, preservar detalhes, preview na cor do tecido; preto/branco intocados
 - [Motor universal de cor do tecido](mem://features/motor-universal-cor-tecido) — Qualquer HEX calcula base branca/choke/sombra/preto automaticamente; cor nunca apaga pixel
 - [Protected Mask e halftone adaptativo](mem://features/protected-mask-coloridas) — Máscara protegida, proteção do preto, tolerância/suavização do fundo, pincéis manuais
+- [Conta da Gestão DTF e fluxo da biblioteca](mem://features/management-account-library-flow) — Acesso automático, dados zerados por cliente e envio Biblioteca → Halftone
 
 
 

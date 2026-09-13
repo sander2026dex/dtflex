@@ -13,4 +13,4 @@
 - [x] Iniciar a Gestão DTF zerada e separar os dados por cliente
 - [x] Destacar em amarelo os novos controles e botões de retorno
 - [x] Permitir enviar uma arte da Biblioteca diretamente para o Halftone
-- [ ] Validar o fluxo Biblioteca → Halftone e a persistência isolada da Gestão DTF
+- [x] Validar o fluxo Biblioteca → Halftone e a persistência isolada da Gestão DTF
