@@ -6,6 +6,7 @@ import { Features } from "@/components/landing/Features";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { MarketingPitch } from "@/components/landing/MarketingPitch";
 import { Pricing } from "@/components/landing/Pricing";
+import { PlatformSuite } from "@/components/landing/PlatformSuite";
 import { ShirtStudio } from "@/components/landing/ShirtStudio";
 import { SocialProof } from "@/components/landing/SocialProof";
 import { WhatsAppFloat } from "@/components/landing/WhatsAppFloat";
@@ -36,6 +37,7 @@ export function LandingPage({
         <Header affiliateMode={affiliateMode} />
         <Hero />
         <MarketingPitch />
+        <PlatformSuite />
         <Features />
         <SocialProof />
         <ShirtStudio />

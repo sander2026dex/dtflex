@@ -2,13 +2,13 @@ import { Card } from "@/components/ui/card";
 
 const speedBenefits = [
   "⚡ Gere efeitos halftone profissionais em segundos",
-  "🎨 Separação inteligente para artes coloridas e fundo preto",
-  "🖤 Qualidade extrema em camisetas escuras",
-  "🌈 Cores mais vivas e pontos mais definidos",
-  "🚀 Processamento ultra rápido",
-  "🖥️ Interface simples e automática",
-  "🔥 Resultado profissional sem complicação",
-  "👕 Ideal para estamparias, designers e produção DTF",
+  "🎨 Motor universal para qualquer cor de tecido",
+  "🖤 Preservação de olhos, cabelos, roupas, textos e sombras",
+  "🌈 Underbase adaptativa e pontos mais definidos",
+  "📁 Biblioteca organizada com envio direto ao Halftone",
+  "📐 Montagem DTF em tamanho livre e 300 DPI",
+  "📊 Gestão de produção, clientes, estoque e financeiro",
+  "👕 Mockups masculinos, femininos, infantis e camisa dobrada",
 ];
 
 const reticulas = [
@@ -22,10 +22,11 @@ const reticulas = [
 
 const checks = [
   "Halftone para camisas pretas",
+  "Halftone para camisas brancas",
   "Halftone para camisas coloridas",
-  "Alta definição",
-  "Mais produtividade",
-  "Grupo exclusivo de suporte",
+  "PNG A3 e A4 com metadados em 300 DPI",
+  "12 formatos de retícula, incluindo Ben-Day",
+  "Biblioteca, Gestão DTF, montagem e mockups",
 ];
 
 export function MarketingPitch() {
@@ -38,8 +39,9 @@ export function MarketingPitch() {
             🔥 Transforme suas estampas com a potência da DTFlexPRO
           </h2>
           <p className="text-base leading-7 text-muted-foreground">
-            A ferramenta definitiva de halftone automático para DTF, criada para quem busca velocidade,
-            qualidade profissional e resultados impressionantes em camisetas pretas e coloridas.
+            A ferramenta definitiva de halftone automático para DTF, criada para quem busca
+            velocidade, qualidade profissional e resultados impressionantes em camisetas pretas e
+            coloridas.
           </p>
         </div>
 
@@ -58,7 +60,7 @@ export function MarketingPitch() {
           <Card className="rounded-lg border-border/70 bg-card/60 p-6 backdrop-blur">
             <p className="text-sm uppercase tracking-[0.2em] text-brand">Reticulas disponíveis</p>
             <p className="mt-2 text-sm leading-7 text-muted-foreground">
-              Escolha o ponto perfeito para o seu projeto.
+              Escolha o ponto perfeito e simule o resultado com zoom de impressão.
             </p>
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {reticulas.map((r) => (
