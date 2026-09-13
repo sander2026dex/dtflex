@@ -1,6 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { assertAccessAuthenticated } from "@/lib/access-guard.server";
-import { assertFileInFolderPath, driveFetch, listDriveChildren, readDriveFile } from "@/lib/drive-library.server";
 
 function safeName(name: string) {
   return name.replace(/[\\/\r\n";]/g, "_").slice(0, 180) || "arte-dtflexpro";
@@ -10,7 +8,9 @@ export const Route = createFileRoute("/api/drive-file")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        const { assertAccessAuthenticated } = await import("@/lib/access-guard.server");
         await assertAccessAuthenticated();
+        const { assertFileInFolderPath, driveFetch, listDriveChildren, readDriveFile } = await import("@/lib/drive-library.server");
         const url = new URL(request.url);
         const requestedId = url.searchParams.get("id");
         const coverFolderId = url.searchParams.get("coverFolder");
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/drive-file")({
           const folderPath = [...path, coverFolderId];
           const children = await listDriveChildren(folderPath);
           const image = children.find((item) => item.mimeType.startsWith("image/"));
-          fileId = image?.targetId ?? image?.id ?? null;
+          fileId = image?.id ?? null;
           validationPath = folderPath;
           if (!fileId) return new Response(null, { status: 404 });
         }
