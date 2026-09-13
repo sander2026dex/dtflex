@@ -78,8 +78,13 @@ export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => v
   }, [items, query]);
 
   function openFolder(item: LibraryItem) {
+    if (loading) return;
     setQuery("");
-    setCrumbs((current) => [...current, { id: item.id, name: item.name }]);
+    setLoading(true);
+    setCrumbs((current) => {
+      if (current[current.length - 1]?.id === item.id) return current;
+      return [...current, { id: item.id, name: item.name }];
+    });
   }
 
   function goToCrumb(index: number) {
@@ -162,7 +167,7 @@ export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => v
                   : null;
               return (
                 <article key={item.id} className="group min-w-0 overflow-hidden rounded-md border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-md">
-                  <button type="button" onClick={() => item.isFolder && openFolder(item)} disabled={!item.isFolder} className="relative block aspect-[4/3] w-full overflow-hidden bg-secondary text-left disabled:cursor-default">
+                  <button type="button" onClick={() => item.isFolder && openFolder(item)} disabled={!item.isFolder || loading} className="relative block aspect-[4/3] w-full overflow-hidden bg-secondary text-left disabled:cursor-default">
                     <div className="absolute inset-0 grid place-items-center bg-secondary">
                       <Icon className="size-12 text-muted-foreground/70" strokeWidth={1.5} />
                     </div>
