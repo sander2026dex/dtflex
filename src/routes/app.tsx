@@ -1,7 +1,18 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, ChevronDown, ChevronUp, Shirt, LayoutGrid, Library } from "lucide-react";
+import {
+  LogOut,
+  Calculator,
+  Scissors,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Shirt,
+  LayoutGrid,
+  Library,
+  BriefcaseBusiness,
+} from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
@@ -9,13 +20,16 @@ import { Button } from "@/components/ui/button";
 const ShirtStudioCanvas = lazy(() => import("@/components/landing/shirt-studio/ShirtStudioCanvas"));
 const DTFGangSheetStudio = lazy(() => import("@/components/DTFGangSheetStudio"));
 const ArtLibrary = lazy(() => import("@/components/ArtLibrary"));
+const DTFBusinessManager = lazy(() => import("@/components/DTFBusinessManager"));
 
 function AppError() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 text-center">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Acesso indisponível</h1>
-        <p className="mt-2 text-muted-foreground">Recarregue a página para abrir a ferramenta novamente.</p>
+        <p className="mt-2 text-muted-foreground">
+          Recarregue a página para abrir a ferramenta novamente.
+        </p>
       </div>
     </div>
   );
@@ -25,9 +39,16 @@ export const Route = createFileRoute("/app")({
   head: () => ({
     meta: [
       { title: "DTFLEXPRO Halftone Engine" },
-      { name: "description", content: "Ferramenta profissional DTFLEXPRO Halftone Engine para retículas DTF — Rosette CMYK e Round Clean." },
+      {
+        name: "description",
+        content:
+          "Ferramenta profissional DTFLEXPRO Halftone Engine para retículas DTF — Rosette CMYK e Round Clean.",
+      },
       { property: "og:title", content: "DTFLEXPRO | Biblioteca e Halftone" },
-      { property: "og:description", content: "Biblioteca de artes e ferramentas profissionais DTFLEXPRO para impressão DTF." },
+      {
+        property: "og:description",
+        content: "Biblioteca de artes e ferramentas profissionais DTFLEXPRO para impressão DTF.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -46,16 +67,25 @@ export const Route = createFileRoute("/app")({
   component: AppPage,
 });
 
-function formatExpiry(iso: string | null): { label: string; tone: "ok" | "warn" | "danger"; daysLeft: number | null } {
+function formatExpiry(iso: string | null): {
+  label: string;
+  tone: "ok" | "warn" | "danger";
+  daysLeft: number | null;
+} {
   if (!iso) return { label: "Acesso vitalício", tone: "ok", daysLeft: null };
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return { label: "Acesso expirado", tone: "danger", daysLeft: 0 };
   const days = Math.floor(ms / 86_400_000);
   // Vitalício = expira muito longe (>10 anos)
   if (days > 3650) return { label: "Acesso vitalício", tone: "ok", daysLeft: null };
-  const date = new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const date = new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
   const tone: "ok" | "warn" | "danger" = days <= 3 ? "danger" : days <= 7 ? "warn" : "ok";
-  const restante = days === 0 ? "expira hoje" : days === 1 ? "1 dia restante" : `${days} dias restantes`;
+  const restante =
+    days === 0 ? "expira hoje" : days === 1 ? "1 dia restante" : `${days} dias restantes`;
   return { label: `Expira em ${date} · ${restante}`, tone, daysLeft: days };
 }
 
@@ -65,11 +95,14 @@ function AppPage() {
   const ping = useServerFn(pingAccessSession);
   const readSession = useServerFn(getAccessSession);
   const logout = useServerFn(logoutAccessSession);
-  const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(null);
+  const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(
+    null,
+  );
   const [showRemover, setShowRemover] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
   const [showGang, setShowGang] = useState(false);
   const [showLibrary, setShowLibrary] = useState(true);
+  const [showManagement, setShowManagement] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -96,7 +129,6 @@ function AppPage() {
       .then((s) => setExpiry({ email: s.email ?? null, expiresAt: s.expiresAt ?? null }))
       .catch(() => {});
   }, [readSession]);
-
 
   // Esconde os botões flutuantes enquanto o modal de recorte da ferramenta está aberto
   useEffect(() => {
@@ -128,7 +160,9 @@ function AppPage() {
       const k = e.key;
       // PrintScreen
       if (k === "PrintScreen") {
-        try { navigator.clipboard.writeText(""); } catch {}
+        try {
+          navigator.clipboard.writeText("");
+        } catch {}
         e.preventDefault();
         alert("Captura de tela bloqueada nesta ferramenta.");
         return;
@@ -139,7 +173,10 @@ function AppPage() {
         return;
       }
       // Ctrl+Shift+I/J/C (devtools), F12
-      if (k === "F12" || ((e.ctrlKey || e.metaKey) && e.shiftKey && ["i","I","j","J","c","C"].includes(k))) {
+      if (
+        k === "F12" ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && ["i", "I", "j", "J", "c", "C"].includes(k))
+      ) {
         e.preventDefault();
         return;
       }
@@ -205,7 +242,9 @@ function AppPage() {
           style={{ top: 28 }}
         >
           <span className="truncate">
-            ⚠️ Seu acesso está {exp?.tone === "danger" ? "expirado/quase expirando" : "perto de expirar"}. Entre em contato com o administrador para renovar.
+            ⚠️ Seu acesso está{" "}
+            {exp?.tone === "danger" ? "expirado/quase expirando" : "perto de expirar"}. Entre em
+            contato com o administrador para renovar.
           </span>
           <a
             href={`https://wa.me/${ADMIN_WHATSAPP}?text=${renewMsg}`}
@@ -267,6 +306,14 @@ function AppPage() {
                 <Library className="h-4 w-4" />
                 Biblioteca de artes
               </Button>
+              <Button
+                variant="outline"
+                className="h-10 px-3 text-xs font-semibold shadow-lg"
+                onClick={() => setShowManagement(true)}
+              >
+                <BriefcaseBusiness className="h-4 w-4" />
+                Gestão DTF
+              </Button>
               <DTFCalculatorDialog
                 trigger={
                   <Button variant="secondary" className="h-10 px-3 text-xs font-semibold shadow-lg">
@@ -275,8 +322,6 @@ function AppPage() {
                   </Button>
                 }
               />
-
-
             </div>
           )}
           <Button
@@ -290,7 +335,6 @@ function AppPage() {
         </div>
       )}
 
-
       {showGang && (
         <ClientOnly fallback={null}>
           <Suspense fallback={null}>
@@ -301,8 +345,28 @@ function AppPage() {
 
       {showLibrary && (
         <ClientOnly fallback={null}>
-          <Suspense fallback={<div className="fixed inset-0 z-[100] grid place-items-center bg-background text-muted-foreground">Carregando biblioteca…</div>}>
+          <Suspense
+            fallback={
+              <div className="fixed inset-0 z-[100] grid place-items-center bg-background text-muted-foreground">
+                Carregando biblioteca…
+              </div>
+            }
+          >
             <ArtLibrary onOpenHalftone={() => setShowLibrary(false)} />
+          </Suspense>
+        </ClientOnly>
+      )}
+
+      {showManagement && (
+        <ClientOnly fallback={null}>
+          <Suspense
+            fallback={
+              <div className="fixed inset-0 z-[110] grid place-items-center bg-background text-muted-foreground">
+                Carregando gestão…
+              </div>
+            }
+          >
+            <DTFBusinessManager onClose={() => setShowManagement(false)} />
           </Suspense>
         </ClientOnly>
       )}
@@ -321,7 +385,12 @@ function AppPage() {
       {showStudio && (
         <div className="fixed inset-0 z-[100] flex flex-col bg-background">
           <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
-            <Button variant="outline" size="sm" className="gap-1 font-semibold" onClick={() => setShowStudio(false)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 font-semibold"
+              onClick={() => setShowStudio(false)}
+            >
               <ArrowLeft className="h-4 w-4" />
               Voltar para ferramenta
             </Button>
@@ -329,8 +398,12 @@ function AppPage() {
             <div className="w-20" />
           </div>
           <div className="flex-1 overflow-auto p-4">
-            <ClientOnly fallback={<div className="h-[560px] animate-pulse rounded-3xl bg-card/50" />}>
-              <Suspense fallback={<div className="h-[560px] animate-pulse rounded-3xl bg-card/50" />}>
+            <ClientOnly
+              fallback={<div className="h-[560px] animate-pulse rounded-3xl bg-card/50" />}
+            >
+              <Suspense
+                fallback={<div className="h-[560px] animate-pulse rounded-3xl bg-card/50" />}
+              >
                 <ShirtStudioCanvas watermark={false} />
               </Suspense>
             </ClientOnly>
@@ -340,7 +413,6 @@ function AppPage() {
     </>
   );
 }
-
 
 function ExternalToolOverlay({
   title,
@@ -382,5 +454,3 @@ function ExternalToolOverlay({
     </div>
   );
 }
-
-
