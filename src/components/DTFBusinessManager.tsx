@@ -91,207 +91,21 @@ type Store = {
   settings: SettingsData;
 };
 
-const initialStore: Store = {
-  customers: [
-    {
-      id: "c1",
-      name: "Carlos Eduardo",
-      company: "Urban Wear",
-      phone: "5511981234567",
-      email: "carlos@urbanwear.com.br",
-    },
-    {
-      id: "c2",
-      name: "Mariana Bossa",
-      company: "Bossa Nova Brand",
-      phone: "5521998765432",
-      email: "mariana@bossanova.com.br",
-    },
-    {
-      id: "c3",
-      name: "Roberto Fernandes",
-      company: "Sports Tech",
-      phone: "5531987651234",
-      email: "roberto@sportstech.com.br",
-    },
-  ],
-  orders: [
-    {
-      id: "o1",
-      number: "PED-2026-101",
-      customer: "Urban Wear",
-      product: "DTF metro linear HD",
-      total: 1836,
-      meters: 20.5,
-      status: "Em produção",
-      due: "2026-09-14",
-    },
-    {
-      id: "o2",
-      number: "PED-2026-102",
-      customer: "Bossa Nova Brand",
-      product: "DTF Soft Touch",
-      total: 1225,
-      meters: 15,
-      status: "Pronto",
-      due: "2026-09-15",
-    },
-    {
-      id: "o3",
-      number: "PED-2026-103",
-      customer: "Sports Tech",
-      product: "Logos e números",
-      total: 1070,
-      meters: 11.2,
-      status: "Conferência",
-      due: "2026-09-16",
-    },
-    {
-      id: "o4",
-      number: "PED-2026-104",
-      customer: "Estampa Criativa",
-      product: "Etiquetas de gola",
-      total: 350,
-      meters: 3,
-      status: "Aguardando",
-      due: "2026-09-17",
-    },
-    {
-      id: "o5",
-      number: "PED-2026-105",
-      customer: "Guerreiros do Tatame",
-      product: "DTF Heavy Duty",
-      total: 1540,
-      meters: 20,
-      status: "Entregue",
-      due: "2026-09-12",
-    },
-  ],
-  inventory: [
-    {
-      id: "i1",
-      code: "FILM-60",
-      name: "Filme DTF 60cm Hot Peel",
-      category: "Filme",
-      unit: "m",
-      stock: 145,
-      minimum: 40,
-      cost: 26.5,
-    },
-    {
-      id: "i2",
-      code: "FILM-30",
-      name: "Filme DTF 30cm Cold Peel",
-      category: "Filme",
-      unit: "m",
-      stock: 22,
-      minimum: 30,
-      cost: 14.8,
-    },
-    {
-      id: "i3",
-      code: "INK-W",
-      name: "Tinta branca 1L",
-      category: "Tinta",
-      unit: "L",
-      stock: 9.5,
-      minimum: 3,
-      cost: 190,
-    },
-    {
-      id: "i4",
-      code: "INK-CMYK",
-      name: "Kit tinta CMYK",
-      category: "Tinta",
-      unit: "L",
-      stock: 12,
-      minimum: 4,
-      cost: 160,
-    },
-    {
-      id: "i5",
-      code: "PWD-HM",
-      name: "Poliamida Hot Melt",
-      category: "Poliamida",
-      unit: "kg",
-      stock: 18,
-      minimum: 5,
-      cost: 85,
-    },
-    {
-      id: "i6",
-      code: "BOX-TUB",
-      name: "Tubete reforçado",
-      category: "Embalagem",
-      unit: "un",
-      stock: 8,
-      minimum: 25,
-      cost: 6.2,
-    },
-  ],
-  transactions: [
-    {
-      id: "t1",
-      description: "Recebimento PED-2026-101",
-      category: "Vendas",
-      type: "Entrada",
-      amount: 1836,
-      date: "2026-09-10",
-    },
-    {
-      id: "t2",
-      description: "Compra de filme DTF",
-      category: "Insumos",
-      type: "Saída",
-      amount: 1325,
-      date: "2026-09-09",
-    },
-    {
-      id: "t3",
-      description: "Recebimento PED-2026-102",
-      category: "Vendas",
-      type: "Entrada",
-      amount: 1225,
-      date: "2026-09-11",
-    },
-    {
-      id: "t4",
-      description: "Kit tinta CMYK",
-      category: "Insumos",
-      type: "Saída",
-      amount: 640,
-      date: "2026-09-12",
-    },
-  ],
-  taxes: [
-    { id: "x1", name: "Simples Nacional", rate: 6, active: true },
-    { id: "x2", name: "ICMS / Diferencial", rate: 3.5, active: true },
-    { id: "x3", name: "ISS", rate: 2, active: true },
-  ],
-  users: [
-    {
-      id: "u1",
-      name: "Administrador",
-      email: "admin@dtflexpro.com",
-      role: "Administrador",
-      active: true,
-    },
-    {
-      id: "u2",
-      name: "Operador DTF",
-      email: "producao@dtflexpro.com",
-      role: "Produção",
-      active: true,
-    },
-  ],
+const emptyStore: Store = {
+  customers: [],
+  orders: [],
+  inventory: [],
+  transactions: [],
+  taxes: [],
+  users: [],
   settings: {
-    company: "DTFLEXPRO",
-    cnpj: "63.468.735/0001-64",
+    company: "",
+    cnpj: "",
     phone: "",
-    filmCost: 26.5,
-    inkCost: 11,
-    hourlyRate: 24,
-    margin: 65,
+    filmCost: 0,
+    inkCost: 0,
+    hourlyRate: 0,
+    margin: 0,
   },
 };
 
@@ -320,18 +134,28 @@ const money = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-function readStore(): Store {
-  if (typeof window === "undefined") return initialStore;
+function storageKey(email: string) {
+  return `dtflexpro-management-v2:${email.trim().toLowerCase()}`;
+}
+
+function readStore(email: string): Store {
+  if (typeof window === "undefined") return emptyStore;
   try {
-    const value = window.localStorage.getItem("dtflexpro-management-v1");
-    return value ? (JSON.parse(value) as Store) : initialStore;
+    const value = window.localStorage.getItem(storageKey(email));
+    return value ? (JSON.parse(value) as Store) : emptyStore;
   } catch {
-    return initialStore;
+    return emptyStore;
   }
 }
 
-export default function DTFBusinessManager({ onClose }: { onClose: () => void }) {
-  const [store, setStore] = useState<Store>(initialStore);
+export default function DTFBusinessManager({
+  onClose,
+  accountEmail,
+}: {
+  onClose: () => void;
+  accountEmail: string;
+}) {
+  const [store, setStore] = useState<Store>(emptyStore);
   const [section, setSection] = useState<Section>("dashboard");
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -339,12 +163,12 @@ export default function DTFBusinessManager({ onClose }: { onClose: () => void })
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setStore(readStore());
+    setStore(readStore(accountEmail));
     setReady(true);
-  }, []);
+  }, [accountEmail]);
   useEffect(() => {
-    if (ready) window.localStorage.setItem("dtflexpro-management-v1", JSON.stringify(store));
-  }, [ready, store]);
+    if (ready) window.localStorage.setItem(storageKey(accountEmail), JSON.stringify(store));
+  }, [accountEmail, ready, store]);
 
   const metrics = useMemo(() => {
     const revenue = store.transactions
@@ -390,6 +214,7 @@ export default function DTFBusinessManager({ onClose }: { onClose: () => void })
           <div>
             <p className="font-black">DTFLEXPRO</p>
             <p className="text-xs text-muted-foreground">Gestão de produção</p>
+            <p className="max-w-40 truncate text-[10px] text-amber-400">{accountEmail}</p>
           </div>
           <Button
             variant="ghost"
@@ -455,7 +280,7 @@ export default function DTFBusinessManager({ onClose }: { onClose: () => void })
               className="pl-9"
             />
           </div>
-          <Button variant="outline" onClick={onClose}>
+          <Button className="bg-amber-400 text-black hover:bg-amber-300" onClick={onClose}>
             <ArrowLeft className="size-4" />
             <span className="hidden sm:inline">Voltar para ferramenta</span>
             <span className="sm:hidden">Voltar</span>
@@ -522,7 +347,7 @@ export default function DTFBusinessManager({ onClose }: { onClose: () => void })
             <SettingsPanel
               value={store.settings}
               setValue={(settings) => setData("settings", settings)}
-              reset={() => setStore(initialStore)}
+              reset={() => setStore(emptyStore)}
             />
           )}
           {section === "users" && (
@@ -1338,7 +1163,7 @@ function SettingsPanel({
           Salvar configurações
         </Button>
         <Button variant="outline" onClick={reset}>
-          Restaurar demonstração
+          Zerar informações
         </Button>
       </div>
     </>

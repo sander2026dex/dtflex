@@ -2507,6 +2507,31 @@
           }
           return ins[0] || null;
         }
+        async function importLibraryArt(payload) {
+          var input = findInput();
+          if (!input) { alert('Abra a área de upload da ferramenta primeiro.'); return; }
+          try {
+            var res = await fetch(payload.url, { credentials: 'same-origin', cache: 'no-store' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            var blob = await res.blob();
+            var file = new File([blob], payload.name || 'arte-biblioteca.png', {
+              type: blob.type || 'application/octet-stream'
+            });
+            var dt = new DataTransfer();
+            dt.items.add(file);
+            input.files = dt.files;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          } catch (e) {
+            alert('Não foi possível carregar esta arte agora. Tente novamente.');
+          }
+        }
+        window.addEventListener('message', function (event) {
+          if (event.origin !== window.location.origin) return;
+          var payload = event.data;
+          if (!payload || payload.type !== 'DTFLEXPRO_IMPORT_ART' || typeof payload.url !== 'string') return;
+          importLibraryArt(payload);
+        });
         function proxies(url) {
           var e = encodeURIComponent(url);
           return [url,

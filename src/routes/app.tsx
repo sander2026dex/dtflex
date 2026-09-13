@@ -107,6 +107,14 @@ function AppPage() {
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
+  function useLibraryArt(file: { url: string; name: string }) {
+    setShowLibrary(false);
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "DTFLEXPRO_IMPORT_ART", url: file.url, name: file.name },
+      window.location.origin,
+    );
+  }
+
   async function handleLogout() {
     try {
       await logout();
@@ -258,7 +266,7 @@ function AppPage() {
       )}
       <iframe
         ref={iframeRef}
-        src="/dtflex-tool/index.html?v=dpi300-smart-v67"
+        src="/dtflex-tool/index.html?v=dpi300-smart-v68"
         title="DTFLEXPRO Halftone Engine"
         style={{
           position: "fixed",
@@ -352,7 +360,10 @@ function AppPage() {
               </div>
             }
           >
-            <ArtLibrary onOpenHalftone={() => setShowLibrary(false)} />
+            <ArtLibrary
+              onOpenHalftone={() => setShowLibrary(false)}
+              onUseInHalftone={useLibraryArt}
+            />
           </Suspense>
         </ClientOnly>
       )}
@@ -366,7 +377,10 @@ function AppPage() {
               </div>
             }
           >
-            <DTFBusinessManager onClose={() => setShowManagement(false)} />
+            <DTFBusinessManager
+              onClose={() => setShowManagement(false)}
+              accountEmail={expiry?.email ?? "conta"}
+            />
           </Suspense>
         </ClientOnly>
       )}
