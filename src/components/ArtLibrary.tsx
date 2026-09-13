@@ -93,7 +93,7 @@ export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => v
         }
       }
     },
-    [listLibrary, path, pathKey],
+    [listLibrary, path],
   );
 
   useEffect(() => {
