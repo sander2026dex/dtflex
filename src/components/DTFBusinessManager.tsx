@@ -148,7 +148,13 @@ function readStore(email: string): Store {
   }
 }
 
-export default function DTFBusinessManager({ onClose, accountEmail }: { onClose: () => void; accountEmail: string }) {
+export default function DTFBusinessManager({
+  onClose,
+  accountEmail,
+}: {
+  onClose: () => void;
+  accountEmail: string;
+}) {
   const [store, setStore] = useState<Store>(emptyStore);
   const [section, setSection] = useState<Section>("dashboard");
   const [search, setSearch] = useState("");
@@ -273,7 +279,10 @@ export default function DTFBusinessManager({ onClose, accountEmail }: { onClose:
               className="pl-9"
             />
           </div>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={onClose}>
+          <Button
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={onClose}
+          >
             <ArrowLeft className="size-4" />
             <span className="hidden sm:inline">Voltar para ferramenta</span>
             <span className="sm:hidden">Voltar</span>
