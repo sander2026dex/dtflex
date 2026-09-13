@@ -161,6 +161,40 @@ export async function listDriveChildren(path: string[], force = false): Promise<
   return listChildrenUnchecked(normalizedPath[normalizedPath.length - 1], force);
 }
 
+export async function findDriveFolderCover(path: string[], folderId: string): Promise<DriveLibraryItem | null> {
+  const normalizedPath = normalizeLibraryPath(path);
+  await validateLibraryPath(normalizedPath);
+  const siblings = await listChildrenUnchecked(normalizedPath[normalizedPath.length - 1]);
+  const folder = siblings.find((item) => item.id === folderId || item.targetId === folderId);
+  if (!folder?.isFolder) throw new Error("Pasta fora da biblioteca permitida.");
+
+  const resolvedFolderId = await resolveFolderId(folder.id);
+  const params = new URLSearchParams({
+    q: `'${resolvedFolderId.replaceAll("'", "\\'")}' in parents and trashed = false and mimeType contains 'image/'`,
+    fields: "files(id,name,mimeType,modifiedTime,size,thumbnailLink,shortcutDetails(targetId,targetMimeType))",
+    pageSize: "1",
+    orderBy: "name",
+    supportsAllDrives: "true",
+    includeItemsFromAllDrives: "true",
+  });
+  const response = await driveFetch(`/files?${params.toString()}`);
+  const text = await response.text();
+  if (!response.ok) throw new Error(`Falha ao buscar capa no Drive (${response.status}): ${text}`);
+  const parsed = JSON.parse(text) as { files?: DriveFileMetadata[] };
+  const image = parsed.files?.[0];
+  if (!image) return null;
+  return {
+    id: image.id,
+    name: image.name,
+    mimeType: image.mimeType,
+    modifiedTime: image.modifiedTime,
+    size: image.size,
+    isFolder: false,
+    isShortcut: false,
+    thumbnailLink: image.thumbnailLink,
+  };
+}
+
 export async function assertFileInFolderPath(fileId: string, path: string[]) {
   const normalizedPath = normalizeLibraryPath(path);
   await validateLibraryPath(normalizedPath);

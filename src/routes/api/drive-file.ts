@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/drive-file")({
         try {
           const { assertAccessAuthenticated } = await import("@/lib/access-guard.server");
           await assertAccessAuthenticated();
-          const { assertFileInFolderPath, driveFetch, listDriveChildren, readDriveFile } = await import("@/lib/drive-library.server");
+          const { assertFileInFolderPath, driveFetch, findDriveFolderCover, readDriveFile } = await import("@/lib/drive-library.server");
           const url = new URL(request.url);
           const requestedId = url.searchParams.get("id");
           const coverFolderId = url.searchParams.get("coverFolder");
@@ -23,12 +23,10 @@ export const Route = createFileRoute("/api/drive-file")({
           let thumbnailLink: string | undefined;
 
           if (coverFolderId) {
-            const folderPath = [...path, coverFolderId];
-            const children = await listDriveChildren(folderPath);
-            const image = children.find((item) => item.mimeType.startsWith("image/"));
+            const image = await findDriveFolderCover(path, coverFolderId);
             fileId = image?.id ?? null;
             thumbnailLink = image?.thumbnailLink;
-            validationPath = folderPath;
+            validationPath = [...path, coverFolderId];
             if (!fileId) return new Response(null, { status: 404 });
           }
           if (!fileId) return new Response("Arquivo não informado.", { status: 400 });
