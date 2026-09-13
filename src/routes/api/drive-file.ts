@@ -18,17 +18,19 @@ export const Route = createFileRoute("/api/drive-file")({
         const path = pathParam?.split(",").filter(Boolean) ?? [];
         const download = url.searchParams.get("download") === "1";
         let fileId = requestedId;
+        let validationPath = path;
 
         if (coverFolderId) {
           const folderPath = [...path, coverFolderId];
           const children = await listDriveChildren(folderPath);
           const image = children.find((item) => item.mimeType.startsWith("image/"));
           fileId = image?.targetId ?? image?.id ?? null;
+          validationPath = folderPath;
           if (!fileId) return new Response(null, { status: 404 });
         }
         if (!fileId) return new Response("Arquivo não informado.", { status: 400 });
 
-        await assertFileInFolderPath(fileId, path);
+        await assertFileInFolderPath(fileId, validationPath);
         const metadata = await readDriveFile(fileId);
         const actualId = metadata.shortcutDetails?.targetId ?? fileId;
         const actualMime = metadata.shortcutDetails?.targetMimeType ?? metadata.mimeType;

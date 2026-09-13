@@ -18,7 +18,17 @@ import { listArtLibrary } from "@/lib/drive-library.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type LibraryItem = Awaited<ReturnType<typeof listArtLibrary>>["files"][number];
+type LibraryItem = {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime?: string;
+  size?: string;
+  isFolder: boolean;
+  isShortcut: boolean;
+  targetId?: string;
+  targetMimeType?: string;
+};
 type Crumb = { id: string; name: string };
 
 const ROOT_ID = "1pCNF8QE93GYqLy7RYRJZADvJPxDBRyMv";
@@ -153,12 +163,12 @@ export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => v
               return (
                 <article key={item.id} className="group min-w-0 overflow-hidden rounded-md border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-md">
                   <button type="button" onClick={() => item.isFolder && openFolder(item)} disabled={!item.isFolder} className="relative block aspect-[4/3] w-full overflow-hidden bg-secondary text-left disabled:cursor-default">
-                    {imageSrc ? (
-                      <img src={imageSrc} alt="" loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" onError={(event) => { event.currentTarget.style.display = "none"; }} />
-                    ) : null}
-                    <div className="absolute inset-0 grid place-items-center bg-secondary/40">
+                    <div className="absolute inset-0 grid place-items-center bg-secondary">
                       <Icon className="size-12 text-muted-foreground/70" strokeWidth={1.5} />
                     </div>
+                    {imageSrc ? (
+                      <img src={imageSrc} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+                    ) : null}
                     {imageSrc && <div className="absolute inset-0 bg-gradient-to-t from-background/30 to-transparent" />}
                     <span className="absolute left-2 top-2 rounded-sm bg-background/90 px-2 py-1 text-[10px] font-bold uppercase text-foreground backdrop-blur">
                       {item.isFolder ? "Coleção" : item.mimeType.split("/").pop()?.toUpperCase() ?? "Arquivo"}
