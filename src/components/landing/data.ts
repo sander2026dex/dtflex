@@ -6,34 +6,39 @@ export const featureItems: FeatureItem[] = [
   {
     icon: "zap",
     title: "Processamento em 288 ms",
-    description: "Velocidade de placar: cada arte é renderizada em apenas 288 milissegundos, sem espera.",
+    description:
+      "Velocidade de placar: cada arte é renderizada em apenas 288 milissegundos, sem espera.",
   },
   {
     icon: "sliders",
     title: "Motor universal para qualquer tecido",
-    description: "A cor escolhida calcula contraste, underbase e halftone automaticamente, preservando pretos, olhos, cabelos, sombras, textos e detalhes da arte.",
+    description:
+      "A cor escolhida calcula contraste, underbase e halftone automaticamente, preservando pretos, olhos, cabelos, sombras, textos e detalhes da arte.",
   },
   {
     icon: "package",
     title: "Montagem DTF (gang sheet)",
-    description: "Monte folhas de 58x100 cm ou tamanho livre, organize automaticamente e exporte em PNG ou PDF no tamanho físico exato.",
+    description:
+      "Monte folhas de 58x100 cm ou tamanho livre, organize automaticamente e exporte em PNG ou PDF no tamanho físico exato.",
   },
   {
     icon: "shield",
     title: "Zoom de impressão em tempo real",
-    description: "Preview com zoom até 1600% que simula fielmente a retícula escolhida, exatamente como o arquivo final vai imprimir.",
+    description:
+      "Preview com zoom até 1600% que simula fielmente a retícula escolhida, exatamente como o arquivo final vai imprimir.",
   },
   {
     icon: "save",
     title: "PNG, JPEG, PDF, PSD e imagem por link",
-    description: "Carregue os principais formatos, cole uma imagem, arraste um arquivo ou importe por link para iniciar a preparação sem etapas extras.",
+    description:
+      "Carregue os principais formatos, cole uma imagem, arraste um arquivo ou importe por link para iniciar a preparação sem etapas extras.",
   },
   {
     icon: "printer",
     title: "Export A4 e A3 em 300 DPI real",
-    description: "Salve em PNG A4 (2480x3508) ou A3 (3508x4961) com metadados pHYs cravados em 300 DPI, prontos para DTF.",
+    description:
+      "Salve em PNG A4 (2480x3508) ou A3 (3508x4961) com metadados pHYs cravados em 300 DPI, prontos para DTF.",
   },
-
 ];
 
 export const testimonialItems: TestimonialItem[] = [
@@ -41,19 +46,22 @@ export const testimonialItems: TestimonialItem[] = [
     name: "Mariana Costa",
     role: "Designer Têxtil",
     avatar: "MC",
-    quote: "Consegui reduzir o tempo entre aprovação e produção porque o preview mostra exatamente o impacto do halftone.",
+    quote:
+      "Consegui reduzir o tempo entre aprovação e produção porque o preview mostra exatamente o impacto do halftone.",
   },
   {
     name: "Rafael Nunes",
     role: "Estúdio de Serigrafia",
     avatar: "RN",
-    quote: "A consistência dos presets ajudou a manter padrão em pedidos recorrentes sem retrabalho no fechamento dos arquivos.",
+    quote:
+      "A consistência dos presets ajudou a manter padrão em pedidos recorrentes sem retrabalho no fechamento dos arquivos.",
   },
   {
     name: "Camila Freitas",
     role: "Direção de Arte",
     avatar: "CF",
-    quote: "A ferramenta entrega velocidade real para testar variações e exportar rápido quando o cliente aprova a arte.",
+    quote:
+      "A ferramenta entrega velocidade real para testar variações e exportar rápido quando o cliente aprova a arte.",
   },
 ];
 
@@ -61,17 +69,20 @@ export const steps: StepItem[] = [
   {
     icon: "upload",
     title: "Arraste sua imagem",
-    description: "A ferramenta lê sua arte, prepara a base e organiza automaticamente o ponto inicial para o efeito halftone.",
+    description:
+      "A ferramenta lê sua arte, prepara a base e organiza automaticamente o ponto inicial para o efeito halftone.",
   },
   {
     icon: "adjustments",
     title: "Ajuste densidade, ângulo e cor",
-    description: "O motor automático gera o reticulado e você só refina contraste, densidade e leitura final para produção.",
+    description:
+      "O motor automático gera o reticulado e você só refina contraste, densidade e leitura final para produção.",
   },
   {
     icon: "download",
     title: "Exporte em alta resolução",
-    description: "O arquivo final sai pronto para download com acabamento consistente e velocidade de processamento em cerca de 10 segundos.",
+    description:
+      "O arquivo final sai pronto para download com acabamento consistente e velocidade de processamento em cerca de 10 segundos.",
   },
 ];
 
@@ -81,7 +92,8 @@ export const pricingOptions: PricingOption[] = [
     label: "Plano Mensal",
     price: "R$ 47",
     cadence: "/mês",
-    summary: "Ideal para produzir com Halftone, Biblioteca de Artes, Gestão DTF, montagem profissional e estúdio de mockups.",
+    summary:
+      "Ideal para produzir com Halftone, Biblioteca de Artes, Gestão DTF, montagem profissional e estúdio de mockups.",
     checkoutHref: "https://invoice.infinitepay.io/plans/alexsander-63468735-b77/1TxPj2BbwT",
     benefits: [
       "Halftone inteligente para qualquer cor de tecido",
@@ -96,7 +108,8 @@ export const pricingOptions: PricingOption[] = [
     price: "R$ 147",
     cadence: "/ano",
     badge: "Melhor custo anual",
-    summary: "A melhor escolha para estúdios e produção contínua durante todo o ano, com economia significativa.",
+    summary:
+      "A melhor escolha para estúdios e produção contínua durante todo o ano, com economia significativa.",
     checkoutHref: "https://checkout.infinitepay.io/alexsander-63468735-b77/nGf1d3Y7up",
     benefits: [
       "Todas as ferramentas da plataforma com economia anual",
@@ -110,26 +123,32 @@ export const pricingOptions: PricingOption[] = [
 export const faqItems: FaqItem[] = [
   {
     question: "Posso usar os halftones em projetos comerciais?",
-    answer: "Sim. Enquanto o plano estiver ativo, você pode usar os arquivos exportados em projetos comerciais normalmente.",
+    answer:
+      "Sim. Enquanto o plano estiver ativo, você pode usar os arquivos exportados em projetos comerciais normalmente.",
   },
   {
     question: "Funciona offline?",
-    answer: "Não. O uso da plataforma depende de conexão online para acessar a ferramenta e o fluxo de liberação.",
+    answer:
+      "Não. O uso da plataforma depende de conexão online para acessar a ferramenta e o fluxo de liberação.",
   },
   {
     question: "Quais formatos são aceitos?",
-    answer: "PNG, JPEG, PDF e PSD. Você também pode importar imagens por link e enviar artes da Biblioteca diretamente para o Halftone.",
+    answer:
+      "PNG, JPEG, PDF e PSD. Você também pode importar imagens por link e enviar artes da Biblioteca diretamente para o Halftone.",
   },
   {
     question: "A plataforma funciona em qualquer cor de camiseta?",
-    answer: "Sim. O motor universal usa a cor real do tecido para calcular contraste, underbase e retícula, sem usar a cor da camisa como borracha para apagar detalhes internos.",
+    answer:
+      "Sim. O motor universal usa a cor real do tecido para calcular contraste, underbase e retícula, sem usar a cor da camisa como borracha para apagar detalhes internos.",
   },
   {
     question: "O que está incluído além do Halftone?",
-    answer: "Biblioteca de Artes, montagem DTF em tamanho livre, estúdio de mockups e Gestão DTF com produção, pedidos, clientes, estoque, financeiro, impostos e relatórios.",
+    answer:
+      "Biblioteca de Artes, montagem DTF em tamanho livre, estúdio de mockups e Gestão DTF com produção, pedidos, clientes, estoque, financeiro, impostos e relatórios.",
   },
   {
     question: "Como funciona o suporte?",
-    answer: "O atendimento acontece pelo botão flutuante de WhatsApp para agilizar dúvidas operacionais e comerciais.",
+    answer:
+      "O atendimento acontece pelo botão flutuante de WhatsApp para agilizar dúvidas operacionais e comerciais.",
   },
 ];

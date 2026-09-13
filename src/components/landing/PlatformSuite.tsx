@@ -1,11 +1,4 @@
-import {
-  BarChart3,
-  Boxes,
-  FileStack,
-  FolderSearch2,
-  ImageIcon,
-  Palette,
-} from "lucide-react";
+import { BarChart3, Boxes, FileStack, FolderSearch2, ImageIcon, Palette } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 
@@ -58,7 +51,8 @@ export function PlatformSuite() {
             Da biblioteca de artes à gestão da sua produção DTF
           </h2>
           <p className="text-base leading-7 text-muted-foreground">
-            Crie, organize, prepare, apresente e gerencie seus trabalhos com ferramentas conectadas pelo mesmo acesso.
+            Crie, organize, prepare, apresente e gerencie seus trabalhos com ferramentas conectadas
+            pelo mesmo acesso.
           </p>
         </div>
 

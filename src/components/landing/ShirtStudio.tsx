@@ -16,10 +16,12 @@ export function ShirtStudio() {
         <span className="inline-block rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
           Novo · Estúdio de personalização
         </span>
-        <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Monte sua camisa online</h2>
+        <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">
+          Monte sua camisa online
+        </h2>
         <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-          Escolha modelos masculinos, femininos, infantis ou camisa dobrada, defina a cor e o lado da peça, posicione a
-          arte sem ultrapassar o mockup e use uma imagem própria como fundo.
+          Escolha modelos masculinos, femininos, infantis ou camisa dobrada, defina a cor e o lado
+          da peça, posicione a arte sem ultrapassar o mockup e use uma imagem própria como fundo.
         </p>
       </div>
       <ClientOnly fallback={<StudioSkeleton />}>

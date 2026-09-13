@@ -39,8 +39,9 @@ export function MarketingPitch() {
             🔥 Transforme suas estampas com a potência da DTFlexPRO
           </h2>
           <p className="text-base leading-7 text-muted-foreground">
-            A ferramenta definitiva de halftone automático para DTF, criada para quem busca velocidade,
-            qualidade profissional e resultados impressionantes em camisetas pretas e coloridas.
+            A ferramenta definitiva de halftone automático para DTF, criada para quem busca
+            velocidade, qualidade profissional e resultados impressionantes em camisetas pretas e
+            coloridas.
           </p>
         </div>
 
