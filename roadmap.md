@@ -14,3 +14,4 @@
 - [x] Destacar em amarelo os novos controles e botões de retorno
 - [x] Permitir enviar uma arte da Biblioteca diretamente para o Halftone
 - [x] Validar o fluxo Biblioteca → Halftone e a persistência isolada da Gestão DTF
+- [x] Atualizar a landing page com todas as novas ferramentas da plataforma

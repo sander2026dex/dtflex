@@ -10,8 +10,8 @@ export const featureItems: FeatureItem[] = [
   },
   {
     icon: "sliders",
-    title: "Retículas profissionais + Ben-Day",
-    description: "12 formatos de ponto (linhas, ondas, leque, Ben-Day e mais) com controle de densidade, ângulo, nitidez, saturação e brilho.",
+    title: "Motor universal para qualquer tecido",
+    description: "A cor escolhida calcula contraste, underbase e halftone automaticamente, preservando pretos, olhos, cabelos, sombras, textos e detalhes da arte.",
   },
   {
     icon: "package",
@@ -25,8 +25,8 @@ export const featureItems: FeatureItem[] = [
   },
   {
     icon: "save",
-    title: "Recorte inteligente e fundo automático",
-    description: "Enquadre em A4/A3 sem cortar a arte, defina o tamanho em cm e remova o fundo por bordas preservando olhos e detalhes.",
+    title: "PNG, JPEG, PDF, PSD e imagem por link",
+    description: "Carregue os principais formatos, cole uma imagem, arraste um arquivo ou importe por link para iniciar a preparação sem etapas extras.",
   },
   {
     icon: "printer",
@@ -81,12 +81,12 @@ export const pricingOptions: PricingOption[] = [
     label: "Plano Mensal",
     price: "R$ 47",
     cadence: "/mês",
-    summary: "Ideal para começar a produzir com qualidade profissional e acesso completo à ferramenta de halftone.",
+    summary: "Ideal para produzir com Halftone, Biblioteca de Artes, Gestão DTF, montagem profissional e estúdio de mockups.",
     checkoutHref: "https://invoice.infinitepay.io/plans/alexsander-63468735-b77/1TxPj2BbwT",
     benefits: [
-      "Acesso completo à geração de halftone profissional",
+      "Halftone inteligente para qualquer cor de tecido",
       "Exportação em PNG 300 DPI pronto para DTF",
-      "Processamento rápido com preview ao vivo",
+      "Biblioteca, Gestão DTF, montagem e mockups",
       "Suporte via WhatsApp",
     ],
   },
@@ -99,7 +99,7 @@ export const pricingOptions: PricingOption[] = [
     summary: "A melhor escolha para estúdios e produção contínua durante todo o ano, com economia significativa.",
     checkoutHref: "https://checkout.infinitepay.io/alexsander-63468735-b77/nGf1d3Y7up",
     benefits: [
-      "Tudo do plano mensal com economia anual",
+      "Todas as ferramentas da plataforma com economia anual",
       "Acesso contínuo durante 12 meses",
       "Prioridade no suporte via WhatsApp",
       "Ideal para operação comercial recorrente",
@@ -118,7 +118,15 @@ export const faqItems: FaqItem[] = [
   },
   {
     question: "Quais formatos são aceitos?",
-    answer: "PNG e JPEG.",
+    answer: "PNG, JPEG, PDF e PSD. Você também pode importar imagens por link e enviar artes da Biblioteca diretamente para o Halftone.",
+  },
+  {
+    question: "A plataforma funciona em qualquer cor de camiseta?",
+    answer: "Sim. O motor universal usa a cor real do tecido para calcular contraste, underbase e retícula, sem usar a cor da camisa como borracha para apagar detalhes internos.",
+  },
+  {
+    question: "O que está incluído além do Halftone?",
+    answer: "Biblioteca de Artes, montagem DTF em tamanho livre, estúdio de mockups e Gestão DTF com produção, pedidos, clientes, estoque, financeiro, impostos e relatórios.",
   },
   {
     question: "Como funciona o suporte?",

@@ -8,13 +8,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Landing page da DTFLEXPRO para criar arte halftone profissional com rapidez, planos mensais e anuais e acesso à plataforma.",
+          "Crie halftone profissional, organize artes, monte arquivos DTF, faça mockups e gerencie sua produção em uma plataforma completa.",
       },
       { property: "og:title", content: "DTFLEXPRO | Halftone profissional em segundos" },
       {
         property: "og:description",
         content:
-          "Transforme imagens em arte halftone com controle profissional, exportação em alta resolução e assinatura mensal ou anual.",
+          "Halftone para qualquer cor de tecido, Biblioteca de Artes, Gestão DTF, montagem profissional e mockups em uma só plataforma.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

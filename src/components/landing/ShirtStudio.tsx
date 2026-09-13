@@ -18,8 +18,8 @@ export function ShirtStudio() {
         </span>
         <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Monte sua camisa online</h2>
         <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-          Escolha o modelo, a cor do tecido e o lado da peça, posicione a arte livremente dentro da área de impressão e
-          exporte o layout em PNG transparente de alta resolução.
+          Escolha modelos masculinos, femininos, infantis ou camisa dobrada, defina a cor e o lado da peça, posicione a
+          arte sem ultrapassar o mockup e use uma imagem própria como fundo.
         </p>
       </div>
       <ClientOnly fallback={<StudioSkeleton />}>
