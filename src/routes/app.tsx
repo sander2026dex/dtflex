@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LogOut, Calculator, Scissors, ArrowLeft, ChevronDown, ChevronUp, Shirt, LayoutGrid, Library } from "lucide-react";
+import { LogOut, Calculator, Scissors, ArrowLeft, ChevronDown, ChevronUp, Shirt, LayoutGrid, Library, BriefcaseBusiness } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 const ShirtStudioCanvas = lazy(() => import("@/components/landing/shirt-studio/ShirtStudioCanvas"));
 const DTFGangSheetStudio = lazy(() => import("@/components/DTFGangSheetStudio"));
 const ArtLibrary = lazy(() => import("@/components/ArtLibrary"));
+const DTFBusinessManager = lazy(() => import("@/components/DTFBusinessManager"));
 
 function AppError() {
   return (
@@ -70,6 +71,7 @@ function AppPage() {
   const [showStudio, setShowStudio] = useState(false);
   const [showGang, setShowGang] = useState(false);
   const [showLibrary, setShowLibrary] = useState(true);
+  const [showManagement, setShowManagement] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -267,6 +269,14 @@ function AppPage() {
                 <Library className="h-4 w-4" />
                 Biblioteca de artes
               </Button>
+              <Button
+                variant="outline"
+                className="h-10 px-3 text-xs font-semibold shadow-lg"
+                onClick={() => setShowManagement(true)}
+              >
+                <BriefcaseBusiness className="h-4 w-4" />
+                Gestão DTF
+              </Button>
               <DTFCalculatorDialog
                 trigger={
                   <Button variant="secondary" className="h-10 px-3 text-xs font-semibold shadow-lg">
@@ -303,6 +313,14 @@ function AppPage() {
         <ClientOnly fallback={null}>
           <Suspense fallback={<div className="fixed inset-0 z-[100] grid place-items-center bg-background text-muted-foreground">Carregando biblioteca…</div>}>
             <ArtLibrary onOpenHalftone={() => setShowLibrary(false)} />
+          </Suspense>
+        </ClientOnly>
+      )}
+
+      {showManagement && (
+        <ClientOnly fallback={null}>
+          <Suspense fallback={<div className="fixed inset-0 z-[110] grid place-items-center bg-background text-muted-foreground">Carregando gestão…</div>}>
+            <DTFBusinessManager onClose={() => setShowManagement(false)} />
           </Suspense>
         </ClientOnly>
       )}

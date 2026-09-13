@@ -6,6 +6,6 @@
 - [x] Organizar arquivos automaticamente por categorias
 - [x] Validar navegação, atualização, busca, previews e telas responsivas
 
-- [ ] Integrar o projeto Gestão DTF enviado ao menu Ferramentas
-- [ ] Reorganizar e refinar as categorias da biblioteca
+- [x] Integrar o projeto Gestão DTF enviado ao menu Ferramentas
+- [x] Reorganizar e refinar as categorias da biblioteca
 - [ ] Validar a Gestão DTF e as ferramentas existentes

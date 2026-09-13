@@ -50,6 +50,18 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
+const naturalOrder = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
+
+function folderCategory(name: string) {
+  const value = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/futebol|time|esporte|campeao|copa|jogador/.test(value)) return "sports";
+  if (/natal|pascoa|mae|pai|namorado|carnaval|junina|ano novo|halloween/.test(value)) return "dates";
+  if (/profissao|professor|medic|enferm|advog|motorista|barbeiro|mecanico/.test(value)) return "professions";
+  if (/infantil|desenho|personagem|anime|heroi|princesa|gamer/.test(value)) return "characters";
+  if (/frase|relig|fe|evangel|motiv|familia/.test(value)) return "themes";
+  return "collections";
+}
+
 export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => void }) {
   const listLibrary = useServerFn(listArtLibrary);
   const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: ROOT_ID, name: "Todas as artes" }]);
@@ -120,24 +132,31 @@ export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => v
 
   const categories = useMemo<Category[]>(() => {
     const groups: Category[] = [
-      { key: "folders", label: "Coleções", items: [] },
+      { key: "sports", label: "Esportes e times", items: [] },
+      { key: "dates", label: "Datas comemorativas", items: [] },
+      { key: "professions", label: "Profissões", items: [] },
+      { key: "characters", label: "Infantil e personagens", items: [] },
+      { key: "themes", label: "Frases e temas", items: [] },
+      { key: "collections", label: "Outras coleções", items: [] },
       { key: "images", label: "Imagens", items: [] },
-      { key: "pdfs", label: "PDFs", items: [] },
+      { key: "pdfs", label: "Documentos PDF", items: [] },
       { key: "vectors", label: "Vetores", items: [] },
       { key: "others", label: "Outros arquivos", items: [] },
     ];
     for (const item of visibleItems) {
-      if (item.isFolder) groups[0].items.push(item);
+      if (item.isFolder) groups.find((group) => group.key === folderCategory(item.name))?.items.push(item);
       else if (item.mimeType.startsWith("image/") && item.mimeType !== "image/svg+xml")
-        groups[1].items.push(item);
-      else if (item.mimeType === "application/pdf") groups[2].items.push(item);
+        groups.find((group) => group.key === "images")?.items.push(item);
+      else if (item.mimeType === "application/pdf") groups.find((group) => group.key === "pdfs")?.items.push(item);
       else if (
         item.mimeType === "image/svg+xml" ||
-        /illustrator|postscript|eps/i.test(item.mimeType)
+        /illustrator|postscript|eps|coreldraw/i.test(item.mimeType) ||
+        /\.(ai|eps|svg|cdr)$/i.test(item.name)
       )
-        groups[3].items.push(item);
-      else groups[4].items.push(item);
+        groups.find((group) => group.key === "vectors")?.items.push(item);
+      else groups.find((group) => group.key === "others")?.items.push(item);
     }
+    for (const group of groups) group.items.sort((a, b) => naturalOrder.compare(a.name, b.name));
     return groups.filter((group) => group.items.length > 0);
   }, [visibleItems]);
 
@@ -359,7 +378,7 @@ export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => v
             Nenhum arquivo encontrado nesta pasta.
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-7">
             {error && (
               <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-foreground">
                 {error}
@@ -367,7 +386,7 @@ export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => v
             )}
             {categories.map((category) => (
               <section key={category.key} aria-labelledby={`category-${category.key}`}>
-                <div className="mb-3 flex items-center gap-2">
+                <div className="mb-3 flex items-center gap-2 border-b border-border/60 pb-2">
                   <h2 id={`category-${category.key}`} className="text-lg font-black">
                     {category.label}
                   </h2>
