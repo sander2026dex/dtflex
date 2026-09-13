@@ -9,8 +9,8 @@
 - [x] Integrar o projeto Gestão DTF enviado ao menu Ferramentas
 - [x] Reorganizar e refinar as categorias da biblioteca
 - [x] Validar a Gestão DTF e as ferramentas existentes
-- [ ] Usar automaticamente o mesmo acesso da plataforma na Gestão DTF
-- [ ] Iniciar a Gestão DTF zerada e separar os dados por cliente
-- [ ] Destacar em amarelo os novos controles e botões de retorno
-- [ ] Permitir enviar uma arte da Biblioteca diretamente para o Halftone
+- [x] Usar automaticamente o mesmo acesso da plataforma na Gestão DTF
+- [x] Iniciar a Gestão DTF zerada e separar os dados por cliente
+- [x] Destacar em amarelo os novos controles e botões de retorno
+- [x] Permitir enviar uma arte da Biblioteca diretamente para o Halftone
 - [ ] Validar o fluxo Biblioteca → Halftone e a persistência isolada da Gestão DTF

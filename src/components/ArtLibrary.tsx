@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  WandSparkles,
 } from "lucide-react";
 import { listArtLibrary } from "@/lib/drive-library.functions";
 import { Button } from "@/components/ui/button";
@@ -67,7 +68,13 @@ function folderCategory(name: string) {
   return "collections";
 }
 
-export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => void }) {
+export default function ArtLibrary({
+  onOpenHalftone,
+  onUseInHalftone,
+}: {
+  onOpenHalftone: () => void;
+  onUseInHalftone: (file: { url: string; name: string }) => void;
+}) {
   const listLibrary = useServerFn(listArtLibrary);
   const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: ROOT_ID, name: "Todas as artes" }]);
   const [items, setItems] = useState<LibraryItem[]>([]);
@@ -245,14 +252,31 @@ export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => v
                 <ChevronRight className="size-4" />
               </Button>
             ) : (
-              <Button size="icon" variant="ghost" className="size-8" asChild>
-                <a
-                  href={`/api/drive-file?id=${encodeURIComponent(item.id)}&path=${encodeURIComponent(pathKey)}&download=1`}
-                  aria-label={`Baixar ${item.name}`}
-                >
-                  <Download className="size-4" />
-                </a>
-              </Button>
+              <div className="flex items-center gap-1">
+                {(item.mimeType.startsWith("image/") || item.mimeType === "application/pdf") && (
+                  <Button
+                    size="sm"
+                    className="h-8 bg-primary px-2 text-primary-foreground hover:bg-primary/90"
+                    onClick={() =>
+                      onUseInHalftone({
+                        url: `/api/drive-file?id=${encodeURIComponent(item.id)}&path=${encodeURIComponent(pathKey)}&download=1`,
+                        name: item.name,
+                      })
+                    }
+                  >
+                    <WandSparkles className="size-3.5" />
+                    Usar
+                  </Button>
+                )}
+                <Button size="icon" variant="ghost" className="size-8" asChild>
+                  <a
+                    href={`/api/drive-file?id=${encodeURIComponent(item.id)}&path=${encodeURIComponent(pathKey)}&download=1`}
+                    aria-label={`Baixar ${item.name}`}
+                  >
+                    <Download className="size-4" />
+                  </a>
+                </Button>
+              </div>
             )}
           </div>
         </div>
