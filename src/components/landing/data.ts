@@ -68,21 +68,21 @@ export const testimonialItems: TestimonialItem[] = [
 export const steps: StepItem[] = [
   {
     icon: "upload",
-    title: "Arraste sua imagem",
+    title: "Carregue ou escolha sua arte",
     description:
-      "A ferramenta lê sua arte, prepara a base e organiza automaticamente o ponto inicial para o efeito halftone.",
+      "Envie PNG, JPEG, PDF ou PSD, importe por link ou escolha uma imagem organizada na sua Biblioteca de Artes.",
   },
   {
     icon: "adjustments",
-    title: "Ajuste densidade, ângulo e cor",
+    title: "Escolha o tecido e ajuste",
     description:
-      "O motor automático gera o reticulado e você só refina contraste, densidade e leitura final para produção.",
+      "O motor calcula o tratamento para tecido preto, branco ou colorido e permite refinar formato, densidade, ângulo, cor, sombras e brilho.",
   },
   {
     icon: "download",
-    title: "Exporte em alta resolução",
+    title: "Visualize e exporte em 300 DPI",
     description:
-      "O arquivo final sai pronto para download com acabamento consistente e velocidade de processamento em cerca de 10 segundos.",
+      "Confira a retícula em zoom de impressão e baixe o PNG final em A4 ou A3 com tamanho físico e metadados reais de 300 DPI.",
   },
 ];
 

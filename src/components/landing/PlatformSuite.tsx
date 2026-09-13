@@ -1,4 +1,4 @@
-import { BarChart3, Boxes, FileStack, FolderSearch2, ImageIcon, Palette } from "lucide-react";
+import { BarChart3, Boxes, Calculator, FileStack, FolderSearch2, ImageIcon, Palette } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 
@@ -38,6 +38,12 @@ const platformTools = [
     title: "Fluxo completo em um só lugar",
     description:
       "Importe PNG, JPEG, PDF ou PSD, use imagens por link, prepare a impressão, organize seus arquivos e acompanhe o negócio sem sair da plataforma.",
+  },
+  {
+    icon: Calculator,
+    title: "Calculadora DTF",
+    description:
+      "Calcule medidas e custos da produção com rapidez para preparar orçamentos e tomar decisões sem sair da área de ferramentas.",
   },
 ] as const;
 
