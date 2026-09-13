@@ -53,10 +53,15 @@ function formatDate(value?: string) {
 const naturalOrder = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
 
 function folderCategory(name: string) {
-  const value = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const value = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
   if (/futebol|time|esporte|campeao|copa|jogador/.test(value)) return "sports";
-  if (/natal|pascoa|mae|pai|namorado|carnaval|junina|ano novo|halloween/.test(value)) return "dates";
-  if (/profissao|professor|medic|enferm|advog|motorista|barbeiro|mecanico/.test(value)) return "professions";
+  if (/natal|pascoa|mae|pai|namorado|carnaval|junina|ano novo|halloween/.test(value))
+    return "dates";
+  if (/profissao|professor|medic|enferm|advog|motorista|barbeiro|mecanico/.test(value))
+    return "professions";
   if (/infantil|desenho|personagem|anime|heroi|princesa|gamer/.test(value)) return "characters";
   if (/frase|relig|fe|evangel|motiv|familia/.test(value)) return "themes";
   return "collections";
@@ -144,10 +149,12 @@ export default function ArtLibrary({ onOpenHalftone }: { onOpenHalftone: () => v
       { key: "others", label: "Outros arquivos", items: [] },
     ];
     for (const item of visibleItems) {
-      if (item.isFolder) groups.find((group) => group.key === folderCategory(item.name))?.items.push(item);
+      if (item.isFolder)
+        groups.find((group) => group.key === folderCategory(item.name))?.items.push(item);
       else if (item.mimeType.startsWith("image/") && item.mimeType !== "image/svg+xml")
         groups.find((group) => group.key === "images")?.items.push(item);
-      else if (item.mimeType === "application/pdf") groups.find((group) => group.key === "pdfs")?.items.push(item);
+      else if (item.mimeType === "application/pdf")
+        groups.find((group) => group.key === "pdfs")?.items.push(item);
       else if (
         item.mimeType === "image/svg+xml" ||
         /illustrator|postscript|eps|coreldraw/i.test(item.mimeType) ||
