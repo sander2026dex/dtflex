@@ -1,4 +1,12 @@
-import { BarChart3, Boxes, Calculator, FileStack, FolderSearch2, ImageIcon, Palette } from "lucide-react";
+import {
+  BarChart3,
+  Boxes,
+  Calculator,
+  FileStack,
+  FolderSearch2,
+  ImageIcon,
+  Palette,
+} from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 
