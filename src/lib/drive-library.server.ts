@@ -114,14 +114,20 @@ export async function validateLibraryPath(path: string[]) {
   }
 }
 
+function normalizeLibraryPath(path: string[]) {
+  return path.filter((folderId, index) => index === 0 || folderId !== path[index - 1]);
+}
+
 export async function listDriveChildren(path: string[]): Promise<DriveLibraryItem[]> {
-  await validateLibraryPath(path);
-  return listChildrenUnchecked(path[path.length - 1]);
+  const normalizedPath = normalizeLibraryPath(path);
+  await validateLibraryPath(normalizedPath);
+  return listChildrenUnchecked(normalizedPath[normalizedPath.length - 1]);
 }
 
 export async function assertFileInFolderPath(fileId: string, path: string[]) {
-  await validateLibraryPath(path);
-  const children = await listChildrenUnchecked(path[path.length - 1]);
+  const normalizedPath = normalizeLibraryPath(path);
+  await validateLibraryPath(normalizedPath);
+  const children = await listChildrenUnchecked(normalizedPath[normalizedPath.length - 1]);
   if (!children.some((item) => item.id === fileId)) {
     throw new Error("Arquivo fora da biblioteca permitida.");
   }
