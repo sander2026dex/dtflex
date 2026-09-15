@@ -863,7 +863,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
               <ShieldCheck className="h-4 w-4" />
               Verificar arquivo
             </Button>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
               <Button className="h-14 gap-2 text-xs font-black uppercase leading-4" onClick={exportDTF} disabled={!arts.length || !!busy}>
                 <Download className="h-4 w-4" />
                 {busy ? "Gerando…" : "Baixar PNG"}

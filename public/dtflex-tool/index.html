@@ -1531,6 +1531,8 @@
             window.removeEventListener('pointermove', V.vp.__dtfMove);
             window.removeEventListener('pointerup', V.vp.__dtfUp);
             window.removeEventListener('pointercancel', V.vp.__dtfUp);
+            V.vp.removeEventListener('gesturestart', V.vp.__dtfGesture);
+            V.vp.removeEventListener('gesturechange', V.vp.__dtfGesture);
             V.vp.__dtfWheel = null;
             V.vp.style.overflow = ''; V.vp.style.cursor = ''; V.vp.style.touchAction = '';
           }
@@ -1550,7 +1552,7 @@
           vp.style.cursor = 'grab';
           if (vp.clientHeight < 240) {
             var top = vp.getBoundingClientRect().top;
-            vp.style.height = Math.max(360, Math.round(window.innerHeight - top - 28)) + 'px';
+            vp.style.height = Math.max(120, Math.round(window.innerHeight - top - 20)) + 'px';
           }
 
           c.style.position = 'absolute';
@@ -1646,7 +1648,7 @@
           window.addEventListener('pointercancel', onUp);
           vp.addEventListener('gesturestart', stopGesture, { passive: false });
           vp.addEventListener('gesturechange', stopGesture, { passive: false });
-          vp.__dtfWheel = onWheel; vp.__dtfDown = onDown; vp.__dtfMove = onMove; vp.__dtfUp = onUp;
+          vp.__dtfWheel = onWheel; vp.__dtfDown = onDown; vp.__dtfMove = onMove; vp.__dtfUp = onUp; vp.__dtfGesture = stopGesture;
 
           fitView(true);
         }
@@ -1842,7 +1844,8 @@
             '@media (max-width:600px){' +
             '  body{font-size:14px}' +
             '  #dtf-viewbar{left:8px!important;right:8px!important;bottom:max(8px,env(safe-area-inset-bottom))!important;transform:none!important;width:auto!important;max-width:none!important}' +
-            '  #dtf-url-mobile{left:8px!important;right:8px!important;top:max(8px,env(safe-area-inset-top))!important;width:auto!important}' +
+            '  #dtf-url-mobile{position:relative!important;inset:auto!important;width:100%!important;max-width:none!important;margin:0!important}' +
+            '  #dtf-url-mobile input{font-size:16px!important}' +
             '}' +
             '@media (max-width:900px) and (pointer:coarse){#dtf-viewbar{display:none!important}#dtf-smart-panel{bottom:max(10px,env(safe-area-inset-bottom))!important}}' +
             '@media (min-width:1800px){' +
@@ -2669,6 +2672,10 @@
           bar.innerHTML = '<input id="dtf-url" type="url" placeholder="Colar link da imagem (Pinterest, etc.)" style="flex:1;min-width:0;width:230px;padding:6px 8px;border-radius:7px;border:1px solid #475569;background:#0b1220;color:#e5e7eb;font:600 12px system-ui;" />'
             + '<button id="dtf-url-go" style="padding:7px 10px;border-radius:7px;border:0;background:#0ea5e9;color:#062;font:800 12px system-ui;cursor:pointer;">🔗 Carregar</button>';
           document.body.appendChild(bar);
+          if (window.matchMedia('(max-width:600px) and (pointer:coarse)').matches) {
+            var main = document.querySelector('main');
+            if (main) main.insertBefore(bar, main.firstChild);
+          }
           var inp = bar.querySelector('#dtf-url'), go = bar.querySelector('#dtf-url-go');
           go.onclick = function () {
             var v = (inp.value || '').trim();
