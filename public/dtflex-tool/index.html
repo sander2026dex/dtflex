@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
@@ -421,7 +421,8 @@
           });
 
           var drag = null;
-          stage.addEventListener('mousedown', function(e){
+          stage.style.touchAction = 'none';
+          stage.addEventListener('pointerdown', function(e){
             var r = stage.getBoundingClientRect();
             var px = e.clientX - r.left, py = e.clientY - r.top;
             var t = e.target;
@@ -433,9 +434,10 @@
               drag = { mode:'new', sx:px, sy:py };
               rect = { x:px, y:py, w:1, h:1 }; applyRect();
             }
+            try { stage.setPointerCapture(e.pointerId); } catch(err) {}
             e.preventDefault();
           });
-          window.addEventListener('mousemove', function(e){
+          window.addEventListener('pointermove', function(e){
             if (!drag) return;
             var r = stage.getBoundingClientRect();
             var px = e.clientX - r.left, py = e.clientY - r.top;
@@ -451,8 +453,10 @@
               if (drag.pos.indexOf('n')>-1) { rect.y = drag.oy + dy; rect.h = drag.oh - dy; }
             }
             applyRect();
+            e.preventDefault();
           });
-          window.addEventListener('mouseup', function(){ drag = null; });
+          window.addEventListener('pointerup', function(){ drag = null; });
+          window.addEventListener('pointercancel', function(){ drag = null; });
 
           overlay.querySelector('#dtf-crop-reset').onclick = function(){
             rect = { x:0, y:0, w:dispW, h:dispH }; applyRect();
@@ -1755,7 +1759,10 @@
         (function responsive(){
           var st = document.createElement('style');
           st.textContent =
-            'html{-webkit-text-size-adjust:100%}' +
+            'html{width:100%;min-height:100%;-webkit-text-size-adjust:100%;overflow-x:hidden}' +
+            'body,#root{width:100%;min-width:0;min-height:100%;overflow-x:hidden}' +
+            '#root>*{min-width:0;max-width:100%}' +
+            'img,video,canvas{max-width:100%}' +
             '#dtf-viewbar{max-width:96vw;flex-wrap:wrap;justify-content:center}' +
             '#dtf-viewbar input[type=range]{width:min(210px,38vw)}' +
             '@media (max-width:900px){' +
@@ -1763,6 +1770,22 @@
             '  .text-xs{font-size:12.5px!important}' +
             '  .text-sm{font-size:14px!important}' +
             '  #dtf-viewbar{font-size:12px;padding:6px 10px;gap:7px;bottom:8px}' +
+            '  #dtf-smart-panel{right:max(8px,env(safe-area-inset-right))!important;bottom:max(76px,calc(env(safe-area-inset-bottom) + 68px))!important;width:min(280px,calc(100vw - 16px))!important;max-height:62dvh!important;box-sizing:border-box}' +
+            '  button,input,select{max-width:100%}' +
+            '  button{min-height:40px}' +
+            '  input[type=checkbox],input[type=radio]{min-width:20px;min-height:20px}' +
+            '  input[type=range]{min-height:32px}' +
+            '  .max-w-7xl,.max-w-3xl,.max-w-xl{width:100%!important;min-width:0!important}' +
+            '  .lg\\:grid-cols-12{grid-template-columns:minmax(0,1fr)!important}' +
+            '  .lg\\:col-span-4,.lg\\:col-span-8{grid-column:auto!important}' +
+            '  .min-w-\\[200px\\]{min-width:0!important}' +
+            '}' +
+            '@media (max-width:600px){' +
+            '  body{font-size:14px}' +
+            '  #dtf-viewbar{left:8px!important;right:8px!important;bottom:max(8px,env(safe-area-inset-bottom))!important;transform:none!important;width:auto!important;max-width:none!important}' +
+            '  #dtf-viewbar input[type=range]{order:5;width:100%!important}' +
+            '  #dtf-viewbar button{min-height:36px;padding:6px 10px!important}' +
+            '  #dtf-url-mobile{left:8px!important;right:8px!important;top:max(8px,env(safe-area-inset-top))!important;width:auto!important}' +
             '}' +
             '@media (min-width:1800px){' +
             '  .text-xs{font-size:14px!important}' +
@@ -2583,7 +2606,8 @@
         function build() {
           if (bar) return;
           bar = document.createElement('div');
-          bar.style.cssText = 'position:fixed;top:12px;right:12px;z-index:99996;display:flex;gap:6px;align-items:center;background:rgba(17,24,39,.96);border:1px solid #334155;border-radius:10px;padding:7px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 8px 24px rgba(0,0,0,.45);';
+          bar.id = 'dtf-url-mobile';
+          bar.style.cssText = 'position:fixed;top:12px;right:12px;z-index:99996;display:flex;gap:6px;align-items:center;max-width:calc(100vw - 24px);background:rgba(17,24,39,.96);border:1px solid #334155;border-radius:10px;padding:7px;font:700 12px system-ui;color:#e5e7eb;box-shadow:0 8px 24px rgba(0,0,0,.45);box-sizing:border-box;';
           bar.innerHTML = '<input id="dtf-url" type="url" placeholder="Colar link da imagem (Pinterest, etc.)" style="width:230px;padding:6px 8px;border-radius:7px;border:1px solid #475569;background:#0b1220;color:#e5e7eb;font:600 12px system-ui;" />'
             + '<button id="dtf-url-go" style="padding:7px 10px;border-radius:7px;border:0;background:#0ea5e9;color:#062;font:800 12px system-ui;cursor:pointer;">🔗 Carregar</button>';
           document.body.appendChild(bar);

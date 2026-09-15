@@ -16,4 +16,4 @@
 - [x] Validar o fluxo Biblioteca → Halftone e a persistência isolada da Gestão DTF
 - [x] Atualizar a landing page com todas as novas ferramentas da plataforma
 
-- [ ] Ajustar a ferramenta Halftone para telas de navegador Android e iPhone.
+- [x] Ajustar a ferramenta Halftone para telas de navegador Android e iPhone.
