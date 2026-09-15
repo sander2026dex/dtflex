@@ -266,7 +266,7 @@ function AppPage() {
       )}
       <iframe
         ref={iframeRef}
-        src="/dtflex-tool/index.html?v=dpi300-smart-v68"
+        src="/dtflex-tool/index.html?v=dpi300-smart-v69"
         title="DTFLEXPRO Halftone Engine"
         style={{
           position: "fixed",
@@ -283,32 +283,32 @@ function AppPage() {
       {/* Ferramentas auxiliares: recolhíveis e no canto inferior esquerdo,
           escondidas enquanto o modal de recorte estiver aberto. */}
       {!cropOpen && (
-        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-2 z-50 flex max-w-[calc(100vw-1rem)] flex-col items-start gap-2 sm:left-4 sm:max-w-none">
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(.5rem,env(safe-area-inset-left))] z-50 flex max-w-[calc(100vw-1rem-env(safe-area-inset-left)-env(safe-area-inset-right))] flex-col items-start gap-2 sm:left-4 sm:max-w-none">
           {toolsOpen && (
-            <div className="flex max-h-[min(62dvh,430px)] max-w-full flex-col items-start gap-2 overflow-y-auto pr-1">
+            <div className="flex max-h-[min(62dvh,430px)] max-w-full flex-col items-stretch gap-2 overflow-y-auto overscroll-contain pr-1">
               <Button
-                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
+                className="h-11 justify-start px-3 text-xs font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white sm:h-10"
                 onClick={() => setShowRemover(true)}
               >
                 <Scissors className="h-4 w-4" />
                 Removedor de fundos
               </Button>
               <Button
-                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.6_0.16_150)] hover:bg-[oklch(0.53_0.16_150)] text-white"
+                className="h-11 justify-start px-3 text-xs font-semibold shadow-lg bg-[oklch(0.6_0.16_150)] hover:bg-[oklch(0.53_0.16_150)] text-white sm:h-10"
                 onClick={() => setShowStudio(true)}
               >
                 <Shirt className="h-4 w-4" />
                 Crie seu mockup
               </Button>
               <Button
-                className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.55_0.18_260)] hover:bg-[oklch(0.48_0.18_260)] text-white"
+                className="h-11 justify-start px-3 text-xs font-semibold shadow-lg bg-[oklch(0.55_0.18_260)] hover:bg-[oklch(0.48_0.18_260)] text-white sm:h-10"
                 onClick={() => setShowGang(true)}
               >
                 <LayoutGrid className="h-4 w-4" />
                 Montagem DTF
               </Button>
               <Button
-                className="h-10 px-3 text-xs font-semibold shadow-lg"
+                className="h-11 justify-start px-3 text-xs font-semibold shadow-lg sm:h-10"
                 onClick={() => setShowLibrary(true)}
               >
                 <Library className="h-4 w-4" />
@@ -316,7 +316,7 @@ function AppPage() {
               </Button>
               <Button
                 variant="outline"
-                className="h-10 px-3 text-xs font-semibold shadow-lg"
+                className="h-11 justify-start px-3 text-xs font-semibold shadow-lg sm:h-10"
                 onClick={() => setShowManagement(true)}
               >
                 <BriefcaseBusiness className="h-4 w-4" />
@@ -324,7 +324,7 @@ function AppPage() {
               </Button>
               <DTFCalculatorDialog
                 trigger={
-                  <Button variant="secondary" className="h-10 px-3 text-xs font-semibold shadow-lg">
+                  <Button variant="secondary" className="h-11 justify-start px-3 text-xs font-semibold shadow-lg sm:h-10">
                     <Calculator className="h-4 w-4" />
                     Calculadora DTF
                   </Button>
@@ -334,7 +334,7 @@ function AppPage() {
           )}
           <Button
             variant="secondary"
-            className="h-9 px-3 text-xs font-semibold shadow-lg"
+            className="h-11 px-3 text-xs font-semibold shadow-lg sm:h-9"
             onClick={() => setToolsOpen((v) => !v)}
           >
             {toolsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -398,20 +398,20 @@ function AppPage() {
       {/* Estúdio de mockup (sem marca d'água) */}
       {showStudio && (
         <div className="fixed inset-0 z-[100] flex flex-col bg-background">
-          <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-b px-2 py-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-4">
             <Button
               variant="outline"
               size="sm"
-              className="gap-1 font-semibold"
+              className="h-11 gap-1 font-semibold sm:h-9"
               onClick={() => setShowStudio(false)}
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar para ferramenta
             </Button>
-            <span className="min-w-0 truncate text-sm text-muted-foreground">Crie seu mockup</span>
+            <span className="min-w-0 truncate text-right text-sm text-muted-foreground sm:text-center">Crie seu mockup</span>
             <div className="hidden w-20 sm:block" />
           </div>
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto overscroll-contain p-2 pb-[max(.5rem,env(safe-area-inset-bottom))] sm:p-4">
             <ClientOnly
               fallback={<div className="h-[560px] animate-pulse rounded-3xl bg-card/50" />}
             >
@@ -440,13 +440,13 @@ function ExternalToolOverlay({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[100] bg-white flex flex-col">
-      <div className="flex items-center justify-between gap-3 px-4 py-2 border-b bg-white">
-        <Button variant="outline" size="sm" className="gap-1 font-semibold" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex min-w-0 flex-col overflow-hidden bg-white">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-b bg-white px-2 py-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-4">
+        <Button variant="outline" size="sm" className="h-11 gap-1 font-semibold sm:h-9" onClick={onClose}>
           <ArrowLeft className="h-4 w-4" />
           Voltar para ferramenta
         </Button>
-        <span className="min-w-0 truncate text-sm text-muted-foreground">{title}</span>
+        <span className="min-w-0 truncate text-right text-sm text-muted-foreground sm:text-center">{title}</span>
         <div className="hidden w-20 sm:block" />
       </div>
       <div className="relative flex-1 w-full overflow-hidden bg-white">

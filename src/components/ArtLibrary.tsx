@@ -244,7 +244,7 @@ export default function ArtLibrary({
               <Button
                 size="icon"
                 variant="ghost"
-                className="size-8"
+                className="size-11 sm:size-8"
                 disabled={loading || refreshing}
                 onClick={() => openFolder(item)}
                 aria-label={`Abrir ${item.name}`}
@@ -256,7 +256,7 @@ export default function ArtLibrary({
                 {(item.mimeType.startsWith("image/") || item.mimeType === "application/pdf") && (
                   <Button
                     size="sm"
-                    className="h-8 bg-amber-400 px-2 text-black hover:bg-amber-300"
+                     className="h-11 bg-amber-400 px-3 text-black hover:bg-amber-300 sm:h-8 sm:px-2"
                     onClick={() =>
                       onUseInHalftone({
                         url: `/api/drive-file?id=${encodeURIComponent(item.id)}&path=${encodeURIComponent(pathKey)}&download=1`,
@@ -268,7 +268,7 @@ export default function ArtLibrary({
                     Usar
                   </Button>
                 )}
-                <Button size="icon" variant="ghost" className="size-8" asChild>
+                <Button size="icon" variant="ghost" className="size-11 sm:size-8" asChild>
                   <a
                     href={`/api/drive-file?id=${encodeURIComponent(item.id)}&path=${encodeURIComponent(pathKey)}&download=1`}
                     aria-label={`Baixar ${item.name}`}
@@ -285,9 +285,9 @@ export default function ArtLibrary({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-background text-foreground">
+    <div className="fixed inset-0 z-[100] overflow-x-hidden overflow-y-auto overscroll-contain bg-background pb-[env(safe-area-inset-bottom)] text-foreground">
       <header className="sticky top-0 z-30 border-b border-border/70 bg-background/95 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-16 max-w-[1500px] items-center gap-3 px-4 sm:px-6">
+        <div className="mx-auto grid min-h-16 max-w-[1500px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 sm:gap-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid size-10 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground shadow-sm">
               <Sparkles className="size-5" />
@@ -307,12 +307,12 @@ export default function ArtLibrary({
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-[1500px] px-3 py-5 sm:px-6 sm:py-8">
         <section className="mb-5 border-b border-border pb-7">
           <p className="mb-2 text-xs font-bold uppercase text-primary">Coleções DTFLEXPRO</p>
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div>
-              <h1 className="max-w-3xl text-3xl font-black leading-tight sm:text-4xl">
+              <h1 className="max-w-3xl text-2xl font-black leading-tight sm:text-4xl">
                 Encontre a arte certa para sua próxima estampa
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
@@ -425,7 +425,7 @@ export default function ArtLibrary({
                     {category.items.length}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                   {category.items.map(renderItem)}
                 </div>
               </section>

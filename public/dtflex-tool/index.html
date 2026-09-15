@@ -1531,6 +1531,8 @@
             window.removeEventListener('pointermove', V.vp.__dtfMove);
             window.removeEventListener('pointerup', V.vp.__dtfUp);
             window.removeEventListener('pointercancel', V.vp.__dtfUp);
+            V.vp.removeEventListener('gesturestart', V.vp.__dtfGesture);
+            V.vp.removeEventListener('gesturechange', V.vp.__dtfGesture);
             V.vp.__dtfWheel = null;
             V.vp.style.overflow = ''; V.vp.style.cursor = ''; V.vp.style.touchAction = '';
           }
@@ -1550,7 +1552,7 @@
           vp.style.cursor = 'grab';
           if (vp.clientHeight < 240) {
             var top = vp.getBoundingClientRect().top;
-            vp.style.height = Math.max(360, Math.round(window.innerHeight - top - 28)) + 'px';
+            vp.style.height = Math.max(120, Math.round(window.innerHeight - top - 20)) + 'px';
           }
 
           c.style.position = 'absolute';
@@ -1570,14 +1572,54 @@
             var factor = Math.exp(-dy * 0.001);
             zoomAt(px, py, V.tZoom * factor);
           };
+          var pointers = new Map();
+          var pinchDistance = 0, pinchZoom = 1, pinchMidX = 0, pinchMidY = 0;
+          function touchPair(){
+            var values = Array.from(pointers.values());
+            return values.length >= 2 ? [values[0], values[1]] : null;
+          }
+          function beginPinch(){
+            var pair = touchPair();
+            if (!pair) return;
+            var dx = pair[1].x - pair[0].x, dy = pair[1].y - pair[0].y;
+            pinchDistance = Math.max(1, Math.hypot(dx, dy));
+            pinchZoom = V.tZoom;
+            pinchMidX = (pair[0].x + pair[1].x) / 2;
+            pinchMidY = (pair[0].y + pair[1].y) / 2;
+            V.dragging = false;
+          }
           var onDown = function(e){
-            if (e.button !== 0 && e.button !== 1) return;
+            if (e.pointerType !== 'touch' && e.button !== 0 && e.button !== 1) return;
             e.preventDefault();
+            var r = vp.getBoundingClientRect();
+            if (e.pointerType === 'touch') {
+              pointers.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top });
+              try { vp.setPointerCapture(e.pointerId); } catch(err){}
+              if (pointers.size >= 2) { beginPinch(); return; }
+            }
             V.dragging = true; V.px = e.clientX; V.py = e.clientY;
             vp.style.cursor = 'grabbing';
             try { vp.setPointerCapture(e.pointerId); } catch(err){}
           };
           var onMove = function(e){
+            if (e.pointerType === 'touch' && pointers.has(e.pointerId)) {
+              var r = vp.getBoundingClientRect();
+              pointers.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top });
+              if (pointers.size >= 2) {
+                e.preventDefault();
+                var pair = touchPair();
+                if (!pair) return;
+                var dxp = pair[1].x - pair[0].x, dyp = pair[1].y - pair[0].y;
+                var distance = Math.max(1, Math.hypot(dxp, dyp));
+                var midX = (pair[0].x + pair[1].x) / 2;
+                var midY = (pair[0].y + pair[1].y) / 2;
+                var worldX = (pinchMidX - V.tOffX) / pinchZoom;
+                var worldY = (pinchMidY - V.tOffY) / pinchZoom;
+                var nextZoom = clampZoom(pinchZoom * distance / pinchDistance);
+                setView(nextZoom, midX - worldX * nextZoom, midY - worldY * nextZoom, true);
+                return;
+              }
+            }
             if (!V.dragging) return;
             e.preventDefault();
             var dx = e.clientX - V.px, dy = e.clientY - V.py;
@@ -1585,14 +1627,28 @@
             // pan 1:1 com o cursor, sem interpolação (resposta imediata)
             setView(V.tZoom, V.tOffX + dx, V.tOffY + dy, true);
           };
-          var onUp = function(){ if (!V.dragging) return; V.dragging = false; paint(); };
+          var onUp = function(e){
+            if (e && e.pointerType === 'touch') pointers.delete(e.pointerId);
+            if (pointers.size === 1) {
+              var remaining = Array.from(pointers.values())[0];
+              var rr = vp.getBoundingClientRect();
+              V.px = remaining.x + rr.left; V.py = remaining.y + rr.top;
+              V.dragging = true;
+            } else if (pointers.size === 0) {
+              V.dragging = false;
+            }
+            paint();
+          };
+          var stopGesture = function(e){ e.preventDefault(); };
 
           vp.addEventListener('wheel', onWheel, { passive: false });
           vp.addEventListener('pointerdown', onDown);
           window.addEventListener('pointermove', onMove, { passive: false });
           window.addEventListener('pointerup', onUp);
           window.addEventListener('pointercancel', onUp);
-          vp.__dtfWheel = onWheel; vp.__dtfDown = onDown; vp.__dtfMove = onMove; vp.__dtfUp = onUp;
+          vp.addEventListener('gesturestart', stopGesture, { passive: false });
+          vp.addEventListener('gesturechange', stopGesture, { passive: false });
+          vp.__dtfWheel = onWheel; vp.__dtfDown = onDown; vp.__dtfMove = onMove; vp.__dtfUp = onUp; vp.__dtfGesture = stopGesture;
 
           fitView(true);
         }
@@ -1788,10 +1844,8 @@
             '@media (max-width:600px){' +
             '  body{font-size:14px}' +
             '  #dtf-viewbar{left:8px!important;right:8px!important;bottom:max(8px,env(safe-area-inset-bottom))!important;transform:none!important;width:auto!important;max-width:none!important}' +
-            '  #dtf-viewbar input[type=range]{order:5;width:100%!important}' +
-            '  #dtf-viewbar button{min-height:36px;padding:6px 10px!important}' +
-            '  #dtf-url-mobile{left:8px!important;right:8px!important;top:max(8px,env(safe-area-inset-top))!important;width:auto!important}' +
             '}' +
+            '@media (max-width:1024px) and (pointer:coarse){#dtf-viewbar{display:none!important}#dtf-smart-panel{bottom:max(10px,env(safe-area-inset-bottom))!important}#dtf-url-mobile{position:relative!important;inset:auto!important;width:100%!important;max-width:none!important;margin:0!important}#dtf-url-mobile input{font-size:16px!important}}' +
             '@media (min-width:1800px){' +
             '  .text-xs{font-size:14px!important}' +
             '  .text-sm{font-size:15.5px!important}' +
@@ -2616,6 +2670,10 @@
           bar.innerHTML = '<input id="dtf-url" type="url" placeholder="Colar link da imagem (Pinterest, etc.)" style="flex:1;min-width:0;width:230px;padding:6px 8px;border-radius:7px;border:1px solid #475569;background:#0b1220;color:#e5e7eb;font:600 12px system-ui;" />'
             + '<button id="dtf-url-go" style="padding:7px 10px;border-radius:7px;border:0;background:#0ea5e9;color:#062;font:800 12px system-ui;cursor:pointer;">🔗 Carregar</button>';
           document.body.appendChild(bar);
+          if (window.matchMedia('(max-width:600px) and (pointer:coarse)').matches) {
+            var main = document.querySelector('main');
+            if (main) main.insertBefore(bar, main.firstChild);
+          }
           var inp = bar.querySelector('#dtf-url'), go = bar.querySelector('#dtf-url-go');
           go.onclick = function () {
             var v = (inp.value || '').trim();
@@ -2627,6 +2685,10 @@
         function tick() {
           build();
           if (!bar) return;
+          if (window.matchMedia('(max-width:1024px) and (pointer:coarse)').matches) {
+            var main = document.querySelector('main');
+            if (main && bar.parentElement !== main) main.insertBefore(bar, main.firstChild);
+          }
           bar.style.display = findInput() ? 'flex' : 'none';
         }
         document.addEventListener('DOMContentLoaded', tick);

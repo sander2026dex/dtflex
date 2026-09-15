@@ -549,19 +549,19 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
     "w-full rounded-md border border-border bg-background px-2 py-2 text-center text-lg font-bold outline-none focus:border-primary";
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-background">
-      <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
-        <Button variant="outline" size="sm" className="gap-1 font-semibold" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex min-w-0 flex-col overflow-hidden bg-background pb-[env(safe-area-inset-bottom)]">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-b px-2 py-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-4">
+        <Button variant="outline" size="sm" className="h-11 gap-1 font-semibold sm:h-9" onClick={onClose}>
           <ArrowLeft className="h-4 w-4" />
           Voltar para ferramenta
         </Button>
-        <span className="text-sm font-semibold text-muted-foreground">Montagem DTF profissional</span>
-        <div className="w-20" />
+        <span className="min-w-0 truncate text-right text-sm font-semibold text-muted-foreground sm:text-center">Montagem DTF profissional</span>
+        <div className="hidden w-20 sm:block" />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,46dvh)_minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-1">
         {/* Painel lateral em etapas */}
-        <aside className="w-full shrink-0 space-y-4 overflow-auto border-r bg-card p-5 text-sm lg:w-[340px]">
+        <aside className="w-full min-w-0 space-y-4 overflow-auto overscroll-contain border-r bg-card p-3 text-sm sm:p-5 lg:w-[340px]">
           <div>
             <h2 className="text-2xl font-black uppercase leading-6 tracking-tight">
               Monte seu arquivo DTF
@@ -863,7 +863,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
               <ShieldCheck className="h-4 w-4" />
               Verificar arquivo
             </Button>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
               <Button className="h-14 gap-2 text-xs font-black uppercase leading-4" onClick={exportDTF} disabled={!arts.length || !!busy}>
                 <Download className="h-4 w-4" />
                 {busy ? "Gerando…" : "Baixar PNG"}
@@ -890,10 +890,10 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
         {/* Palco */}
         <div
           ref={stageRef}
-          className="relative flex min-h-[50vh] flex-1 items-center justify-center overflow-auto bg-muted/40 p-8"
+          className="relative flex min-h-0 min-w-0 items-center justify-center overflow-auto overscroll-contain bg-muted/40 p-3 sm:p-8"
         >
           {/* Controles de zoom */}
-          <div className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-lg border bg-card p-1 shadow">
+          <div className="absolute right-2 top-2 z-10 hidden items-center gap-1 rounded-lg border bg-card p-1 shadow sm:flex">
             <button
               className="h-8 w-8 rounded-md text-lg font-bold hover:bg-accent"
               onClick={() => setZoom((z) => Math.max(0.25, +(z - 0.15).toFixed(2)))}
@@ -915,7 +915,7 @@ export function DTFGangSheetStudio({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Setas de posicionamento */}
-          <div className="absolute right-6 top-20 z-10 grid grid-cols-3 gap-1 rounded-lg border bg-card p-1 shadow">
+          <div className="absolute right-3 top-14 z-10 hidden grid-cols-3 gap-1 rounded-lg border bg-card p-1 shadow sm:grid">
             <span />
             <button className="h-7 w-7 rounded hover:bg-accent" onClick={() => nudge(0, -0.5)}>▲</button>
             <span />
