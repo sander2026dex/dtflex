@@ -327,10 +327,10 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       {/* Preview — A3 */}
       <div
-        className="relative flex items-center justify-center overflow-hidden rounded-3xl border border-border p-6 shadow-[var(--shadow-panel)] transition-colors"
+        className="relative flex min-w-0 items-center justify-center overflow-hidden rounded-lg border border-border p-2 shadow-[var(--shadow-panel)] transition-colors sm:p-6"
         style={{
           backgroundColor: studioBg,
           backgroundImage: studioBgImage ? `url(${studioBgImage})` : undefined,
@@ -368,7 +368,7 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
       </div>
 
       {/* Controls */}
-      <div className="space-y-6 rounded-3xl border border-border bg-card/70 p-6 backdrop-blur">
+      <div className="min-w-0 space-y-5 rounded-lg border border-border bg-card/70 p-3 backdrop-blur sm:space-y-6 sm:p-6">
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Modelo</p>
           <div className="grid grid-cols-2 gap-2">
@@ -378,7 +378,7 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
                 type="button"
                 onClick={() => setModel(m.id)}
                 className={cn(
-                  "rounded-xl border px-3 py-2 text-sm font-medium transition-all hover:border-primary hover:bg-primary/10",
+                  "min-h-11 rounded-md border px-2 py-2 text-sm font-medium transition-all hover:border-primary hover:bg-primary/10 sm:px-3",
                   model === m.id ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground",
                 )}
               >
@@ -397,7 +397,7 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
                 type="button"
                 onClick={() => setSide(s.id)}
                 className={cn(
-                  "rounded-xl border px-3 py-2 text-sm font-medium transition-all hover:border-accent hover:bg-accent/10",
+                  "min-h-11 rounded-md border px-2 py-2 text-sm font-medium transition-all hover:border-accent hover:bg-accent/10 sm:px-3",
                   side === s.id ? "border-accent bg-accent/15 text-foreground" : "border-border text-muted-foreground",
                 )}
               >
@@ -417,7 +417,7 @@ export default function ShirtStudioCanvas({ watermark = true }: { watermark?: bo
                 aria-label={`Cor ${c}`}
                 onClick={() => setShirtColor(c)}
                 className={cn(
-                  "h-8 w-8 rounded-full border-2 transition-transform hover:scale-110",
+                   "h-11 w-11 rounded-full border-2 transition-transform hover:scale-110 sm:h-9 sm:w-9",
                   shirtColor === c ? "border-primary ring-2 ring-primary/40" : "border-border",
                 )}
                 style={{ backgroundColor: c }}

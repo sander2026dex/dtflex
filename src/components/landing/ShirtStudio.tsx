@@ -5,13 +5,13 @@ const ShirtStudioCanvas = lazy(() => import("./shirt-studio/ShirtStudioCanvas"))
 
 function StudioSkeleton() {
   return (
-    <div className="h-[560px] w-full animate-pulse rounded-3xl border border-border bg-card/50" />
+    <div className="mx-auto aspect-[297/420] w-full max-w-[420px] animate-pulse rounded-lg border border-border bg-card/50 sm:max-w-none sm:aspect-auto sm:h-[560px]" />
   );
 }
 
 export function ShirtStudio() {
   return (
-    <section id="estudio" className="mx-auto w-full max-w-6xl px-4 py-20">
+    <section id="estudio" className="mx-auto w-full max-w-6xl px-3 py-14 sm:px-4 sm:py-20">
       <div className="mb-10 text-center">
         <span className="inline-block rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
           Novo · Estúdio de personalização

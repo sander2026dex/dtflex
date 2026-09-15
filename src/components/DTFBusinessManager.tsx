@@ -196,7 +196,7 @@ export default function DTFBusinessManager({
   const activeLabel = nav.find(([id]) => id === section)?.[1] ?? "Gestão DTF";
 
   return (
-    <div className="fixed inset-0 z-[110] flex bg-background text-foreground">
+    <div className="fixed inset-0 z-[110] flex min-w-0 overflow-hidden bg-background pb-[env(safe-area-inset-bottom)] text-foreground">
       {menuOpen && (
         <button
           aria-label="Fechar menu"
@@ -205,7 +205,7 @@ export default function DTFBusinessManager({
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-border bg-card transition-transform lg:static lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-30 flex w-[min(18rem,88vw)] flex-col border-r border-border bg-card transition-transform lg:static lg:w-64 lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-16 items-center gap-3 border-b border-border px-4">
           <div className="grid size-9 place-items-center rounded-md bg-primary text-primary-foreground">
@@ -256,7 +256,7 @@ export default function DTFBusinessManager({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur sm:px-5">
+        <header className="grid min-h-16 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-background/95 px-2 py-2 backdrop-blur sm:px-5">
           <Button
             variant="ghost"
             size="icon"
@@ -265,8 +265,8 @@ export default function DTFBusinessManager({
           >
             <Menu className="size-5" />
           </Button>
-          <div>
-            <p className="font-bold">{activeLabel}</p>
+          <div className="min-w-0">
+            <p className="truncate font-bold">{activeLabel}</p>
             <p className="hidden text-xs text-muted-foreground sm:block">
               Controle operacional DTF em tempo real
             </p>
@@ -280,13 +280,13 @@ export default function DTFBusinessManager({
               className="pl-9"
             />
           </div>
-          <Button className="bg-amber-400 text-black hover:bg-amber-300" onClick={onClose}>
+          <Button className="h-11 shrink-0 bg-amber-400 px-3 text-black hover:bg-amber-300 sm:h-9" onClick={onClose}>
             <ArrowLeft className="size-4" />
             <span className="hidden sm:inline">Voltar para ferramenta</span>
             <span className="sm:hidden">Voltar</span>
           </Button>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-6">
           {section === "dashboard" && (
             <Dashboard store={store} metrics={metrics} onSection={setSection} />
           )}
@@ -371,7 +371,7 @@ function PageTitle({
   return (
     <div className="mb-5 flex flex-col justify-between gap-3 border-b border-border pb-5 sm:flex-row sm:items-end">
       <div>
-        <h1 className="text-2xl font-black">{title}</h1>
+        <h1 className="text-xl font-black sm:text-2xl">{title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{text}</p>
       </div>
       {action}
