@@ -228,7 +228,7 @@ function AppPage() {
     <>
       {exp && (
         <div
-          className={`fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 text-xs font-medium shadow ${toneBg}`}
+          className={`fixed left-0 right-0 top-0 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5 text-xs font-medium shadow sm:px-4 ${toneBg}`}
         >
           <span className="truncate">
             {expiry?.email ? `${expiry.email} · ` : ""}
@@ -246,10 +246,10 @@ function AppPage() {
       )}
       {showRenewBanner && (
         <div
-          className="fixed left-0 right-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 text-xs font-semibold shadow bg-amber-500 text-black"
+          className="fixed left-0 right-0 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 bg-amber-500 px-2 py-1.5 text-xs font-semibold text-black shadow sm:px-4"
           style={{ top: 28 }}
         >
-          <span className="truncate">
+          <span className="min-w-0 truncate">
             ⚠️ Seu acesso está{" "}
             {exp?.tone === "danger" ? "expirado/quase expirando" : "perto de expirar"}. Entre em
             contato com o administrador para renovar.
@@ -258,7 +258,7 @@ function AppPage() {
             href={`https://wa.me/${ADMIN_WHATSAPP}?text=${renewMsg}`}
             target="_blank"
             rel="noreferrer"
-            className="flex shrink-0 items-center gap-1 rounded-md bg-black/80 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white hover:bg-black"
+            className="flex shrink-0 items-center gap-1 rounded-md bg-black/80 px-2 py-0.5 text-[10px] font-bold uppercase text-white hover:bg-black sm:text-[11px]"
           >
             Renovar pelo WhatsApp
           </a>
@@ -275,7 +275,7 @@ function AppPage() {
           bottom: 0,
           top: topOffset,
           width: "100vw",
-          height: `calc(100vh - ${topOffset}px)`,
+          height: `calc(100dvh - ${topOffset}px)`,
           border: "none",
           background: "#0a0c10",
         }}
@@ -283,9 +283,9 @@ function AppPage() {
       {/* Ferramentas auxiliares: recolhíveis e no canto inferior esquerdo,
           escondidas enquanto o modal de recorte estiver aberto. */}
       {!cropOpen && (
-        <div className="fixed bottom-4 left-4 z-50 flex flex-col items-start gap-2">
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-2 z-50 flex max-w-[calc(100vw-1rem)] flex-col items-start gap-2 sm:left-4 sm:max-w-none">
           {toolsOpen && (
-            <div className="flex flex-col items-start gap-2">
+            <div className="flex max-h-[min(62dvh,430px)] max-w-full flex-col items-start gap-2 overflow-y-auto pr-1">
               <Button
                 className="h-10 px-3 text-xs font-semibold shadow-lg bg-[oklch(0.58_0.25_27)] hover:bg-[oklch(0.52_0.25_27)] text-white"
                 onClick={() => setShowRemover(true)}
@@ -408,8 +408,8 @@ function AppPage() {
               <ArrowLeft className="h-4 w-4" />
               Voltar para ferramenta
             </Button>
-            <span className="text-sm text-muted-foreground">Crie seu mockup</span>
-            <div className="w-20" />
+            <span className="min-w-0 truncate text-sm text-muted-foreground">Crie seu mockup</span>
+            <div className="hidden w-20 sm:block" />
           </div>
           <div className="flex-1 overflow-auto p-4">
             <ClientOnly
@@ -446,8 +446,8 @@ function ExternalToolOverlay({
           <ArrowLeft className="h-4 w-4" />
           Voltar para ferramenta
         </Button>
-        <span className="text-sm text-muted-foreground">{title}</span>
-        <div className="w-20" />
+        <span className="min-w-0 truncate text-sm text-muted-foreground">{title}</span>
+        <div className="hidden w-20 sm:block" />
       </div>
       <div className="relative flex-1 w-full overflow-hidden bg-white">
         <iframe
