@@ -1844,10 +1844,8 @@
             '@media (max-width:600px){' +
             '  body{font-size:14px}' +
             '  #dtf-viewbar{left:8px!important;right:8px!important;bottom:max(8px,env(safe-area-inset-bottom))!important;transform:none!important;width:auto!important;max-width:none!important}' +
-            '  #dtf-url-mobile{position:relative!important;inset:auto!important;width:100%!important;max-width:none!important;margin:0!important}' +
-            '  #dtf-url-mobile input{font-size:16px!important}' +
             '}' +
-            '@media (max-width:900px) and (pointer:coarse){#dtf-viewbar{display:none!important}#dtf-smart-panel{bottom:max(10px,env(safe-area-inset-bottom))!important}}' +
+            '@media (max-width:1024px) and (pointer:coarse){#dtf-viewbar{display:none!important}#dtf-smart-panel{bottom:max(10px,env(safe-area-inset-bottom))!important}#dtf-url-mobile{position:relative!important;inset:auto!important;width:100%!important;max-width:none!important;margin:0!important}#dtf-url-mobile input{font-size:16px!important}}' +
             '@media (min-width:1800px){' +
             '  .text-xs{font-size:14px!important}' +
             '  .text-sm{font-size:15.5px!important}' +
@@ -2687,6 +2685,10 @@
         function tick() {
           build();
           if (!bar) return;
+          if (window.matchMedia('(max-width:1024px) and (pointer:coarse)').matches) {
+            var main = document.querySelector('main');
+            if (main && bar.parentElement !== main) main.insertBefore(bar, main.firstChild);
+          }
           bar.style.display = findInput() ? 'flex' : 'none';
         }
         document.addEventListener('DOMContentLoaded', tick);
