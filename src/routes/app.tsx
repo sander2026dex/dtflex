@@ -408,8 +408,8 @@ function AppPage() {
               <ArrowLeft className="h-4 w-4" />
               Voltar para ferramenta
             </Button>
-            <span className="text-sm text-muted-foreground">Crie seu mockup</span>
-            <div className="w-20" />
+            <span className="min-w-0 truncate text-sm text-muted-foreground">Crie seu mockup</span>
+            <div className="hidden w-20 sm:block" />
           </div>
           <div className="flex-1 overflow-auto p-4">
             <ClientOnly
@@ -446,8 +446,8 @@ function ExternalToolOverlay({
           <ArrowLeft className="h-4 w-4" />
           Voltar para ferramenta
         </Button>
-        <span className="text-sm text-muted-foreground">{title}</span>
-        <div className="w-20" />
+        <span className="min-w-0 truncate text-sm text-muted-foreground">{title}</span>
+        <div className="hidden w-20 sm:block" />
       </div>
       <div className="relative flex-1 w-full overflow-hidden bg-white">
         <iframe
