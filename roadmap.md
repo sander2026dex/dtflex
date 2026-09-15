@@ -21,4 +21,4 @@
 - [x] Substituir controles de zoom no celular por gesto de pinça no Halftone
 - [x] Tornar Halftone, Biblioteca, Mockups, Montagem e Gestão responsivos em celular/tablet/desktop
 - [x] Corrigir safe areas, alvos de toque e qualquer rolagem horizontal
-- [ ] Validar visualmente em Android, iPhone, tablet e desktop
+- [x] Validar visualmente em Android, iPhone, tablet e desktop
