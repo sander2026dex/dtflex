@@ -31,6 +31,10 @@ function config() {
  * Bloqueia abuso direto de endpoints pagos (AI image gen etc.).
  */
 export async function assertAccessAuthenticated(): Promise<void> {
+  await getAuthenticatedAccess();
+}
+
+export async function getAuthenticatedAccess(): Promise<{ accessId: string; email: string }> {
   const session = await useSession<AccessSessionData>(config());
   const accessId = session.data?.accessId;
   const sessionToken = session.data?.sessionToken;
@@ -54,4 +58,6 @@ export async function assertAccessAuthenticated(): Promise<void> {
   if (!active) {
     throw new Error("Acesso não autorizado");
   }
+
+  return { accessId, email: session.data.email };
 }
