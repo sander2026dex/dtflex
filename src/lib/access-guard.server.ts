@@ -59,5 +59,5 @@ export async function getAuthenticatedAccess(): Promise<{ accessId: string; emai
     throw new Error("Acesso não autorizado");
   }
 
-  return { accessId, email: session.data.email };
+  return { accessId, email: session.data.email ?? "" };
 }
