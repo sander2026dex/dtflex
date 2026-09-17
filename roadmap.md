@@ -22,3 +22,8 @@
 - [x] Tornar Halftone, Biblioteca, Mockups, Montagem e Gestão responsivos em celular/tablet/desktop
 - [x] Corrigir safe areas, alvos de toque e qualquer rolagem horizontal
 - [x] Validar visualmente em Android, iPhone, tablet e desktop
+
+- [ ] Adicionar Catálogo em Lote às Ferramentas
+- [ ] Processar 20–100 PNGs com fila, mockups, códigos e persistência por conta
+- [ ] Exportar PDF/ZIP e publicar catálogo online compartilhável
+- [ ] Validar lote, falhas isoladas e telas mobile/desktop

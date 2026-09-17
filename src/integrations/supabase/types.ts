@@ -242,6 +242,172 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_batches: {
+        Row: {
+          category: string
+          completed_items: number
+          created_at: string
+          failed_items: number
+          id: string
+          name: string
+          prefix: string
+          public_token: string
+          published_at: string | null
+          settings: Json
+          status: string
+          total_items: number
+          updated_at: string
+          user_access_id: string
+        }
+        Insert: {
+          category?: string
+          completed_items?: number
+          created_at?: string
+          failed_items?: number
+          id?: string
+          name: string
+          prefix?: string
+          public_token?: string
+          published_at?: string | null
+          settings?: Json
+          status?: string
+          total_items?: number
+          updated_at?: string
+          user_access_id: string
+        }
+        Update: {
+          category?: string
+          completed_items?: number
+          created_at?: string
+          failed_items?: number
+          id?: string
+          name?: string
+          prefix?: string
+          public_token?: string
+          published_at?: string | null
+          settings?: Json
+          status?: string
+          total_items?: number
+          updated_at?: string
+          user_access_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_batches_user_access_id_fkey"
+            columns: ["user_access_id"]
+            isOneToOne: false
+            referencedRelation: "user_access"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_products: {
+        Row: {
+          batch_id: string
+          category: string
+          code: string
+          created_at: string
+          description: string
+          error_message: string | null
+          id: string
+          mockup_paths: Json
+          name: string
+          original_path: string
+          product_data: Json
+          sort_order: number
+          source_filename: string
+          status: string
+          updated_at: string
+          user_access_id: string
+        }
+        Insert: {
+          batch_id: string
+          category: string
+          code: string
+          created_at?: string
+          description?: string
+          error_message?: string | null
+          id?: string
+          mockup_paths?: Json
+          name: string
+          original_path: string
+          product_data?: Json
+          sort_order?: number
+          source_filename: string
+          status?: string
+          updated_at?: string
+          user_access_id: string
+        }
+        Update: {
+          batch_id?: string
+          category?: string
+          code?: string
+          created_at?: string
+          description?: string
+          error_message?: string | null
+          id?: string
+          mockup_paths?: Json
+          name?: string
+          original_path?: string
+          product_data?: Json
+          sort_order?: number
+          source_filename?: string
+          status?: string
+          updated_at?: string
+          user_access_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_products_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_products_user_access_id_fkey"
+            columns: ["user_access_id"]
+            isOneToOne: false
+            referencedRelation: "user_access"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_templates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          settings: Json
+          updated_at: string
+          user_access_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          settings?: Json
+          updated_at?: string
+          user_access_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          settings?: Json
+          updated_at?: string
+          user_access_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_templates_user_access_id_fkey"
+            columns: ["user_access_id"]
+            isOneToOne: false
+            referencedRelation: "user_access"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           created_at: string
