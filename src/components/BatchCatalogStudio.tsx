@@ -28,12 +28,14 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { createCatalogMockup } from "@/lib/catalog-mockup";
 import type { ShirtModel } from "@/components/landing/shirt-studio/ShirtMockup";
+import { supabase } from "@/integrations/supabase/client";
 import {
+  completeCatalogProduct,
   createCatalogBatch,
   finishCatalogBatch,
   getCatalogBatch,
   listCatalogTemplates,
-  processCatalogProduct,
+  prepareCatalogProductUpload,
   publishCatalogBatch,
   saveCatalogTemplate,
 } from "@/lib/catalog.functions";
@@ -103,7 +105,8 @@ function money(value: number) {
 
 export default function BatchCatalogStudio({ onClose }: { onClose: () => void }) {
   const createBatch = useServerFn(createCatalogBatch);
-  const processProduct = useServerFn(processCatalogProduct);
+  const prepareUpload = useServerFn(prepareCatalogProductUpload);
+  const completeProduct = useServerFn(completeCatalogProduct);
   const finishBatch = useServerFn(finishCatalogBatch);
   const publishBatch = useServerFn(publishCatalogBatch);
   const saveTemplate = useServerFn(saveCatalogTemplate);
@@ -164,9 +167,17 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
         blobs.push(await createCatalogMockup({ art: item.file, model: MODEL_MAP[combination.model] ?? "careca", color: combination.color, brandName: settings.brandName, watermark: settings.watermark, watermarkColor: settings.watermarkColor, watermarkOpacity: settings.watermarkOpacity, printSize: settings.printSize, position: settings.position as "Peito" | "Centro" | "Costas" }));
         await new Promise((resolve) => requestAnimationFrame(resolve));
       }
-      const original = { base64: await dataUrl(item.file), mime: "image/png" as const, name: item.file.name };
-      const encoded = await Promise.all(blobs.map(async (blob, index) => ({ base64: await dataUrl(blob), mime: "image/webp" as const, name: `mockup-${index + 1}.webp` })));
-      const result: any = await processProduct({ data: { batchId: id, code, order, original, mockups: encoded, settings: { ...settings, logoName: logo?.name } } });
+      if (item.file.size > 20 * 1024 * 1024) throw new Error("PNG maior que 20 MB.");
+      const prepared = await prepareUpload({ data: { batchId: id, code, originalName: item.file.name, mockupCount: blobs.length } });
+      const originalUpload = await supabase.storage.from("catalog-assets").uploadToSignedUrl(prepared.original.path, prepared.original.token, item.file, { contentType: "image/png" });
+      if (originalUpload.error) throw new Error("Falha ao enviar o PNG original.");
+      for (let index = 0; index < blobs.length; index += 1) {
+        const target = prepared.mockups[index];
+        if (!target) throw new Error("Destino de mockup inválido.");
+        const uploaded = await supabase.storage.from("catalog-assets").uploadToSignedUrl(target.path, target.token, blobs[index], { contentType: "image/webp" });
+        if (uploaded.error) throw new Error(`Falha ao enviar mockup ${index + 1}.`);
+      }
+      const result: any = await completeProduct({ data: { batchId: id, code, order, originalName: item.file.name, originalPath: prepared.original.path, mockupPaths: prepared.mockups.map((target) => target.path), settings: { ...settings, logoName: logo?.name } } });
       setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "done", code, mockups: result.mockups } : entry));
       return true;
     } catch (error) {

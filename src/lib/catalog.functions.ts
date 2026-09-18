@@ -23,16 +23,6 @@ const settingsSchema = z.object({
   sortBy: z.enum(["upload", "code", "name", "category", "price"]),
 });
 
-const imageSchema = z.object({
-  base64: z.string().min(20).max(28_000_000),
-  mime: z.enum(["image/png", "image/webp"]),
-  name: z.string().min(1).max(180),
-});
-
-function decodeBase64(input: string) {
-  return Buffer.from(input.includes(",") ? input.split(",")[1] : input, "base64");
-}
-
 function safeName(name: string) {
   return name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 90);
 }
@@ -71,36 +61,55 @@ export const createCatalogBatch = createServerFn({ method: "POST" })
     return { id: batch.id as string, publicToken: batch.public_token as string, start };
   });
 
-export const processCatalogProduct = createServerFn({ method: "POST" })
+export const prepareCatalogProductUpload = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({
     batchId: z.string().uuid(),
     code: z.string().min(3).max(30),
-    order: z.number().int().min(0).max(99),
-    original: imageSchema,
-    mockups: z.array(imageSchema).min(1).max(24),
-    settings: settingsSchema,
+    originalName: z.string().min(1).max(180),
+    mockupCount: z.number().int().min(1).max(24),
   }).parse(input))
   .handler(async ({ data }) => {
     const { db, access } = await context();
     const { data: batch } = await db.from("catalog_batches").select("id").eq("id", data.batchId).eq("user_access_id", access.accessId).maybeSingle();
     if (!batch) throw new Error("Catálogo não encontrado.");
     const basePath = `${access.accessId}/${data.batchId}/${data.code}`;
-    const originalPath = `${basePath}/original-${safeName(data.original.name)}`;
-    const originalBytes = decodeBase64(data.original.base64);
-    if (originalBytes.byteLength > 20 * 1024 * 1024) throw new Error("PNG maior que 20 MB.");
-    const { error: originalError } = await db.storage.from("catalog-assets").upload(originalPath, originalBytes, { contentType: data.original.mime, upsert: false });
-    if (originalError) throw new Error(`Falha ao salvar ${data.original.name}.`);
+    const paths = [
+      `${basePath}/original-${safeName(data.originalName)}`,
+      ...Array.from({ length: data.mockupCount }, (_, index) => `${basePath}/mockup-${String(index + 1).padStart(2, "0")}.webp`),
+    ];
+    const signed = [] as Array<{ path: string; token: string }>;
+    for (const path of paths) {
+      const { data: upload, error } = await db.storage.from("catalog-assets").createSignedUploadUrl(path);
+      if (error || !upload?.token) throw new Error("Não foi possível preparar o envio da imagem.");
+      signed.push({ path, token: upload.token });
+    }
+    return { original: signed[0], mockups: signed.slice(1) };
+  });
 
-    const mockupPaths: string[] = [];
+export const completeCatalogProduct = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({
+    batchId: z.string().uuid(),
+    code: z.string().min(3).max(30),
+    order: z.number().int().min(0).max(99),
+    originalName: z.string().min(1).max(180),
+    originalPath: z.string().min(10).max(500),
+    mockupPaths: z.array(z.string().min(10).max(500)).min(1).max(24),
+    settings: settingsSchema,
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const { db, access } = await context();
+    const { data: batch } = await db.from("catalog_batches").select("id").eq("id", data.batchId).eq("user_access_id", access.accessId).maybeSingle();
+    if (!batch) throw new Error("Catálogo não encontrado.");
+    const ownedPrefix = `${access.accessId}/${data.batchId}/${data.code}/`;
+    if (!data.originalPath.startsWith(ownedPrefix) || data.mockupPaths.some((path) => !path.startsWith(ownedPrefix))) {
+      throw new Error("Arquivos do catálogo inválidos.");
+    }
+    const { data: stored } = await db.storage.from("catalog-assets").list(`${access.accessId}/${data.batchId}/${data.code}`);
+    const storedNames = new Set((stored ?? []).map((item: { name: string }) => item.name));
+    const expectedNames = [data.originalPath, ...data.mockupPaths].map((path) => path.split("/").pop() ?? "");
+    if (expectedNames.some((name) => !storedNames.has(name))) throw new Error("O envio das imagens não foi concluído.");
     try {
-      for (let index = 0; index < data.mockups.length; index += 1) {
-        const mockup = data.mockups[index];
-        const path = `${basePath}/mockup-${String(index + 1).padStart(2, "0")}.webp`;
-        const { error } = await db.storage.from("catalog-assets").upload(path, decodeBase64(mockup.base64), { contentType: "image/webp", upsert: false });
-        if (error) throw error;
-        mockupPaths.push(path);
-      }
-      const name = professionalName(data.original.name);
+      const name = professionalName(data.originalName);
       const description = `${name} em ${data.settings.productType}, tecido ${data.settings.fabric}, modelagem ${data.settings.modeling}. Tamanhos ${data.settings.sizes.join(", ")}. Impressão DTF com arte original preservada.`;
       const { error } = await db.from("catalog_products").insert({
         batch_id: data.batchId,
@@ -109,18 +118,18 @@ export const processCatalogProduct = createServerFn({ method: "POST" })
         name,
         category: data.settings.category,
         description,
-        original_path: originalPath,
-        mockup_paths: mockupPaths,
-        source_filename: data.original.name,
+        original_path: data.originalPath,
+        mockup_paths: data.mockupPaths,
+        source_filename: data.originalName,
         sort_order: data.order,
         status: "ready",
         product_data: data.settings,
       });
       if (error) throw error;
       await db.from("catalog_batches").update({ completed_items: data.order + 1 }).eq("id", data.batchId);
-      return { code: data.code, name, mockups: mockupPaths.length };
+      return { code: data.code, name, mockups: data.mockupPaths.length };
     } catch (error) {
-      await db.storage.from("catalog-assets").remove([originalPath, ...mockupPaths]);
+      await db.storage.from("catalog-assets").remove([data.originalPath, ...data.mockupPaths]);
       throw new Error(error instanceof Error ? error.message : "Não foi possível processar esta imagem.");
     }
   });
