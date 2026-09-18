@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDown,
@@ -6,7 +6,6 @@ import {
   ArrowUp,
   BookOpen,
   Check,
-  Download,
   FileArchive,
   FileText,
   ImagePlus,
@@ -29,12 +28,14 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { createCatalogMockup } from "@/lib/catalog-mockup";
 import type { ShirtModel } from "@/components/landing/shirt-studio/ShirtMockup";
+import { supabase } from "@/integrations/supabase/client";
 import {
+  completeCatalogProduct,
   createCatalogBatch,
   finishCatalogBatch,
   getCatalogBatch,
   listCatalogTemplates,
-  processCatalogProduct,
+  prepareCatalogProductUpload,
   publishCatalogBatch,
   saveCatalogTemplate,
 } from "@/lib/catalog.functions";
@@ -104,7 +105,8 @@ function money(value: number) {
 
 export default function BatchCatalogStudio({ onClose }: { onClose: () => void }) {
   const createBatch = useServerFn(createCatalogBatch);
-  const processProduct = useServerFn(processCatalogProduct);
+  const prepareUpload = useServerFn(prepareCatalogProductUpload);
+  const completeProduct = useServerFn(completeCatalogProduct);
   const finishBatch = useServerFn(finishCatalogBatch);
   const publishBatch = useServerFn(publishCatalogBatch);
   const saveTemplate = useServerFn(saveCatalogTemplate);
@@ -113,6 +115,7 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
   const pickerRef = useRef<HTMLInputElement | null>(null);
   const logoRef = useRef<HTMLInputElement | null>(null);
   const runningRef = useRef(false);
+  const filesRef = useRef<BatchFile[]>([]);
   const [files, setFiles] = useState<BatchFile[]>([]);
   const [settings, setSettings] = useState<Settings>(defaults);
   const [logo, setLogo] = useState<File | null>(null);
@@ -127,8 +130,13 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
 
   useEffect(() => {
     readTemplates().then((result: any) => setTemplates(result.templates ?? [])).catch(() => {});
-    return () => files.forEach((item) => URL.revokeObjectURL(item.preview));
   }, [readTemplates]);
+
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
+  useEffect(() => () => filesRef.current.forEach((item) => URL.revokeObjectURL(item.preview)), []);
 
   const complete = files.filter((item) => item.status === "done").length;
   const failed = files.filter((item) => item.status === "error").length;
@@ -156,12 +164,20 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
       if (combinations.length > 24) throw new Error("Escolha no máximo 24 combinações de modelo e cor.");
       const blobs: Blob[] = [];
       for (const combination of combinations) {
-        blobs.push(await createCatalogMockup({ art: item.file, model: MODEL_MAP[combination.model] ?? "careca", color: combination.color, brandName: settings.brandName, watermark: settings.watermark, watermarkColor: settings.watermarkColor, watermarkOpacity: settings.watermarkOpacity, printSize: settings.printSize, position: settings.position as "Peito" | "Centro" | "Costas" }));
+        blobs.push(await createCatalogMockup({ art: item.file, logo, model: MODEL_MAP[combination.model] ?? "careca", color: combination.color, brandName: settings.brandName, watermark: settings.watermark, watermarkColor: settings.watermarkColor, watermarkOpacity: settings.watermarkOpacity, printSize: settings.printSize, position: settings.position as "Peito" | "Centro" | "Costas" }));
         await new Promise((resolve) => requestAnimationFrame(resolve));
       }
-      const original = { base64: await dataUrl(item.file), mime: "image/png" as const, name: item.file.name };
-      const encoded = await Promise.all(blobs.map(async (blob, index) => ({ base64: await dataUrl(blob), mime: "image/webp" as const, name: `mockup-${index + 1}.webp` })));
-      const result: any = await processProduct({ data: { batchId: id, code, order, original, mockups: encoded, settings: { ...settings, logoName: logo?.name } } });
+      if (item.file.size > 20 * 1024 * 1024) throw new Error("PNG maior que 20 MB.");
+      const prepared = await prepareUpload({ data: { batchId: id, code, originalName: item.file.name, mockupCount: blobs.length } });
+      const originalUpload = await supabase.storage.from("catalog-assets").uploadToSignedUrl(prepared.original.path, prepared.original.token, item.file, { contentType: "image/png" });
+      if (originalUpload.error) throw new Error("Falha ao enviar o PNG original.");
+      for (let index = 0; index < blobs.length; index += 1) {
+        const target = prepared.mockups[index];
+        if (!target) throw new Error("Destino de mockup inválido.");
+        const uploaded = await supabase.storage.from("catalog-assets").uploadToSignedUrl(target.path, target.token, blobs[index], { contentType: "image/webp" });
+        if (uploaded.error) throw new Error(`Falha ao enviar mockup ${index + 1}.`);
+      }
+      const result: any = await completeProduct({ data: { batchId: id, code, order, originalName: item.file.name, originalPath: prepared.original.path, mockupPaths: prepared.mockups.map((target) => target.path), settings: { ...settings, logoName: logo?.name } } });
       setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "done", code, mockups: result.mockups } : entry));
       return true;
     } catch (error) {
@@ -302,6 +318,6 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
   );
 }
 
-function ConfigSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className="space-y-3 rounded-lg border border-border bg-card/80 p-4"><h2 className="flex items-center gap-2 font-black"><Shirt className="size-4 text-primary" />{title}</h2>{children}</section>; }
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1 block text-xs font-semibold text-muted-foreground">{label}</span>{children}</label>; }
+function ConfigSection({ title, children }: { title: string; children: ReactNode }) { return <section className="space-y-3 rounded-lg border border-border bg-card/80 p-4"><h2 className="flex items-center gap-2 font-black"><Shirt className="size-4 text-primary" />{title}</h2>{children}</section>; }
+function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="block"><span className="mb-1 block text-xs font-semibold text-muted-foreground">{label}</span>{children}</label>; }
 function ChoiceGrid({ title, values, selected, toggle }: { title: string; values: string[]; selected: string[]; toggle: (value: string) => void }) { return <div><p className="mb-2 text-xs font-bold uppercase text-muted-foreground">{title}</p><div className="flex flex-wrap gap-2">{values.map((value) => <Button key={value} type="button" size="sm" variant={selected.includes(value) ? "default" : "outline"} className="min-h-10" onClick={() => toggle(value)}>{value}</Button>)}</div></div>; }

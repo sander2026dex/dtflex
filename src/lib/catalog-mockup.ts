@@ -2,6 +2,7 @@ import { getShirtSrc, type ShirtModel } from "@/components/landing/shirt-studio/
 
 export type CatalogMockupInput = {
   art: File;
+  logo?: File | null;
   model: ShirtModel;
   color: string;
   brandName: string;
@@ -33,6 +34,7 @@ export async function createCatalogMockup(input: CatalogMockupInput): Promise<Bl
   context.fillRect(0, 0, size, size);
   const shirt = await loadImage(getShirtSrc(input.model, input.position === "Costas" ? "costas" : "frente"));
   const artUrl = URL.createObjectURL(input.art);
+  const logoUrl = input.logo ? URL.createObjectURL(input.logo) : null;
 
   try {
     const art = await loadImage(artUrl);
@@ -84,11 +86,22 @@ export async function createCatalogMockup(input: CatalogMockupInput): Promise<Bl
       context.restore();
     }
 
+    if (logoUrl) {
+      const logo = await loadImage(logoUrl);
+      const maxWidth = 180;
+      const maxHeight = 90;
+      const scale = Math.min(maxWidth / logo.width, maxHeight / logo.height, 1);
+      const width = logo.width * scale;
+      const height = logo.height * scale;
+      context.drawImage(logo, size - width - 28, size - height - 28, width, height);
+    }
+
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Falha ao salvar mockup."))), "image/webp", 0.9);
     });
   } finally {
     URL.revokeObjectURL(artUrl);
+    if (logoUrl) URL.revokeObjectURL(logoUrl);
     canvas.width = 1;
     canvas.height = 1;
   }

@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   Library,
   BriefcaseBusiness,
+  Images,
 } from "lucide-react";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
@@ -21,6 +22,7 @@ const ShirtStudioCanvas = lazy(() => import("@/components/landing/shirt-studio/S
 const DTFGangSheetStudio = lazy(() => import("@/components/DTFGangSheetStudio"));
 const ArtLibrary = lazy(() => import("@/components/ArtLibrary"));
 const DTFBusinessManager = lazy(() => import("@/components/DTFBusinessManager"));
+const BatchCatalogStudio = lazy(() => import("@/components/BatchCatalogStudio"));
 
 function AppError() {
   return (
@@ -103,6 +105,7 @@ function AppPage() {
   const [showGang, setShowGang] = useState(false);
   const [showLibrary, setShowLibrary] = useState(true);
   const [showManagement, setShowManagement] = useState(false);
+  const [showBatchCatalog, setShowBatchCatalog] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -322,6 +325,13 @@ function AppPage() {
                 <BriefcaseBusiness className="h-4 w-4" />
                 Gestão DTF
               </Button>
+              <Button
+                className="h-11 justify-start bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-lg sm:h-10"
+                onClick={() => setShowBatchCatalog(true)}
+              >
+                <Images className="h-4 w-4" />
+                Catálogo em lote
+              </Button>
               <DTFCalculatorDialog
                 trigger={
                   <Button variant="secondary" className="h-11 justify-start px-3 text-xs font-semibold shadow-lg sm:h-10">
@@ -381,6 +391,20 @@ function AppPage() {
               onClose={() => setShowManagement(false)}
               accountEmail={expiry?.email ?? "conta"}
             />
+          </Suspense>
+        </ClientOnly>
+      )}
+
+      {showBatchCatalog && (
+        <ClientOnly fallback={null}>
+          <Suspense
+            fallback={
+              <div className="fixed inset-0 z-[120] grid place-items-center bg-background text-muted-foreground">
+                Carregando catálogo em lote…
+              </div>
+            }
+          >
+            <BatchCatalogStudio onClose={() => setShowBatchCatalog(false)} />
           </Suspense>
         </ClientOnly>
       )}
