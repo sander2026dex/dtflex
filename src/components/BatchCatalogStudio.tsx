@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDown,
@@ -6,7 +6,6 @@ import {
   ArrowUp,
   BookOpen,
   Check,
-  Download,
   FileArchive,
   FileText,
   ImagePlus,
@@ -113,6 +112,7 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
   const pickerRef = useRef<HTMLInputElement | null>(null);
   const logoRef = useRef<HTMLInputElement | null>(null);
   const runningRef = useRef(false);
+  const filesRef = useRef<BatchFile[]>([]);
   const [files, setFiles] = useState<BatchFile[]>([]);
   const [settings, setSettings] = useState<Settings>(defaults);
   const [logo, setLogo] = useState<File | null>(null);
@@ -127,8 +127,13 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
 
   useEffect(() => {
     readTemplates().then((result: any) => setTemplates(result.templates ?? [])).catch(() => {});
-    return () => files.forEach((item) => URL.revokeObjectURL(item.preview));
   }, [readTemplates]);
+
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
+  useEffect(() => () => filesRef.current.forEach((item) => URL.revokeObjectURL(item.preview)), []);
 
   const complete = files.filter((item) => item.status === "done").length;
   const failed = files.filter((item) => item.status === "error").length;
@@ -302,6 +307,6 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
   );
 }
 
-function ConfigSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className="space-y-3 rounded-lg border border-border bg-card/80 p-4"><h2 className="flex items-center gap-2 font-black"><Shirt className="size-4 text-primary" />{title}</h2>{children}</section>; }
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1 block text-xs font-semibold text-muted-foreground">{label}</span>{children}</label>; }
+function ConfigSection({ title, children }: { title: string; children: ReactNode }) { return <section className="space-y-3 rounded-lg border border-border bg-card/80 p-4"><h2 className="flex items-center gap-2 font-black"><Shirt className="size-4 text-primary" />{title}</h2>{children}</section>; }
+function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="block"><span className="mb-1 block text-xs font-semibold text-muted-foreground">{label}</span>{children}</label>; }
 function ChoiceGrid({ title, values, selected, toggle }: { title: string; values: string[]; selected: string[]; toggle: (value: string) => void }) { return <div><p className="mb-2 text-xs font-bold uppercase text-muted-foreground">{title}</p><div className="flex flex-wrap gap-2">{values.map((value) => <Button key={value} type="button" size="sm" variant={selected.includes(value) ? "default" : "outline"} className="min-h-10" onClick={() => toggle(value)}>{value}</Button>)}</div></div>; }
