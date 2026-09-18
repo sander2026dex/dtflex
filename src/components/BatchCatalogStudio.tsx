@@ -164,7 +164,7 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
       if (combinations.length > 24) throw new Error("Escolha no máximo 24 combinações de modelo e cor.");
       const blobs: Blob[] = [];
       for (const combination of combinations) {
-        blobs.push(await createCatalogMockup({ art: item.file, model: MODEL_MAP[combination.model] ?? "careca", color: combination.color, brandName: settings.brandName, watermark: settings.watermark, watermarkColor: settings.watermarkColor, watermarkOpacity: settings.watermarkOpacity, printSize: settings.printSize, position: settings.position as "Peito" | "Centro" | "Costas" }));
+        blobs.push(await createCatalogMockup({ art: item.file, logo, model: MODEL_MAP[combination.model] ?? "careca", color: combination.color, brandName: settings.brandName, watermark: settings.watermark, watermarkColor: settings.watermarkColor, watermarkOpacity: settings.watermarkOpacity, printSize: settings.printSize, position: settings.position as "Peito" | "Centro" | "Costas" }));
         await new Promise((resolve) => requestAnimationFrame(resolve));
       }
       if (item.file.size > 20 * 1024 * 1024) throw new Error("PNG maior que 20 MB.");

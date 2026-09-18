@@ -73,6 +73,10 @@ export const prepareCatalogProductUpload = createServerFn({ method: "POST" })
     const { data: batch } = await db.from("catalog_batches").select("id").eq("id", data.batchId).eq("user_access_id", access.accessId).maybeSingle();
     if (!batch) throw new Error("Catálogo não encontrado.");
     const basePath = `${access.accessId}/${data.batchId}/${data.code}`;
+    const { data: previous } = await db.storage.from("catalog-assets").list(basePath);
+    if (previous?.length) {
+      await db.storage.from("catalog-assets").remove(previous.map((item: { name: string }) => `${basePath}/${item.name}`));
+    }
     const paths = [
       `${basePath}/original-${safeName(data.originalName)}`,
       ...Array.from({ length: data.mockupCount }, (_, index) => `${basePath}/mockup-${String(index + 1).padStart(2, "0")}.webp`),
@@ -174,7 +178,7 @@ export const getCatalogBatch = createServerFn({ method: "GET" })
     if (!batch) throw new Error("Catálogo não encontrado.");
     const { data: products } = await db.from("catalog_products").select("*").eq("batch_id", data.id).order("sort_order");
     const paths = (products ?? []).flatMap((product: any) => [product.original_path, ...(product.mockup_paths ?? [])]);
-    const { data: signed } = await db.storage.from("catalog-assets").createSignedUrls(paths, 60 * 60);
+    const { data: signed } = await db.storage.from("catalog-assets").createSignedUrls(paths, 7 * 24 * 60 * 60);
     const urls = new Map((signed ?? []).map((item: any) => [item.path, item.signedUrl]));
     return { batch, products: (products ?? []).map((product: any) => ({ ...product, original_url: urls.get(product.original_path), mockup_urls: (product.mockup_paths ?? []).map((path: string) => urls.get(path)).filter(Boolean) })) };
   });
