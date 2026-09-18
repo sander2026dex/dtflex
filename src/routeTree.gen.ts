@@ -21,6 +21,7 @@ import { Route as ValidateAccessCodeRouteImport } from './routes/validate-access
 import { Route as VerifyAdminRouteImport } from './routes/verify-admin'
 import { Route as ApiDriveFileRouteImport } from './routes/api/drive-file'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
+import { Route as CatalogoTokenRouteImport } from './routes/catalogo.$token'
 import { Route as ApiPublicDesktopActivateRouteImport } from './routes/api/public/desktop-activate'
 import { Route as ApiPublicDownloadWindowsRouteImport } from './routes/api/public/download-windows'
 import { Route as ApiPublicInfinitepayWebhookRouteImport } from './routes/api/public/infinitepay-webhook'
@@ -86,6 +87,11 @@ const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   path: '/api/stripe-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CatalogoTokenRoute = CatalogoTokenRouteImport.update({
+  id: '/catalogo/$token',
+  path: '/catalogo/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicDesktopActivateRoute =
   ApiPublicDesktopActivateRouteImport.update({
     id: '/api/public/desktop-activate',
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/verify-admin': typeof VerifyAdminRoute
   '/api/drive-file': typeof ApiDriveFileRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/catalogo/$token': typeof CatalogoTokenRoute
   '/api/public/desktop-activate': typeof ApiPublicDesktopActivateRoute
   '/api/public/download-windows': typeof ApiPublicDownloadWindowsRoute
   '/api/public/infinitepay-webhook': typeof ApiPublicInfinitepayWebhookRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/verify-admin': typeof VerifyAdminRoute
   '/api/drive-file': typeof ApiDriveFileRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/catalogo/$token': typeof CatalogoTokenRoute
   '/api/public/desktop-activate': typeof ApiPublicDesktopActivateRoute
   '/api/public/download-windows': typeof ApiPublicDownloadWindowsRoute
   '/api/public/infinitepay-webhook': typeof ApiPublicInfinitepayWebhookRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/verify-admin': typeof VerifyAdminRoute
   '/api/drive-file': typeof ApiDriveFileRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/catalogo/$token': typeof CatalogoTokenRoute
   '/api/public/desktop-activate': typeof ApiPublicDesktopActivateRoute
   '/api/public/download-windows': typeof ApiPublicDownloadWindowsRoute
   '/api/public/infinitepay-webhook': typeof ApiPublicInfinitepayWebhookRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/verify-admin'
     | '/api/drive-file'
     | '/api/stripe-webhook'
+    | '/catalogo/$token'
     | '/api/public/desktop-activate'
     | '/api/public/download-windows'
     | '/api/public/infinitepay-webhook'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/verify-admin'
     | '/api/drive-file'
     | '/api/stripe-webhook'
+    | '/catalogo/$token'
     | '/api/public/desktop-activate'
     | '/api/public/download-windows'
     | '/api/public/infinitepay-webhook'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/verify-admin'
     | '/api/drive-file'
     | '/api/stripe-webhook'
+    | '/catalogo/$token'
     | '/api/public/desktop-activate'
     | '/api/public/download-windows'
     | '/api/public/infinitepay-webhook'
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   VerifyAdminRoute: typeof VerifyAdminRoute
   ApiDriveFileRoute: typeof ApiDriveFileRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
+  CatalogoTokenRoute: typeof CatalogoTokenRoute
   ApiPublicDesktopActivateRoute: typeof ApiPublicDesktopActivateRoute
   ApiPublicDownloadWindowsRoute: typeof ApiPublicDownloadWindowsRoute
   ApiPublicInfinitepayWebhookRoute: typeof ApiPublicInfinitepayWebhookRoute
@@ -328,6 +341,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/catalogo/$token': {
+      id: '/catalogo/$token'
+      path: '/catalogo/$token'
+      fullPath: '/catalogo/$token'
+      preLoaderRoute: typeof CatalogoTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/desktop-activate': {
       id: '/api/public/desktop-activate'
       path: '/api/public/desktop-activate'
@@ -372,6 +392,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyAdminRoute: VerifyAdminRoute,
   ApiDriveFileRoute: ApiDriveFileRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
+  CatalogoTokenRoute: CatalogoTokenRoute,
   ApiPublicDesktopActivateRoute: ApiPublicDesktopActivateRoute,
   ApiPublicDownloadWindowsRoute: ApiPublicDownloadWindowsRoute,
   ApiPublicInfinitepayWebhookRoute: ApiPublicInfinitepayWebhookRoute,

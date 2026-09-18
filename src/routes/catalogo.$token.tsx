@@ -63,7 +63,13 @@ function PublishedCatalogPage() {
 
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((product) => {
+          {products.map((product: {
+            code: string;
+            name: string;
+            description: string;
+            mockup_url?: string;
+            product_data: Record<string, unknown>;
+          }) => {
             const data = product.product_data as Record<string, unknown>;
             const sizes = Array.isArray(data.sizes) ? data.sizes.join(", ") : "";
             const price = Number(data.salePrice) > 0 ? data.salePrice : data.price;
