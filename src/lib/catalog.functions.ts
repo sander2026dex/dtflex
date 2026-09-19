@@ -115,7 +115,7 @@ export const completeCatalogProduct = createServerFn({ method: "POST" })
     try {
       const name = professionalName(data.originalName);
       const description = `${name} em ${data.settings.productType}, tecido ${data.settings.fabric}, modelagem ${data.settings.modeling}. Tamanhos ${data.settings.sizes.join(", ")}. Impressão DTF com arte original preservada.`;
-      const { error } = await db.from("catalog_products").insert({
+      const { error } = await db.from("catalog_products").upsert({
         batch_id: data.batchId,
         user_access_id: access.accessId,
         code: data.code,
@@ -128,7 +128,7 @@ export const completeCatalogProduct = createServerFn({ method: "POST" })
         sort_order: data.order,
         status: "ready",
         product_data: data.settings,
-      });
+      }, { onConflict: "user_access_id,code" });
       if (error) throw error;
       await db.from("catalog_batches").update({ completed_items: data.order + 1 }).eq("id", data.batchId);
       return { code: data.code, name, mockups: data.mockupPaths.length };
