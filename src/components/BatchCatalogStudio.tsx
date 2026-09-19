@@ -178,7 +178,7 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
         if (uploaded.error) throw new Error(`Falha ao enviar mockup ${index + 1}.`);
       }
       const result: any = await completeProduct({ data: { batchId: id, code, order, originalName: item.file.name, originalPath: prepared.original.path, mockupPaths: prepared.mockups.map((target) => target.path), settings: { ...settings, logoName: logo?.name } } });
-      setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "done", code, mockups: result.mockups } : entry));
+      setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "done", code: result.code, mockups: result.mockups } : entry));
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível processar esta imagem.";
@@ -201,9 +201,22 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
       setPublicToken(started.publicToken);
       let successes = 0;
       let errors = 0;
-      for (let index = 0; index < files.length && runningRef.current; index += 1) {
-        if (await processOne(files[index], index, started.id, started.start)) successes += 1;
+      const workFiles = settings.sortBy === "name"
+        ? [...files].sort((a, b) => a.file.name.localeCompare(b.file.name, "pt-BR"))
+        : files;
+      for (let index = 0; index < workFiles.length && runningRef.current; index += 1) {
+        let succeeded = false;
+        for (let attempt = 0; attempt < 3 && !succeeded; attempt += 1) {
+          succeeded = await processOne(workFiles[index], index, started.id, started.start);
+          if (!succeeded && attempt < 2) await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
+        }
+        if (succeeded) successes += 1;
         else errors += 1;
+      }
+      if (!runningRef.current) {
+        const interrupted = files.length - successes - errors;
+        errors += interrupted;
+        setFiles((current) => current.map((item) => item.status === "waiting" ? { ...item, status: "error", error: "Processamento interrompido." } : item));
       }
       await finishBatch({ data: { id: started.id, completed: successes, failed: errors } });
       toast.success(errors ? "Catálogo concluído com alguns arquivos para revisar." : "Seu catálogo foi concluído!");
@@ -307,7 +320,7 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
             <ConfigSection title="Marca"><Field label="Nome da marca"><Input value={settings.brandName} onChange={(e) => update("brandName", e.target.value)} /></Field><input ref={logoRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setLogo(file); update("logoName", file.name); } }} /><Button variant="outline" className="w-full" onClick={() => logoRef.current?.click()}><UploadCloud className="size-4" /> {logo ? logo.name : "Adicionar logo"}</Button><label className="flex items-center gap-2 text-sm"><Checkbox checked={settings.watermark} onCheckedChange={(checked) => update("watermark", checked === true)} /> Aplicar marca d'água</label><div className="grid grid-cols-[70px_1fr] gap-3"><input type="color" value={settings.watermarkColor} onChange={(e) => update("watermarkColor", e.target.value)} className="h-10 w-full rounded-md border border-border bg-transparent" /><Field label={`Opacidade ${settings.watermarkOpacity}%`}><Slider min={0} max={80} value={[settings.watermarkOpacity]} onValueChange={([value]) => update("watermarkOpacity", value)} /></Field></div></ConfigSection>
             <ConfigSection title="Comercial"><div className="grid grid-cols-3 gap-2"><Field label="Preço"><Input type="number" min="0" step="0.01" value={settings.price} onChange={(e) => update("price", Number(e.target.value))} /></Field><Field label="Promo"><Input type="number" min="0" step="0.01" value={settings.salePrice} onChange={(e) => update("salePrice", Number(e.target.value))} /></Field><Field label="Atacado"><Input type="number" min="0" step="0.01" value={settings.wholesalePrice} onChange={(e) => update("wholesalePrice", Number(e.target.value))} /></Field></div><Field label="Categoria"><Input value={settings.category} onChange={(e) => update("category", e.target.value)} placeholder="Crie ou escolha uma categoria" /></Field><div className="grid grid-cols-2 gap-2"><Field label="Prefixo"><Input value={settings.prefix} maxLength={16} onChange={(e) => update("prefix", e.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())} /></Field><Field label="Ordenar por"><select className="h-11 w-full rounded-md border border-input bg-background px-3" value={settings.sortBy} onChange={(e) => update("sortBy", e.target.value as Settings["sortBy"])}><option value="upload">Upload</option><option value="code">Código</option><option value="name">Nome</option><option value="category">Categoria</option><option value="price">Preço</option></select></Field></div></ConfigSection>
             <ConfigSection title="Modelo salvo"><div className="flex gap-2"><Input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Camiseta Algodão 30.1" /><Button size="icon" aria-label="Salvar configuração" disabled={!templateName.trim()} onClick={async () => { await saveTemplate({ data: { name: templateName.trim(), settings: { ...settings, logoName: logo?.name } } }); const result: any = await readTemplates(); setTemplates(result.templates ?? []); toast.success("Configuração salva."); }}><Save className="size-4" /></Button></div>{templates.length > 0 && <select className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3" defaultValue="" onChange={(e) => { const chosen = templates.find((item) => item.id === e.target.value); if (chosen) setSettings({ ...defaults, ...chosen.settings }); }}><option value="">Selecionar modelo</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</ConfigSection>
-            <Button className="h-14 w-full text-base font-black" disabled={running || files.length < 20} onClick={() => void generate()}>{running ? <LoaderCircle className="size-5 animate-spin" /> : <Rocket className="size-5" />} {running ? "GERANDO CATÁLOGO" : "GERAR CATÁLOGO COMPLETO"}</Button>
+            {running ? <Button variant="destructive" className="h-14 w-full text-base font-black" onClick={() => { runningRef.current = false; toast.info("Interrompendo após o arquivo atual."); }}><X className="size-5" /> INTERROMPER FILA</Button> : <Button className="h-14 w-full text-base font-black" disabled={files.length < 20} onClick={() => void generate()}><Rocket className="size-5" /> GERAR CATÁLOGO COMPLETO</Button>}
             {files.length > 0 && files.length < 20 && <p className="text-center text-xs text-amber-300">Adicione mais {20 - files.length} PNGs para iniciar.</p>}
           </aside>
         </div>
