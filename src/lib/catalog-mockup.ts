@@ -6,6 +6,7 @@ export type CatalogMockupInput = {
   model: ShirtModel;
   color: string;
   brandName: string;
+  watermarkText: string;
   watermark: boolean;
   watermarkColor: string;
   watermarkOpacity: number;
@@ -74,7 +75,7 @@ export async function createCatalogMockup(input: CatalogMockupInput): Promise<Bl
     context.drawImage(art, artX, artY, artWidth, artHeight);
     context.restore();
 
-    if (input.watermark && input.brandName.trim()) {
+    if (input.watermark && input.watermarkText.trim()) {
       context.save();
       context.globalAlpha = input.watermarkOpacity / 100;
       context.fillStyle = input.watermarkColor;
@@ -82,7 +83,7 @@ export async function createCatalogMockup(input: CatalogMockupInput): Promise<Bl
       context.textAlign = "center";
       context.translate(size / 2, size / 2);
       context.rotate(-Math.PI / 6);
-      context.fillText(input.brandName.trim().slice(0, 28), 0, 0);
+      context.fillText(input.watermarkText.trim().slice(0, 28), 0, 0);
       context.restore();
     }
 
@@ -97,7 +98,7 @@ export async function createCatalogMockup(input: CatalogMockupInput): Promise<Bl
     }
 
     return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Falha ao salvar mockup."))), "image/webp", 0.9);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Falha ao salvar mockup."))), "image/webp", 0.82);
     });
   } finally {
     URL.revokeObjectURL(artUrl);

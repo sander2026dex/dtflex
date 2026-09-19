@@ -27,3 +27,6 @@
 - [x] Processar 20–100 PNGs com fila, mockups, códigos e persistência por conta
 - [x] Exportar PDF/ZIP e publicar catálogo online compartilhável
 - [x] Validar lote, falhas isoladas e telas mobile/desktop
+- [x] Simplificar o Catálogo em Lote para download somente em PDF
+- [x] Acelerar geração, envio e exportação do catálogo
+- [x] Permitir nome manual independente para a marca d'água
