@@ -11,6 +11,7 @@ const settingsSchema = z.object({
   position: z.string().max(30),
   printSize: z.number().min(5).max(80),
   brandName: z.string().max(80),
+  watermarkText: z.string().max(80),
   logoName: z.string().max(160).optional(),
   watermark: z.boolean(),
   watermarkColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
@@ -81,12 +82,11 @@ export const prepareCatalogProductUpload = createServerFn({ method: "POST" })
       `${basePath}/original-${safeName(data.originalName)}`,
       ...Array.from({ length: data.mockupCount }, (_, index) => `${basePath}/mockup-${String(index + 1).padStart(2, "0")}.webp`),
     ];
-    const signed = [] as Array<{ path: string; token: string }>;
-    for (const path of paths) {
+    const signed = await Promise.all(paths.map(async (path) => {
       const { data: upload, error } = await db.storage.from("catalog-assets").createSignedUploadUrl(path);
       if (error || !upload?.token) throw new Error("Não foi possível preparar o envio da imagem.");
-      signed.push({ path, token: upload.token });
-    }
+      return { path, token: upload.token };
+    }));
     return { original: signed[0], mockups: signed.slice(1) };
   });
 
