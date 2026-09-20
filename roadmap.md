@@ -30,3 +30,5 @@
 - [x] Simplificar o Catálogo em Lote para download somente em PDF
 - [x] Acelerar geração, envio e exportação do catálogo
 - [x] Permitir nome manual independente para a marca d'água
+- [ ] Ajustar a proporção final com ampliação e redução dentro do enquadramento
+- [ ] Preparar o PDF do Catálogo em Lote para download imediato ao clicar
