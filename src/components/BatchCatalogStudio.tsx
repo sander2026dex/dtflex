@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDown,
@@ -111,6 +111,7 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
   const logoRef = useRef<HTMLInputElement | null>(null);
   const runningRef = useRef(false);
   const filesRef = useRef<BatchFile[]>([]);
+  const pdfUrlRef = useRef<string | null>(null);
   const [files, setFiles] = useState<BatchFile[]>([]);
   const [settings, setSettings] = useState<Settings>(defaults);
   const [logo, setLogo] = useState<File | null>(null);
@@ -119,6 +120,8 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
   const [batchId, setBatchId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; settings: Settings }>>([]);
   const [templateName, setTemplateName] = useState("");
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfPreparing, setPdfPreparing] = useState(false);
 
   useEffect(() => {
     readTemplates().then((result: any) => setTemplates(result.templates ?? [])).catch(() => {});
@@ -128,7 +131,10 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
     filesRef.current = files;
   }, [files]);
 
-  useEffect(() => () => filesRef.current.forEach((item) => URL.revokeObjectURL(item.preview)), []);
+  useEffect(() => () => {
+    filesRef.current.forEach((item) => URL.revokeObjectURL(item.preview));
+    if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+  }, []);
 
   const complete = files.filter((item) => item.status === "done").length;
   const failed = files.filter((item) => item.status === "error").length;
@@ -228,9 +234,10 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
     setRunning(false);
   };
 
-  const exportPdf = async () => {
+  const preparePdf = useCallback(async () => {
     const products = files.filter((item) => item.status === "done" && item.code && item.pdfMockup);
-    if (!products.length) return;
+    if (!products.length) return null;
+    setPdfPreparing(true);
     const { jsPDF } = await import("jspdf");
     const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
     const brand = settings.brandName || "DTFLEXPRO Catálogo";
@@ -241,7 +248,35 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
     for (const product of products) {
       pdf.addPage(); pdf.setFontSize(18); pdf.text(product.code ?? "", 16, 18); pdf.setFontSize(13); pdf.text(product.file.name.replace(/\.[^.]+$/, ""), 16, 27); if (product.pdfMockup) pdf.addImage(await dataUrl(product.pdfMockup), "WEBP", 25, 36, 160, 160); pdf.setFontSize(11); pdf.text(`Preço: ${money(settings.price)}`, 16, 210); pdf.text(`${settings.productType} em ${settings.fabric}. Tamanhos ${settings.sizes.join(", ")}.`, 16, 220, { maxWidth: 178 });
     }
-    pdf.addPage(); pdf.setFillColor(11, 16, 28); pdf.rect(0, 0, 210, 297, "F"); pdf.setTextColor(255, 214, 10); pdf.setFontSize(24); pdf.text(brand, 105, 140, { align: "center" }); pdf.save(`${settings.prefix.toLowerCase()}-catalogo.pdf`);
+    pdf.addPage(); pdf.setFillColor(11, 16, 28); pdf.rect(0, 0, 210, 297, "F"); pdf.setTextColor(255, 214, 10); pdf.setFontSize(24); pdf.text(brand, 105, 140, { align: "center" });
+    const nextUrl = URL.createObjectURL(pdf.output("blob"));
+    if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+    pdfUrlRef.current = nextUrl;
+    setPdfUrl(nextUrl);
+    setPdfPreparing(false);
+    return nextUrl;
+  }, [files, settings]);
+
+  useEffect(() => {
+    if (!finished) {
+      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+      pdfUrlRef.current = null;
+      setPdfUrl(null);
+      setPdfPreparing(false);
+      return;
+    }
+    void preparePdf().catch(() => setPdfPreparing(false));
+  }, [finished, preparePdf]);
+
+  const exportPdf = async () => {
+    const readyUrl = pdfUrlRef.current ?? await preparePdf();
+    if (!readyUrl) return toast.error("Não há produtos prontos para o PDF.");
+    const link = document.createElement("a");
+    link.href = readyUrl;
+    link.download = `${settings.prefix.toLowerCase()}-catalogo.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
   const move = (index: number, direction: -1 | 1) => setFiles((current) => { const next = [...current]; const target = index + direction; if (target < 0 || target >= next.length) return current; [next[index], next[target]] = [next[target], next[index]]; return next; });
@@ -265,7 +300,7 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
 
             {(running || complete + failed > 0) && <div className="rounded-lg border border-border bg-card p-4"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase text-primary">Gerando catálogo</p><p className="text-2xl font-black">{complete + failed} / {files.length}</p></div><strong>{progress}% concluído</strong></div><Progress className="mt-3 h-3" value={progress} /><div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm"><div className="rounded-md bg-background p-3"><strong className="block text-lg">{complete}</strong>Produtos</div><div className="rounded-md bg-background p-3"><strong className="block text-lg">{mockups}</strong>Mockups</div><div className="rounded-md bg-background p-3"><strong className="block text-lg text-destructive">{failed}</strong>Falhas</div></div></div>}
 
-            {finished && <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-5 text-center"><Check className="mx-auto size-10 text-emerald-400" /><h2 className="mt-2 text-xl font-black">CATÁLOGO GERADO COM SUCESSO</h2><p className="mt-1 text-sm text-muted-foreground">{complete} estampas · {complete} produtos · {complete} códigos · {mockups} mockups</p><Button className="mt-4 h-12 w-full max-w-sm text-base font-black" onClick={() => void exportPdf()}><FileText className="size-5" /> BAIXAR CATÁLOGO EM PDF</Button><div><Button variant="outline" className="mt-3" onClick={() => { setFiles((current) => current.map((item) => ({ ...item, status: "waiting", code: undefined, error: undefined, mockups: 0, pdfMockup: undefined }))); setBatchId(null); }}><Plus className="size-4" /> Gerar outra variação</Button></div></div>}
+            {finished && <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-5 text-center"><Check className="mx-auto size-10 text-emerald-400" /><h2 className="mt-2 text-xl font-black">CATÁLOGO GERADO COM SUCESSO</h2><p className="mt-1 text-sm text-muted-foreground">{complete} estampas · {complete} produtos · {complete} códigos · {mockups} mockups</p><Button className="mt-4 h-12 w-full max-w-sm text-base font-black" disabled={pdfPreparing || !pdfUrl} onClick={() => void exportPdf()}>{pdfPreparing ? <LoaderCircle className="size-5 animate-spin" /> : <FileText className="size-5" />} {pdfPreparing ? "PREPARANDO PDF..." : "BAIXAR CATÁLOGO EM PDF"}</Button><div><Button variant="outline" className="mt-3" onClick={() => { setFiles((current) => current.map((item) => ({ ...item, status: "waiting", code: undefined, error: undefined, mockups: 0, pdfMockup: undefined }))); setBatchId(null); }}><Plus className="size-4" /> Gerar outra variação</Button></div></div>}
           </section>
 
           <aside className="min-w-0 space-y-4 xl:sticky xl:top-0 xl:self-start">
