@@ -251,7 +251,14 @@
         function makePaperCanvas(source, format){
           var dims = paperDimensions(format);
           if (!dims) return source;
-          var out = makeSizedCanvas(source, dims.width, dims.height);
+          var out;
+          if (source.width === dims.width && source.height === dims.height) {
+            out = document.createElement('canvas');
+            out.width = dims.width; out.height = dims.height;
+            out.getContext('2d', { alpha: true }).drawImage(source, 0, 0);
+          } else {
+            out = makeSizedCanvas(source, dims.width, dims.height);
+          }
           var valid = out.width === dims.width && out.height === dims.height;
           window.__DTF_LAST_EXPORT_VALIDATION = { format: format, orientation: window.__DTF_EXPORT_ORIENTATION || 'portrait', width: out.width, height: out.height, dpi: DPI, valid: valid };
           if (!valid) throw new Error('Dimensão final inválida para ' + format + '.');
