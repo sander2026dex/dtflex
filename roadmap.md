@@ -33,3 +33,4 @@
 - [x] Ajustar a proporção final com ampliação e redução dentro do enquadramento
 - [x] Preparar o PDF do Catálogo em Lote para download imediato ao clicar
 - [x] Adicionar A2 e ajuste manual pelos quatro cantos ao enquadramento final
+- [x] Garantir exportação final A2/A3/A4 pelo tamanho físico em mm, orientação e validação a 300 DPI
