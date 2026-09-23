@@ -938,7 +938,7 @@
             var dims = paperDimensions(format);
             summary.style.display = 'block';
             summary.innerHTML = '<strong>Formato selecionado: ' + format + ' — ' + (orientation === 'landscape' ? 'Paisagem' : 'Retrato') + '</strong><br>'
-              + 'Dimensão física: ' + String(dims.widthMm).replace('.', ',') + ' × ' + String(dims.heightMm).replace('.', ',') + ' cm (' + dims.widthMm + ' × ' + dims.heightMm + ' mm)<br>'
+              + 'Dimensão física: ' + String(dims.widthMm / 10).replace('.', ',') + ' × ' + String(dims.heightMm / 10).replace('.', ',') + ' cm (' + dims.widthMm + ' × ' + dims.heightMm + ' mm)<br>'
               + 'Resolução: 300 DPI<br>Dimensão final: ' + dims.width + ' × ' + dims.height + ' px';
             inW.value = (dims.widthMm / 10).toFixed(1);
             inH.value = (dims.heightMm / 10).toFixed(1);
