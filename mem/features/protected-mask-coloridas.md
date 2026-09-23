@@ -13,3 +13,6 @@ Local: `public/dtflex-tool/index.html` (bloco "HALFTONE DTF INTELIGENTE" + `remo
 - Máscara visual + pincéis: botão "🎭 Máscara e pincéis" abre overlay vermelho=removido / verde=preservado / preto=protegido, com pincel preservar (2), remover (1), borracha (0), tamanho e antes/depois. Resultado fica em `window.__DTF_USER_MASK` e é aplicado em `applyArtRules` sobre o arquivo final.
 - `window.__DTF_LAST_MASK = { w, h, bg, prot }` é publicado pelo removedor para a visualização.
 - Regra de qualidade: preferir manter um pouco de fundo a remover parte da arte.
+- A cor da camiseta é somente referência de preview/retícula/base branca. Foi removida toda regra de apagar ou reticular uma cor específica isoladamente.
+- `S.removalIntensity` (0–100%, padrão 55%) regula apenas o crescimento da região de fundo conectada às bordas; 0% não remove nada.
+- `S.detailProtection` (0–100%, padrão 85%) torna as barreiras de contraste e a recuperação contextual de detalhes internos mais conservadoras, sem bloquear uma cor específica.
