@@ -3,7 +3,7 @@
 ## Core
 Todo PNG exportado pela ferramenta de halftone DEVE ter 300 DPI reais nos metadados (chunk pHYs = 11811 px/m). Patch fica em public/dtflex-tool/index.html — não remover.
 Não alterar o bundle minificado public/dtflex-tool/assets/index-*.js nem o comportamento do halftone/reticulado — já funciona.
-Manter opção “Salvar PNG A4 (300 DPI)” na ferramenta: 2480 x 3508 px, transparente, metadados pHYs cravados em 300 DPI.
+Manter exportação A4/A3/A2 em 300 DPI, transparente, com enquadramento manual pelos quatro cantos e botões −/+.
 
 Remoção de fundo é SEMPRE por conectividade com as bordas — nunca por cor. Cor da camisa afeta só retícula/preview.
 
