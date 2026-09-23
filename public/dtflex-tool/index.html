@@ -2209,36 +2209,6 @@
           var ref = refData(w, h);
           if (!ref) return src;
 
-          // REMOVER PRETO SÓ DO FUNDO: a remoção de preto nunca toca
-          // pixels internos da arte (olhos, cabelo, roupa, contornos).
-          // Só apaga preto que esteja CONECTADO ao fundo já transparente
-          // (bordas), igual ao motor de segmentação por conectividade.
-          var bgDark = null;
-          if (S.blackMode === 'remover') {
-            var NP = w * h;
-            bgDark = new Uint8Array(NP);
-            var bq = new Int32Array(NP), bh = 0, bt = 0;
-            function bpush(p) { if (p < 0 || p >= NP || bgDark[p]) return; bgDark[p] = 1; bq[bt++] = p; }
-            for (var sp = 0; sp < NP; sp++) {
-              var si = sp * 4;
-              if (ref[si + 3] < 16) bpush(sp); // fundo transparente = origem
-            }
-            while (bh < bt) {
-              var bp = bq[bh++], bx = bp % w, by = (bp / w) | 0;
-              var nb = [bp - 1, bp + 1, bp - w, bp + w];
-              for (var nix = 0; nix < 4; nix++) {
-                var np2 = nb[nix];
-                if (np2 < 0 || np2 >= NP || bgDark[np2]) continue;
-                // não atravessa bordas da imagem
-                if ((nix === 0 && bx === 0) || (nix === 1 && bx === w - 1)) continue;
-                var ni = np2 * 4;
-                if (ref[ni + 3] < 16) { bpush(np2); continue; }
-                var nlum = 0.299 * ref[ni] + 0.587 * ref[ni + 1] + 0.114 * ref[ni + 2];
-                if (nlum <= S.blackLevel) bpush(np2); // preto conectado ao fundo
-              }
-            }
-          }
-
           var out = document.createElement('canvas');
           out.width = w; out.height = h;
           var oc = out.getContext('2d');
@@ -2257,9 +2227,6 @@
               if (needBlack && lum <= S.blackLevel) {
                 if (S.blackMode === 'solido') {
                   d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 255;
-                } else if (S.blackMode === 'remover') {
-                  // só apaga preto conectado ao fundo — preto interno fica
-                  if (bgDark && bgDark[y * w + x]) d[i + 3] = 0;
                 }
                 continue;
               }
@@ -2555,7 +2522,7 @@
             + '<option value="baixo">Baixo</option><option value="medio">Médio</option><option value="alto" selected>Alto</option><option value="maximo">Máximo</option></select>'
             + '<div style="margin:10px 0 4px;color:#c4b5fd;">⚫ Preto (olhos, pupilas, contornos)</div>'
             + '<select id="sp-bm" style="width:100%;padding:5px;border-radius:6px;background:#111827;color:#e5e7eb;border:1px solid #4b5563;">'
-            + '<option value="reticula" selected>Com retícula (padrão)</option><option value="solido">Sem retícula (preto sólido)</option><option value="remover">Remover o preto</option></select>'
+             + '<option value="reticula" selected>Com retícula (padrão)</option><option value="solido">Sem retícula (preto sólido)</option></select>'
             + '<div style="margin:6px 0 4px;">Limite do preto <b id="sp-blv">60</b></div>'
             + '<input id="sp-bl" type="range" min="10" max="140" step="5" value="60" style="width:100%;accent-color:#a78bfa;" />'
             + '<div style="margin:10px 0 4px;color:#c4b5fd;">🌫️ Sombras</div>'
@@ -2605,39 +2572,12 @@
 
 
           var bm = panel.querySelector('#sp-bm'), bl = panel.querySelector('#sp-bl');
-          bm.onchange = function () {
-            if (bm.value === 'remover' && S.protectArt) {
-              S.protectArt = false;
-              var pae = panel.querySelector('#sp-pa'); if (pae) pae.checked = false;
-              alert('"Preservar arte principal" foi desligado para permitir remover o preto. Mesmo assim, só o preto ligado ao fundo é apagado.');
-            }
-            S.blackMode = bm.value;
-          };
+          bm.onchange = function () { S.blackMode = bm.value; };
 
           bl.oninput = function () { S.blackLevel = +bl.value; panel.querySelector('#sp-blv').textContent = bl.value; };
           var sm = panel.querySelector('#sp-sm'), sl = panel.querySelector('#sp-sl');
           sm.onchange = function () { S.shadowMode = sm.value; };
           sl.oninput = function () { S.shadowLevel = +sl.value; panel.querySelector('#sp-slv').textContent = sl.value; };
-            }
-            function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); done(); } }
-            function onClick(e) {
-              e.preventDefault(); e.stopPropagation();
-              var r = view.getBoundingClientRect();
-              var nx = (e.clientX - r.left) / r.width, ny = (e.clientY - r.top) / r.height;
-              var s = src || view;
-              var px = Math.max(0, Math.min(s.width - 1, Math.round(nx * s.width)));
-              var py = Math.max(0, Math.min(s.height - 1, Math.round(ny * s.height)));
-              try {
-                var p = s.getContext('2d').getImageData(px, py, 1, 1).data;
-                var hex = '#' + [p[0], p[1], p[2]].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
-                S.colorHex = hex; ch.value = hex;
-                S.colorOn = true; con.checked = true;
-              } catch (err) { alert('Não foi possível ler a cor.'); }
-              done();
-            }
-            view.addEventListener('click', onClick, true);
-            document.addEventListener('keydown', onKey, true);
-          };
 
           panel.querySelector('#sp-prev').onclick = openPreview;
         }
