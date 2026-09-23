@@ -36,3 +36,4 @@
 - [x] Garantir exportação final A2/A3/A4 pelo tamanho físico em mm, orientação e validação a 300 DPI
 - [x] Impedir remoção global pela cor da camiseta e reforçar a segmentação contextual em tecidos coloridos
 - [x] Restringir camisas coloridas a PNG, preservar preto e manter intactos os presets preto/branco
+- [x] Criar Halftone Universal para PNG em camisas brancas e coloridas, sem remoção e com Alpha original preservado
