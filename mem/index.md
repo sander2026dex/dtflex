@@ -5,7 +5,7 @@ Todo PNG exportado pela ferramenta de halftone DEVE ter 300 DPI reais nos metada
 Não alterar o bundle minificado public/dtflex-tool/assets/index-*.js nem o comportamento do halftone/reticulado — já funciona.
 Manter exportação A4/A3/A2 em 300 DPI, transparente, com enquadramento manual pelos quatro cantos e botões −/+.
 
-Remoção de fundo é SEMPRE por conectividade com as bordas — nunca por cor. Cor da camisa afeta só retícula/preview.
+Em camisa colorida, aceitar somente PNG, preservar preto e remover fundo por conectividade; preto/branco mantêm seus presets próprios.
 
 ## Memories
 - [Export 300 DPI](mem://features/export-300dpi) — Patch pHYs injetado no iframe da ferramenta DTFLEXPRO

@@ -7,10 +7,12 @@ type: feature
 Fluxo de camisa PRETA e BRANCA permanece intocado. Tecido colorido usa camada extra.
 
 Regras:
-- Camisa colorida ACEITA JPG/PNG com qualquer fundo. A remoção de fundo por conectividade com as bordas fica LIGADA por padrão (antes era desabilitada) e "Preservar detalhes" vai para `alto`.
+- Camisa colorida aceita SOMENTE PNG. JPG, PDF, PSD e outros formatos recebem advertência ao selecionar tecido colorido e a seleção não é aplicada.
+- A remoção de fundo por conectividade com as bordas fica LIGADA por padrão e "Preservar detalhes" vai para `alto`.
 - A cor da camiseta NUNCA apaga pixel. Nada de color key. Preto da arte (cabelo, barba, olhos, sombras, contornos) sempre preservado.
 - Remoção de fundo continua só por conectividade com as bordas; o seletor "Preservar detalhes" (baixo/médio/alto/máximo → `window.__DTF_PRESERVE`) multiplica LOCAL_TOL/GLOBAL_TOL/EDGE_STOP (1.25 / 1 / 0.75 / 0.55).
 - Base branca adaptativa (`window.__DTF_SMART_APPLY`): alpha da arte, contraído pelo choke (0–4 px), modulado pelo contraste entre a cor do pixel e a cor do tecido — menos contraste = mais branco. Só soma branco por baixo, nunca subtrai.
 - Painel flutuante aparece somente quando `window.__DTF_SHIRT_COLOR === 'colorida'`, no canto inferior direito: cobertura branca, choke, preservar detalhes, regras de preto, regras de cor específica, "Ver na camisa".
 - Sombras: no modo colorida as sombras (tons entre `blackLevel` e `shadowLevel`, padrão 60–170) são reticuladas por padrão com densidade proporcional ao quão escura é a sombra; opção de desligar no painel.
 - Preview simula a arte sobre a cor real do tecido, com alternância Halftone final / Arte original / Só base branca.
+- Camisas preta e branca permanecem no fluxo próprio existente: preta remove preto onde o preset determina; branca remove branco onde o preset determina, preservando as demais cores e reticulando o necessário.
