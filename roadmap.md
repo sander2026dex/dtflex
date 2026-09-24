@@ -37,6 +37,6 @@
 - [x] Impedir remoção global pela cor da camiseta e reforçar a segmentação contextual em tecidos coloridos
 - [x] Restringir camisas coloridas a PNG, preservar preto e manter intactos os presets preto/branco
 - [x] Criar Halftone Universal para PNG em camisas brancas e coloridas, sem remoção e com Alpha original preservado
-- [ ] Corrigir duplicação visual e restaurar os vazados da retícula na imagem final colorida
-- [ ] Garantir que o PNG final use exatamente A2/A3/A4 e a orientação escolhida
-- [ ] Validar transparência, dimensões e 300 DPI no download final
+- [x] Corrigir duplicação visual e restaurar os vazados da retícula na imagem final colorida
+- [x] Garantir que o PNG final use exatamente A2/A3/A4 e a orientação escolhida
+- [x] Validar transparência, dimensões e 300 DPI no download final
