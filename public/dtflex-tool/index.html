@@ -2212,10 +2212,9 @@
           } catch (e) { return null; }
         }
 
-        // Recompõe o resultado da retícula com o Alpha original do PNG.
-        // A retícula pode mudar o RGB, mas nunca cria nem remove transparência.
-        // Quando o motor antigo abriu um ponto transparente, recuperamos o RGB
-        // original naquele pixel para que nenhum detalhe visível desapareça.
+        // Restringe a saída à área originalmente visível do PNG sem preencher
+        // novamente os furos criados pela retícula. Assim, a arte não ganha uma
+        // segunda camada por baixo e os vazados continuam transparentes.
         function preserveOriginalAlpha(src) {
           var w = src.width, h = src.height;
           var ref = refData(w, h);
@@ -2228,14 +2227,11 @@
             var originalAlpha = ref[i + 3];
             var renderedAlpha = d[i + 3];
             if (originalAlpha > 0) visibleIn++;
-            if (renderedAlpha === 0 && originalAlpha > 0) {
-              d[i] = ref[i];
-              d[i + 1] = ref[i + 1];
-              d[i + 2] = ref[i + 2];
-            }
-            d[i + 3] = originalAlpha;
+            // Fora da arte original sempre fica transparente. Dentro dela,
+            // conserva o Alpha produzido pelo halftone (inclusive os vazados).
+            d[i + 3] = Math.min(originalAlpha, renderedAlpha);
             if (d[i + 3] > 0) visibleOut++;
-            if (d[i + 3] !== originalAlpha) mismatches++;
+            if (originalAlpha === 0 && d[i + 3] !== 0) mismatches++;
           }
           oc.putImageData(img, 0, 0);
           window.__DTF_LAST_ALPHA_CHECK = {
@@ -2245,7 +2241,8 @@
             visibleInput: visibleIn,
             visibleOutput: visibleOut,
             mismatches: mismatches,
-            valid: mismatches === 0 && visibleIn === visibleOut
+            valid: mismatches === 0,
+            halftoneHoles: Math.max(0, visibleIn - visibleOut)
           };
           return out;
         }
@@ -2717,7 +2714,7 @@
         setInterval(tick, 900);
       })();
     </script>
-    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-universal-v70"></script>
+    <script type="module" crossorigin src="/dtflex-tool/assets/index-DW2N2atJ.js?v=dpi300-universal-v71"></script>
 
 
     <link rel="stylesheet" crossorigin href="/dtflex-tool/assets/index-BqA95up4.css">

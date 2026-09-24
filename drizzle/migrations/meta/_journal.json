@@ -8,6 +8,13 @@
       "when": 1789669217035,
       "tag": "0000_create_batch_catalogs",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790249155750,
+      "tag": "0001_remove_redundant_storage_deny_policies",
+      "breakpoints": true
     }
   ]
 }
