@@ -40,4 +40,4 @@
 - [x] Corrigir duplicação visual e restaurar os vazados da retícula na imagem final colorida
 - [x] Garantir que o PNG final use exatamente A2/A3/A4 e a orientação escolhida
 - [x] Validar transparência, dimensões e 300 DPI no download final
-- [ ] Ajustar o upload para preencher e recortar exatamente o formato A2/A3/A4 escolhido
+- [x] Ajustar o upload para preencher e recortar exatamente o formato A2/A3/A4 escolhido
