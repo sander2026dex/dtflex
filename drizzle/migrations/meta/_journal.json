@@ -15,6 +15,13 @@
       "when": 1790249155750,
       "tag": "0001_remove_redundant_storage_deny_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790296310790,
+      "tag": "0002_remove_remaining_redundant_storage_deny_policies",
+      "breakpoints": true
     }
   ]
 }
