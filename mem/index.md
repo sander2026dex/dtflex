@@ -14,6 +14,7 @@ Em camisas branca/colorida, aceitar somente PNG e aplicar Halftone Universal sem
 - [Motor universal de cor do tecido](mem://features/motor-universal-cor-tecido) — Qualquer HEX calcula base branca/choke/sombra/preto automaticamente; cor nunca apaga pixel
 - [Protected Mask e halftone adaptativo](mem://features/protected-mask-coloridas) — Máscara protegida, proteção do preto, tolerância/suavização do fundo, pincéis manuais
 - [Conta da Gestão DTF e fluxo da biblioteca](mem://features/management-account-library-flow) — Acesso automático, dados zerados por cliente e envio Biblioteca → Halftone
+- [Ajuste inteligente da arte](mem://features/smart-fit) — A2/A3/A4 enquadram o conteúdo visível sem corte por padrão; recorte manual separado
 
 
 
