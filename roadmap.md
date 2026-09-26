@@ -41,3 +41,4 @@
 - [x] Garantir que o PNG final use exatamente A2/A3/A4 e a orientação escolhida
 - [x] Validar transparência, dimensões e 300 DPI no download final
 - [x] Ajustar o upload para preencher e recortar exatamente o formato A2/A3/A4 escolhido
+- [ ] Detectar limites reais da arte no PNG e enquadrar automaticamente em A2/A3/A4 sem cortar conteúdo, mantendo recorte manual opcional
