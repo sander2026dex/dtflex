@@ -168,7 +168,7 @@
             var minX = W, minY = H, maxX = -1, maxY = -1;
             for (var y = 0; y < H; y++) {
               for (var x = 0; x < W; x++) {
-                if (img[(y * W + x) * 4 + 3] > 4) {
+                if (img[(y * W + x) * 4 + 3] > 0) {
                   if (x < minX) minX = x;
                   if (x > maxX) maxX = x;
                   if (y < minY) minY = y;
@@ -252,7 +252,36 @@
           var dims = paperDimensions(format);
           if (!dims) return source;
           var out;
-          if (source.width === dims.width && source.height === dims.height) {
+          // O motor enquadra a imagem de upload em seu próprio canvas antes de
+          // reticular. Reconstituir essa transformação para que a folha final
+          // recorte as margens criadas pelo motor, não apenas troque o tamanho.
+          var uploaded = window.__DTF_ORIGINAL_CANVAS;
+          if (uploaded && uploaded.width && uploaded.height && window.__DTF_UPLOAD_PAPER === format) {
+            var content = getContentBBox(uploaded);
+            if (content) {
+              var engineScale = Math.min(source.width / uploaded.width, source.height / uploaded.height);
+              var engineX = (source.width - uploaded.width * engineScale) / 2;
+              var engineY = (source.height - uploaded.height * engineScale) / 2;
+              var sx = Math.max(0, engineX + content.x * engineScale);
+              var sy = Math.max(0, engineY + content.y * engineScale);
+              var sw = Math.min(source.width - sx, content.w * engineScale);
+              var sh = Math.min(source.height - sy, content.h * engineScale);
+              if (sw > 0 && sh > 0) {
+                out = document.createElement('canvas');
+                out.width = dims.width; out.height = dims.height;
+                var dest = out.getContext('2d', { alpha: true });
+                var margin = window.__DTF_UPLOAD_FIT_MODE === 'fill' ? 0 : Math.round(Math.min(dims.width, dims.height) * 0.03);
+                var factor = Math.min((dims.width - 2 * margin) / sw, (dims.height - 2 * margin) / sh);
+                var dw = sw * factor, dh = sh * factor;
+                dest.imageSmoothingEnabled = true;
+                dest.imageSmoothingQuality = 'high';
+                dest.drawImage(source, sx, sy, sw, sh, (dims.width - dw) / 2, (dims.height - dh) / 2, dw, dh);
+              }
+            }
+          }
+          if (out) {
+            // Já está no tamanho e no enquadramento escolhidos no upload.
+          } else if (source.width === dims.width && source.height === dims.height) {
             out = document.createElement('canvas');
             out.width = dims.width; out.height = dims.height;
             out.getContext('2d', { alpha: true }).drawImage(source, 0, 0);
@@ -1404,6 +1433,7 @@
 
             var run = function(){
             var finalPaper = window.__DTF_UPLOAD_PAPER;
+            window.__DTF_UPLOAD_FIT_MODE = fitMode;
             if (fitMode === 'smart' && finalPaper) {
               if (!bounds) { wait.remove(); alert('Não há arte visível neste arquivo.'); return; }
               var dims = paperDimensions(finalPaper);
@@ -1610,6 +1640,7 @@
                     window.__DTF_EXPORT_A4_NEXT_STICKY = paper === 'A4';
                     window.__DTF_EXPORT_A3_NEXT_STICKY = paper === 'A3';
                     window.__DTF_EXPORT_A2_NEXT_STICKY = paper === 'A2';
+                    if (!paper) { window.__DTF_ORIGINAL_CANVAS = null; window.__DTF_UPLOAD_FIT_MODE = null; }
                     inp.dispatchEvent(new Event('change', { bubbles: true }));
                   }
                   if (!cropCanvas) { finish(file); return; }
