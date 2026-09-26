@@ -735,7 +735,7 @@
           var overlay = document.createElement('div');
           overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:safe center;gap:12px;padding:16px;overflow-y:auto;overflow-x:hidden;';
           overlay.innerHTML = ''
-            + '<div style="color:#fff;font:600 14px system-ui;text-align:center;max-width:640px;">Escolha o tamanho e posicione a imagem dentro do quadro. Somente a área visível será salva no formato escolhido.</div>'
+            + '<div style="color:#fff;font:600 14px system-ui;text-align:center;max-width:640px;">Escolha o tamanho. A arte será ampliada automaticamente sem perder detalhes; se preferir, ajuste o recorte manualmente.</div>'
             + '<div style="max-width:820px;text-align:center;font:800 13px system-ui;color:#111;background:#f97316;border-radius:8px;padding:10px 14px;border:2px solid #fdba74;">⚠️ ATENÇÃO: a arte NÃO pode ficar muito perto dos cantos. Deixe uma margem de segurança em volta do desenho antes de confirmar o recorte.</div>'
 
             + '<div style="position:relative;z-index:3;width:min(92vw,430px);padding:11px;border-radius:9px;background:#121418;border:1px solid #262a31;color:#fff;font:600 12px system-ui;box-sizing:border-box;">'
@@ -751,12 +751,16 @@
             + '    <button id="dtf-frame-plus" type="button" aria-label="Ampliar imagem" title="Ampliar imagem" style="width:32px;height:30px;border-radius:6px;border:1px solid #444;background:#202329;color:#fff;font-size:18px;line-height:1;cursor:pointer;">+</button>'
             + '  </div>'
             + '  <div style="display:flex;gap:6px;margin-top:9px;">'
+            + '    <button id="dtf-fit-smart" type="button" style="flex:1;padding:8px;border-radius:6px;border:1px solid #22c55e;background:#166534;color:#fff;font-weight:700;cursor:pointer;">Ajustar à área · sem corte</button>'
+            + '    <button id="dtf-fit-fill" type="button" style="flex:1;padding:8px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;font-weight:700;cursor:pointer;">Preencher · recorte manual</button>'
+            + '  </div>'
+            + '  <div style="display:flex;gap:6px;margin-top:9px;">'
             + '    <button data-orientation="portrait" class="dtf-orientation" style="flex:1;padding:7px;border-radius:6px;border:1px solid #22c55e;background:#166534;color:#fff;font-weight:700;cursor:pointer;">Retrato</button>'
             + '    <button data-orientation="landscape" class="dtf-orientation" style="flex:1;padding:7px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;font-weight:700;cursor:pointer;">Paisagem</button>'
             + '  </div>'
             + '  <div id="dtf-final-summary" style="display:none;margin-top:9px;padding:9px;border-radius:6px;background:#080a0d;border:1px solid #333;color:#e5e7eb;font:600 11px system-ui;line-height:1.6;"></div>'
             + '</div>'
-            + '<div style="display:flex;align-items:center;justify-content:center;width:90vw;max-width:1100px;padding:12px;box-sizing:border-box;"><div id="dtf-upcrop-stage" style="position:relative;background:#222;border:1px solid #444;overflow:visible;margin:0 auto;"></div></div>'
+            + '<div style="display:flex;align-items:center;justify-content:center;width:90vw;max-width:1100px;padding:12px;box-sizing:border-box;"><canvas id="dtf-smart-preview" aria-label="Prévia da arte inteira no formato escolhido" style="display:none;max-width:100%;max-height:45vh;border:2px solid #22c55e;background-color:#30343b;background-image:linear-gradient(45deg,#3a3f46 25%,transparent 25%),linear-gradient(-45deg,#3a3f46 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#3a3f46 75%),linear-gradient(-45deg,transparent 75%,#3a3f46 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;"></canvas><div id="dtf-upcrop-stage" style="position:relative;background:#222;border:1px solid #444;overflow:visible;margin:0 auto;"></div></div>'
             + '<div style="position:relative;z-index:3;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font:600 12px system-ui;color:#fff;align-items:center;max-width:820px;">'
             + '  <span style="opacity:.85;width:100%;text-align:center;">Escolha o tecido. Branco e colorido usam Halftone Universal e preservam integralmente o PNG transparente.</span>'
             + '  <button data-hex="#000000" class="dtf-shirt" style="padding:6px 10px;border-radius:6px;border:1px solid #888;background:#000;color:#fff;font-weight:600;cursor:pointer;">Preto</button>'
@@ -789,7 +793,7 @@
             + '  <button id="dtf-upcrop-reset" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Selecionar tudo</button>'
             + '  <button id="dtf-upcrop-skip"  style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Usar imagem original</button>'
             + '  <button id="dtf-upcrop-cancel" style="padding:8px 14px;border-radius:8px;border:1px solid #888;background:#222;color:#fff;font-weight:600;cursor:pointer;">Cancelar</button>'
-            + '  <button id="dtf-upcrop-ok"     style="padding:8px 14px;border-radius:8px;border:0;background:#22c55e;color:#062;font-weight:700;cursor:pointer;">Aplicar tamanho e salvar recorte</button>'
+            + '  <button id="dtf-upcrop-ok"     style="padding:8px 14px;border-radius:8px;border:0;background:#22c55e;color:#062;font-weight:700;cursor:pointer;">Aplicar tamanho e salvar arte</button>'
             + '</div>';
 
           document.body.appendChild(overlay);
@@ -804,6 +808,40 @@
           var work = document.createElement('canvas');
           work.width = bitmap.width; work.height = bitmap.height;
           work.getContext('2d', { willReadFrequently: true }).drawImage(bitmap, 0, 0);
+          // Inclui qualquer pixel visível, inclusive sombras translúcidas e detalhes finos.
+          // Se não houver Alpha (JPG), toda a imagem é considerada arte.
+          function artBounds(){
+            var data = work.getContext('2d').getImageData(0, 0, work.width, work.height).data;
+            var x0 = work.width, y0 = work.height, x1 = -1, y1 = -1;
+            for (var y = 0; y < work.height; y++) for (var x = 0; x < work.width; x++) {
+              if (data[(y * work.width + x) * 4 + 3] === 0) continue;
+              if (x < x0) x0 = x; if (x > x1) x1 = x;
+              if (y < y0) y0 = y; if (y > y1) y1 = y;
+            }
+            return x1 < 0 ? null : { x:x0, y:y0, w:x1-x0+1, h:y1-y0+1 };
+          }
+          var bounds = artBounds();
+          var fitMode = 'smart';
+          var orientationManual = false;
+          var smartPreview = overlay.querySelector('#dtf-smart-preview');
+          function smartGeometry(width, height){
+            if (!bounds) return null;
+            var margin = Math.max(1, Math.round(Math.min(width, height) * 0.03));
+            var factor = Math.min((width - margin * 2) / bounds.w, (height - margin * 2) / bounds.h);
+            var w = bounds.w * factor, h = bounds.h * factor;
+            return { x:(width-w)/2, y:(height-h)/2, w:w, h:h };
+          }
+          function renderSmart(canvas){
+            var ctx = canvas.getContext('2d', { alpha:true });
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            var g = smartGeometry(canvas.width, canvas.height);
+            if (g) {
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(work, bounds.x, bounds.y, bounds.w, bounds.h, g.x, g.y, g.w, g.h);
+            }
+            return g;
+          }
           var preview = document.createElement('canvas');
           preview.width = dispW; preview.height = dispH;
           preview.style.cssText = 'display:block;background:#111;';
@@ -819,6 +857,26 @@
           var ar = 0;
           var frameZoom = 1;
           var orientation = 'portrait';
+          function updateFitMode(){
+            var smart = fitMode === 'smart' && !!window.__DTF_UPLOAD_PAPER;
+            stage.style.display = smart ? 'none' : 'block';
+            smartPreview.style.display = smart ? 'block' : 'none';
+            overlay.querySelector('#dtf-fit-smart').style.background = fitMode === 'smart' ? '#166534' : '#222';
+            overlay.querySelector('#dtf-fit-fill').style.background = fitMode === 'fill' ? '#166534' : '#222';
+            overlay.querySelector('#dtf-frame-minus').disabled = smart;
+            overlay.querySelector('#dtf-frame-plus').disabled = smart;
+            overlay.querySelector('#dtf-upcrop-reset').style.display = smart ? 'none' : '';
+            if (smart) {
+              var dims = paperDimensions(window.__DTF_UPLOAD_PAPER);
+              var factor = Math.min(480 / dims.width, Math.max(180, window.innerHeight * 0.42) / dims.height);
+              smartPreview.width = Math.max(1, Math.round(dims.width * factor));
+              smartPreview.height = Math.max(1, Math.round(dims.height * factor));
+              renderSmart(smartPreview);
+            }
+            syncFinalSummary();
+          }
+          overlay.querySelector('#dtf-fit-smart').onclick = function(){ fitMode = 'smart'; updateFitMode(); };
+          overlay.querySelector('#dtf-fit-fill').onclick = function(){ fitMode = 'fill'; updateFitMode(); };
           function applyRect(){
             if (ar > 0 && drag && drag.mode === 'resize') {
               rect.h = Math.max(10, rect.w / ar);
@@ -906,6 +964,15 @@
 
           function setAR(mode){
             var selectedFormat = mode === 'A2' || mode === 'A3' || mode === 'A4' ? mode : null;
+            if (selectedFormat && bounds && !orientationManual) {
+              orientation = bounds.w > bounds.h * 1.12 ? 'landscape' : 'portrait';
+              overlay.querySelectorAll('.dtf-orientation').forEach(function(o){
+                var active = o.dataset.orientation === orientation;
+                o.style.background = active ? '#166534' : '#222';
+                o.style.borderColor = active ? '#22c55e' : '#444';
+              });
+              window.__DTF_EXPORT_ORIENTATION = orientation;
+            }
             if (mode === 'free') ar = 0;
             else if (mode === '1:1') ar = 1;
             else if (mode === '3:4') ar = 3/4;
@@ -937,7 +1004,7 @@
             frameZoom = 1;
             var zoomLabel = overlay.querySelector('#dtf-frame-zoom');
             if (zoomLabel) zoomLabel.textContent = '100%';
-            syncFinalSummary();
+            updateFitMode();
           }
           overlay.querySelectorAll('.dtf-ar-up').forEach(function(b){
             b.addEventListener('click', function(){
@@ -954,6 +1021,12 @@
             summary.innerHTML = '<strong>Formato selecionado: ' + format + ' — ' + (orientation === 'landscape' ? 'Paisagem' : 'Retrato') + '</strong><br>'
               + 'Dimensão física: ' + String(dims.widthMm / 10).replace('.', ',') + ' × ' + String(dims.heightMm / 10).replace('.', ',') + ' cm (' + dims.widthMm + ' × ' + dims.heightMm + ' mm)<br>'
               + 'Resolução: 300 DPI<br>Dimensão final: ' + dims.width + ' × ' + dims.height + ' px';
+            if (fitMode === 'smart') {
+              var g = smartGeometry(dims.width, dims.height);
+              summary.innerHTML += g ? '<br>Arte: ' + (g.w / 300 * 2.54).toFixed(1).replace('.', ',') + ' × ' + (g.h / 300 * 2.54).toFixed(1).replace('.', ',') + ' cm'
+                + '<br>Posição X/Y: ' + (g.x / 300 * 2.54).toFixed(1).replace('.', ',') + ' / ' + (g.y / 300 * 2.54).toFixed(1).replace('.', ',') + ' cm<br>Modo: ajuste automático sem corte'
+                : '<br>Nenhum pixel visível encontrado nesta imagem.';
+            } else summary.innerHTML += '<br>Modo: recorte manual';
             inW.value = (dims.widthMm / 10).toFixed(1);
             inH.value = (dims.heightMm / 10).toFixed(1);
             syncPxLabel();
@@ -961,6 +1034,7 @@
           overlay.querySelectorAll('.dtf-orientation').forEach(function(b){
             b.addEventListener('click', function(){
               orientation = b.dataset.orientation;
+              orientationManual = true;
               window.__DTF_EXPORT_ORIENTATION = orientation;
               overlay.querySelectorAll('.dtf-orientation').forEach(function(o){
                 var active = o.dataset.orientation === orientation;
@@ -988,7 +1062,8 @@
           overlay.querySelector('#dtf-frame-plus').onclick = function(){ changeFrameZoom(1.12); };
 
           overlay.querySelector('#dtf-upcrop-reset').onclick = function(){
-            rect = { x:0, y:0, w:dispW, h:dispH }; applyRect();
+            if (window.__DTF_UPLOAD_PAPER) setAR(window.__DTF_UPLOAD_PAPER);
+            else { rect = { x:0, y:0, w:dispW, h:dispH }; applyRect(); }
           };
           overlay.querySelector('#dtf-upcrop-cancel').onclick = function(){
             overlay.remove(); if (onCancel) onCancel();
@@ -1328,6 +1403,21 @@
             document.body.appendChild(wait);
 
             var run = function(){
+            var finalPaper = window.__DTF_UPLOAD_PAPER;
+            if (fitMode === 'smart' && finalPaper) {
+              if (!bounds) { wait.remove(); alert('Não há arte visível neste arquivo.'); return; }
+              var dims = paperDimensions(finalPaper);
+              var fitted = document.createElement('canvas');
+              fitted.width = dims.width; fitted.height = dims.height;
+              renderSmart(fitted);
+              window.__DTF_TARGET_PX = [dims.width, dims.height];
+              overlay.remove();
+              try { window.__DTF_APPLY_SHIRT_PRESET(); } catch(e){}
+              if (window.__DTF_ENSURE_SHIRT_PRESET) window.__DTF_ENSURE_SHIRT_PRESET();
+              onConfirm(fitted, finalPaper);
+              setTimeout(function(){ wait.remove(); }, 120);
+              return;
+            }
             var sx = Math.round(rect.x / scale);
             var sy = Math.round(rect.y / scale);
             var sw = Math.round(rect.w / scale);
@@ -1346,7 +1436,6 @@
 
             // Reamostra para o tamanho em cm escolhido (300 DPI reais).
             var wCm = parseFloat(inW.value), hCm = parseFloat(inH.value);
-            var finalPaper = window.__DTF_UPLOAD_PAPER;
             if (finalPaper || (wCm > 0 && hCm > 0)) {
               var exactDims = finalPaper ? paperDimensions(finalPaper) : null;
               var tw = exactDims ? exactDims.width : cmToPx(wCm);
