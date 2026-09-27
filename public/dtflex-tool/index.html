@@ -252,32 +252,20 @@
           var dims = paperDimensions(format);
           if (!dims) return source;
           var out;
-          // O motor enquadra a imagem de upload em seu próprio canvas antes de
-          // reticular. Reconstituir essa transformação para que a folha final
-          // recorte as margens criadas pelo motor, não apenas troque o tamanho.
+          // O upload já contém EXATAMENTE o enquadramento confirmado (inclusive
+          // zoom e posição). Reprojetar a folha inteira, jamais detectar outro
+          // bounding box aqui: isso apagaria o ajuste feito pela pessoa.
           var uploaded = window.__DTF_ORIGINAL_CANVAS;
           if (uploaded && uploaded.width && uploaded.height && window.__DTF_UPLOAD_PAPER === format) {
-            var content = getContentBBox(uploaded);
-            if (content) {
-              var engineScale = Math.min(source.width / uploaded.width, source.height / uploaded.height);
-              var engineX = (source.width - uploaded.width * engineScale) / 2;
-              var engineY = (source.height - uploaded.height * engineScale) / 2;
-              var sx = Math.max(0, engineX + content.x * engineScale);
-              var sy = Math.max(0, engineY + content.y * engineScale);
-              var sw = Math.min(source.width - sx, content.w * engineScale);
-              var sh = Math.min(source.height - sy, content.h * engineScale);
-              if (sw > 0 && sh > 0) {
-                out = document.createElement('canvas');
-                out.width = dims.width; out.height = dims.height;
-                var dest = out.getContext('2d', { alpha: true });
-                var margin = window.__DTF_UPLOAD_FIT_MODE === 'fill' ? 0 : Math.round(Math.min(dims.width, dims.height) * 0.03);
-                var factor = Math.min((dims.width - 2 * margin) / sw, (dims.height - 2 * margin) / sh);
-                var dw = sw * factor, dh = sh * factor;
-                dest.imageSmoothingEnabled = true;
-                dest.imageSmoothingQuality = 'high';
-                dest.drawImage(source, sx, sy, sw, sh, (dims.width - dw) / 2, (dims.height - dh) / 2, dw, dh);
-              }
-            }
+            out = document.createElement('canvas');
+            out.width = dims.width; out.height = dims.height;
+            var dest = out.getContext('2d', { alpha: true });
+            dest.imageSmoothingEnabled = true;
+            dest.imageSmoothingQuality = 'high';
+            var engineScale = Math.min(source.width / uploaded.width, source.height / uploaded.height);
+            var engineX = (source.width - uploaded.width * engineScale) / 2;
+            var engineY = (source.height - uploaded.height * engineScale) / 2;
+            dest.drawImage(source, engineX, engineY, uploaded.width * engineScale, uploaded.height * engineScale, 0, 0, dims.width, dims.height);
           }
           if (out) {
             // Já está no tamanho e no enquadramento escolhidos no upload.
@@ -853,10 +841,11 @@
           var fitMode = 'smart';
           var orientationManual = false;
           var smartPreview = overlay.querySelector('#dtf-smart-preview');
+          var smartZoom = 1;
           function smartGeometry(width, height){
             if (!bounds) return null;
             var margin = Math.max(1, Math.round(Math.min(width, height) * 0.03));
-            var factor = Math.min((width - margin * 2) / bounds.w, (height - margin * 2) / bounds.h);
+            var factor = Math.min((width - margin * 2) / bounds.w, (height - margin * 2) / bounds.h) * smartZoom;
             var w = bounds.w * factor, h = bounds.h * factor;
             return { x:(width-w)/2, y:(height-h)/2, w:w, h:h };
           }
@@ -892,8 +881,8 @@
             smartPreview.style.display = smart ? 'block' : 'none';
             overlay.querySelector('#dtf-fit-smart').style.background = fitMode === 'smart' ? '#166534' : '#222';
             overlay.querySelector('#dtf-fit-fill').style.background = fitMode === 'fill' ? '#166534' : '#222';
-            overlay.querySelector('#dtf-frame-minus').disabled = smart;
-            overlay.querySelector('#dtf-frame-plus').disabled = smart;
+            overlay.querySelector('#dtf-frame-minus').disabled = false;
+            overlay.querySelector('#dtf-frame-plus').disabled = false;
             overlay.querySelector('#dtf-upcrop-reset').style.display = smart ? 'none' : '';
             if (smart) {
               var dims = paperDimensions(window.__DTF_UPLOAD_PAPER);
@@ -902,6 +891,7 @@
               smartPreview.height = Math.max(1, Math.round(dims.height * factor));
               renderSmart(smartPreview);
             }
+            overlay.querySelector('#dtf-frame-zoom').textContent = Math.round((smart ? smartZoom : frameZoom) * 100) + '%';
             syncFinalSummary();
           }
           overlay.querySelector('#dtf-fit-smart').onclick = function(){ fitMode = 'smart'; updateFitMode(); };
@@ -1031,6 +1021,7 @@
               applyRect();
             }
             frameZoom = 1;
+            smartZoom = 1;
             var zoomLabel = overlay.querySelector('#dtf-frame-zoom');
             if (zoomLabel) zoomLabel.textContent = '100%';
             updateFitMode();
@@ -1076,6 +1067,13 @@
           applyRect();
 
           function changeFrameZoom(multiplier){
+            if (fitMode === 'smart' && window.__DTF_UPLOAD_PAPER) {
+              smartZoom = Math.max(0.5, Math.min(3, smartZoom * multiplier));
+              renderSmart(smartPreview);
+              overlay.querySelector('#dtf-frame-zoom').textContent = Math.round(smartZoom * 100) + '%';
+              syncFinalSummary();
+              return;
+            }
             var next = Math.max(0.5, Math.min(3, frameZoom * multiplier));
             if (Math.abs(next - frameZoom) < 0.001) return;
             var cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;

@@ -1,0 +1,1 @@
+O enquadramento A2/A3/A4 confirmado no upload é a fonte única para o PNG final; não reenquadrar pelo Alpha depois de aplicar a retícula, pois isso perde o zoom e o recorte escolhidos.
