@@ -771,6 +771,10 @@
             + '    <button id="dtf-fit-smart" type="button" style="flex:1;padding:8px;border-radius:6px;border:1px solid #22c55e;background:#166534;color:#fff;font-weight:700;cursor:pointer;">Ajustar à área · sem corte</button>'
             + '    <button id="dtf-fit-fill" type="button" style="flex:1;padding:8px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;font-weight:700;cursor:pointer;">Preencher · recorte manual</button>'
             + '  </div>'
+            + '  <div id="dtf-move-controls" style="display:flex;gap:6px;margin-top:9px;">'
+            + '    <button id="dtf-move-art" type="button" aria-pressed="false" style="flex:1;padding:8px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;font-weight:700;cursor:pointer;">Mover arte manualmente</button>'
+            + '    <button id="dtf-center-art" type="button" style="padding:8px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;font-weight:700;cursor:pointer;">Centralizar</button>'
+            + '  </div>'
             + '  <div style="display:flex;gap:6px;margin-top:9px;">'
             + '    <button data-orientation="portrait" class="dtf-orientation" style="flex:1;padding:7px;border-radius:6px;border:1px solid #22c55e;background:#166534;color:#fff;font-weight:700;cursor:pointer;">Retrato</button>'
             + '    <button data-orientation="landscape" class="dtf-orientation" style="flex:1;padding:7px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;font-weight:700;cursor:pointer;">Paisagem</button>'
@@ -842,12 +846,14 @@
           var orientationManual = false;
           var smartPreview = overlay.querySelector('#dtf-smart-preview');
           var smartZoom = 1;
+          // Deslocamento relativo à folha, igual na prévia e no PNG de 300 DPI.
+          var smartOffsetX = 0, smartOffsetY = 0, moveArt = false;
           function smartGeometry(width, height){
             if (!bounds) return null;
             var margin = Math.max(1, Math.round(Math.min(width, height) * 0.03));
             var factor = Math.min((width - margin * 2) / bounds.w, (height - margin * 2) / bounds.h) * smartZoom;
             var w = bounds.w * factor, h = bounds.h * factor;
-            return { x:(width-w)/2, y:(height-h)/2, w:w, h:h };
+            return { x:(width-w)/2 + smartOffsetX * width, y:(height-h)/2 + smartOffsetY * height, w:w, h:h };
           }
           function renderSmart(canvas){
             var ctx = canvas.getContext('2d', { alpha:true });
@@ -875,6 +881,48 @@
           var ar = 0;
           var frameZoom = 1;
           var orientation = 'portrait';
+          var moveButton = overlay.querySelector('#dtf-move-art');
+          function updateMoveControl(){
+            moveButton.setAttribute('aria-pressed', String(moveArt));
+            moveButton.style.background = moveArt ? '#166534' : '#222';
+            moveButton.style.borderColor = moveArt ? '#22c55e' : '#444';
+            smartPreview.style.cursor = moveArt ? 'grab' : 'default';
+            smartPreview.style.touchAction = moveArt ? 'none' : 'auto';
+          }
+          moveButton.onclick = function(){ moveArt = !moveArt; updateMoveControl(); };
+          overlay.querySelector('#dtf-center-art').onclick = function(){
+            smartOffsetX = 0; smartOffsetY = 0;
+            if (smartPreview.style.display !== 'none') renderSmart(smartPreview);
+            syncFinalSummary();
+          };
+          var movePointer = null;
+          smartPreview.addEventListener('pointerdown', function(e){
+            if (!moveArt || !window.__DTF_UPLOAD_PAPER || !bounds) return;
+            movePointer = { id:e.pointerId, x:e.clientX, y:e.clientY, ox:smartOffsetX, oy:smartOffsetY };
+            smartPreview.setPointerCapture(e.pointerId);
+            smartPreview.style.cursor = 'grabbing';
+            e.preventDefault();
+          });
+          smartPreview.addEventListener('pointermove', function(e){
+            if (!movePointer || movePointer.id !== e.pointerId) return;
+            var r = smartPreview.getBoundingClientRect();
+            // Restar a borda para converter o movimento ao espaço útil da folha.
+            var width = r.width - 4, height = r.height - 4;
+            if (width <= 0 || height <= 0) return;
+            smartOffsetX = Math.max(-1, Math.min(1, movePointer.ox + (e.clientX - movePointer.x) / width));
+            smartOffsetY = Math.max(-1, Math.min(1, movePointer.oy + (e.clientY - movePointer.y) / height));
+            renderSmart(smartPreview);
+            syncFinalSummary();
+            e.preventDefault();
+          });
+          function endMove(e){
+            if (!movePointer || movePointer.id !== e.pointerId) return;
+            movePointer = null;
+            smartPreview.style.cursor = moveArt ? 'grab' : 'default';
+          }
+          smartPreview.addEventListener('pointerup', endMove);
+          smartPreview.addEventListener('pointercancel', endMove);
+          updateMoveControl();
           function updateFitMode(){
             var smart = fitMode === 'smart' && !!window.__DTF_UPLOAD_PAPER;
             stage.style.display = smart ? 'none' : 'block';
@@ -884,6 +932,7 @@
             overlay.querySelector('#dtf-frame-minus').disabled = false;
             overlay.querySelector('#dtf-frame-plus').disabled = false;
             overlay.querySelector('#dtf-upcrop-reset').style.display = smart ? 'none' : '';
+            overlay.querySelector('#dtf-move-controls').style.display = smart ? 'flex' : 'none';
             if (smart) {
               var dims = paperDimensions(window.__DTF_UPLOAD_PAPER);
               var factor = Math.min(480 / dims.width, Math.max(180, window.innerHeight * 0.42) / dims.height);
@@ -1022,6 +1071,8 @@
             }
             frameZoom = 1;
             smartZoom = 1;
+            smartOffsetX = 0;
+            smartOffsetY = 0;
             var zoomLabel = overlay.querySelector('#dtf-frame-zoom');
             if (zoomLabel) zoomLabel.textContent = '100%';
             updateFitMode();
