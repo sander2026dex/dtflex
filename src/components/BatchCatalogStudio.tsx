@@ -87,15 +87,6 @@ const SIZE_OPTIONS = ["PP", "P", "M", "G", "GG", "XG", "G1", "G2", "G3"];
 const COLOR_OPTIONS = ["#111111", "#ffffff", "#b91c1c", "#1e3a8a", "#15803d", "#f59e0b", "#7c3aed", "#ec4899"];
 const MODEL_MAP: Record<string, ShirtModel> = { Masculino: "careca", Feminino: "baby-look", Unissex: "careca", "Plus Size": "careca", Oversized: "careca", Infantil: "infantil", "Corpo inteiro": "manga-longa" };
 
-function dataUrl(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Falha ao ler arquivo."));
-    reader.readAsDataURL(file);
-  });
-}
-
 function money(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -228,14 +219,18 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
         setFiles((current) => current.map((item) => item.status === "waiting" ? { ...item, status: "error", error: "Processamento interrompido." } : item));
       }
       await finishBatch({ data: { id: started.id, completed: successes, failed: errors } });
-      toast.success(errors ? "Catálogo concluído com alguns arquivos para revisar." : "Seu catálogo foi concluído!");
        if (completedProducts.length) {
          try {
            const readyUrl = await preparePdf(completedProducts, settings);
-           if (readyUrl) downloadPdf(readyUrl);
+           if (readyUrl) {
+             downloadPdf(readyUrl);
+             toast.success(errors ? "PDF baixado; revise os arquivos com falha." : "Catálogo concluído e PDF baixado!");
+           }
          } catch (error) {
            toast.error("O catálogo terminou, mas não foi possível preparar o PDF. Tente baixar novamente.");
          }
+       } else {
+         toast.error("Nenhuma estampa foi concluída. Confira os erros e tente novamente.");
        }
        if (typeof Notification !== "undefined" && Notification.permission === "granted") new Notification("DTFLEXPRO", { body: "Seu catálogo foi concluído!" });
     } catch (error) {
