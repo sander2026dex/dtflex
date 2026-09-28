@@ -44,3 +44,5 @@
 - [x] Detectar limites reais da arte no PNG e enquadrar automaticamente em A2/A3/A4 sem cortar conteúdo, mantendo recorte manual opcional
 - [x] Fazer −/+ ajustar a arte principal em A2/A3/A4 e salvar o enquadramento exato no PNG final
 - [ ] Permitir arrastar manualmente a arte no A2/A3/A4 e conservar a posição escolhida no PNG final
+- [ ] Corrigir a criação do Catálogo em Lote e os erros de geração por arquivo
+- [ ] Acelerar o PDF e iniciar seu download automaticamente ao terminar o lote

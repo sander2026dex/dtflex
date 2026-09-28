@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDown,
@@ -87,15 +87,6 @@ const SIZE_OPTIONS = ["PP", "P", "M", "G", "GG", "XG", "G1", "G2", "G3"];
 const COLOR_OPTIONS = ["#111111", "#ffffff", "#b91c1c", "#1e3a8a", "#15803d", "#f59e0b", "#7c3aed", "#ec4899"];
 const MODEL_MAP: Record<string, ShirtModel> = { Masculino: "careca", Feminino: "baby-look", Unissex: "careca", "Plus Size": "careca", Oversized: "careca", Infantil: "infantil", "Corpo inteiro": "manga-longa" };
 
-function dataUrl(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Falha ao ler arquivo."));
-    reader.readAsDataURL(file);
-  });
-}
-
 function money(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -144,6 +135,7 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
   const finished = files.length >= 20 && !running && complete + failed === files.length;
 
   const addFiles = (incoming: FileList | File[]) => {
+    if (runningRef.current) return;
     const pngs = Array.from(incoming).filter((file) => file.type === "image/png").slice(0, 100 - files.length);
     if (!pngs.length) return toast.error("Selecione arquivos PNG.");
     if (Array.from(incoming).length > pngs.length) toast.warning("Somente PNGs e até 100 arquivos foram adicionados.");
@@ -154,59 +146,71 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
   const toggleColor = (color: string) => setSettings((current) => ({ ...current, colors: current.colors.includes(color) ? current.colors.filter((item) => item !== color) : [...current.colors, color] }));
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => setSettings((current) => ({ ...current, [key]: value }));
 
-  const processOne = async (item: BatchFile, order: number, id: string, start: number) => {
+  const processOne = async (item: BatchFile, order: number, id: string, start: number): Promise<BatchFile | null> => {
     const code = `${settings.prefix.toUpperCase()}-${String(start + order).padStart(3, "0")}`;
     setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "processing", code, error: undefined } : entry));
     try {
       const combinations = settings.models.flatMap((model) => settings.colors.map((color) => ({ model, color })));
       if (combinations.length > 24) throw new Error("Escolha no máximo 24 combinações de modelo e cor.");
-      const blobs: Blob[] = [];
-      for (const combination of combinations) {
-        blobs.push(await createCatalogMockup({ art: item.file, logo, model: MODEL_MAP[combination.model] ?? "careca", color: combination.color, brandName: settings.brandName, watermarkText: settings.watermarkText, watermark: settings.watermark, watermarkColor: settings.watermarkColor, watermarkOpacity: settings.watermarkOpacity, printSize: settings.printSize, position: settings.position as "Peito" | "Centro" | "Costas" }));
-      }
       if (item.file.size > 20 * 1024 * 1024) throw new Error("PNG maior que 20 MB.");
+      const artImage = await createImageBitmap(item.file);
+      let blobs: Blob[];
+      try {
+        blobs = [];
+        for (const combination of combinations) {
+          blobs.push(await createCatalogMockup({ art: item.file, artImage, logo, model: MODEL_MAP[combination.model] ?? "careca", color: combination.color, brandName: settings.brandName, watermarkText: settings.watermarkText, watermark: settings.watermark, watermarkColor: settings.watermarkColor, watermarkOpacity: settings.watermarkOpacity, printSize: settings.printSize, position: settings.position as "Peito" | "Centro" | "Costas" }));
+        }
+      } finally {
+        artImage.close();
+      }
       const prepared = await prepareUpload({ data: { batchId: id, code, originalName: item.file.name, mockupCount: blobs.length } });
       const uploads = [supabase.storage.from("catalog-assets").uploadToSignedUrl(prepared.original.path, prepared.original.token, item.file, { contentType: "image/png" })];
       for (let index = 0; index < blobs.length; index += 1) {
         const target = prepared.mockups[index];
         if (!target) throw new Error("Destino de mockup inválido.");
-        uploads.push(supabase.storage.from("catalog-assets").uploadToSignedUrl(target.path, target.token, blobs[index], { contentType: "image/webp" }));
+        uploads.push(supabase.storage.from("catalog-assets").uploadToSignedUrl(target.path, target.token, blobs[index], { contentType: "image/jpeg" }));
       }
       const uploaded = await Promise.all(uploads);
       const failedUpload = uploaded.find((result) => result.error);
       if (failedUpload?.error) throw new Error("Falha ao enviar uma imagem do catálogo.");
       const result: any = await completeProduct({ data: { batchId: id, code, order, originalName: item.file.name, originalPath: prepared.original.path, mockupPaths: prepared.mockups.map((target) => target.path), settings: { ...settings, logoName: logo?.name } } });
-      setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "done", code: result.code, mockups: result.mockups, pdfMockup: blobs[0] } : entry));
-      return true;
+      const completed: BatchFile = { ...item, status: "done", code: result.code, mockups: result.mockups, pdfMockup: blobs[0] };
+      setFiles((current) => current.map((entry) => entry.id === item.id ? completed : entry));
+      return completed;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível processar esta imagem.";
       setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "error", code, error: message } : entry));
-      return false;
+      return null;
     }
   };
 
   const generate = async () => {
+    if (runningRef.current) return;
     if (files.length < 20) return toast.error("Adicione pelo menos 20 PNGs.");
     if (!settings.colors.length || !settings.models.length || !settings.sizes.length) return toast.error("Escolha ao menos uma cor, modelo e tamanho.");
     if (variationCount > 24) return toast.error("Reduza para no máximo 24 variações por estampa.");
     runningRef.current = true;
     setRunning(true);
+    if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+    pdfUrlRef.current = null;
+    setPdfUrl(null);
     setFiles((current) => current.map((item) => ({ ...item, status: "waiting", error: undefined, code: undefined, mockups: 0, pdfMockup: undefined })));
     try {
       const started: any = await createBatch({ data: { name: `${settings.brandName || "Catálogo"} ${new Date().toLocaleDateString("pt-BR")}`, total: files.length, settings: { ...settings, logoName: logo?.name } } });
       setBatchId(started.id);
       let successes = 0;
       let errors = 0;
+      const completedProducts: BatchFile[] = [];
       const workFiles = settings.sortBy === "name"
         ? [...files].sort((a, b) => a.file.name.localeCompare(b.file.name, "pt-BR"))
         : files;
       for (let index = 0; index < workFiles.length && runningRef.current; index += 1) {
-        let succeeded = false;
-        for (let attempt = 0; attempt < 3 && !succeeded; attempt += 1) {
+        let succeeded: BatchFile | null = null;
+        for (let attempt = 0; attempt < 3 && !succeeded && runningRef.current; attempt += 1) {
           succeeded = await processOne(workFiles[index], index, started.id, started.start);
           if (!succeeded && attempt < 2) await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
         }
-        if (succeeded) successes += 1;
+        if (succeeded) { successes += 1; completedProducts.push(succeeded); }
         else errors += 1;
       }
       if (!runningRef.current) {
@@ -215,8 +219,20 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
         setFiles((current) => current.map((item) => item.status === "waiting" ? { ...item, status: "error", error: "Processamento interrompido." } : item));
       }
       await finishBatch({ data: { id: started.id, completed: successes, failed: errors } });
-      toast.success(errors ? "Catálogo concluído com alguns arquivos para revisar." : "Seu catálogo foi concluído!");
-      if (Notification.permission === "granted") new Notification("DTFLEXPRO", { body: "Seu catálogo foi concluído!" });
+       if (completedProducts.length) {
+         try {
+           const readyUrl = await preparePdf(completedProducts, settings);
+           if (readyUrl) {
+             downloadPdf(readyUrl);
+             toast.success(errors ? "PDF baixado; revise os arquivos com falha." : "Catálogo concluído e PDF baixado!");
+           }
+         } catch (error) {
+           toast.error("O catálogo terminou, mas não foi possível preparar o PDF. Tente baixar novamente.");
+         }
+       } else {
+         toast.error("Nenhuma estampa foi concluída. Confira os erros e tente novamente.");
+       }
+       if (typeof Notification !== "undefined" && Notification.permission === "granted") new Notification("DTFLEXPRO", { body: "Seu catálogo foi concluído!" });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao gerar catálogo.");
     } finally {
@@ -226,57 +242,69 @@ export default function BatchCatalogStudio({ onClose }: { onClose: () => void })
   };
 
   const retry = async (item: BatchFile) => {
-    if (!batchId) return;
+    if (!batchId || runningRef.current) return;
     const index = files.findIndex((entry) => entry.id === item.id);
     const firstCode = Number(files.find((entry) => entry.code)?.code?.split("-").pop()) || 1;
+    runningRef.current = true;
     setRunning(true);
-    await processOne(item, index, batchId, firstCode);
-    setRunning(false);
+    try {
+      const succeeded = await processOne(item, index, batchId, firstCode);
+      if (succeeded) {
+        const updated = files.map((entry) => entry.id === item.id ? succeeded : entry);
+        await finishBatch({ data: { id: batchId, completed: updated.filter((entry) => entry.status === "done").length, failed: updated.filter((entry) => entry.status === "error").length } });
+        const readyUrl = await preparePdf(updated.filter((entry) => entry.status === "done"), settings);
+        if (readyUrl) downloadPdf(readyUrl);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar o PDF.");
+    } finally {
+      runningRef.current = false;
+      setRunning(false);
+    }
   };
 
-  const preparePdf = useCallback(async () => {
-    const products = files.filter((item) => item.status === "done" && item.code && item.pdfMockup);
+  const preparePdf = async (items: BatchFile[], configuration: Settings) => {
+    const products = items.filter((item) => item.status === "done" && item.code && item.pdfMockup);
     if (!products.length) return null;
     setPdfPreparing(true);
-    const { jsPDF } = await import("jspdf");
+    try {
+    const [{ jsPDF }, images] = await Promise.all([
+      import("jspdf"),
+      Promise.all(products.map((item) => item.pdfMockup?.arrayBuffer().then((buffer) => new Uint8Array(buffer)))),
+    ]);
     const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-    const brand = settings.brandName || "DTFLEXPRO Catálogo";
-    const catalogName = `${settings.brandName || "Catálogo"} ${new Date().toLocaleDateString("pt-BR")}`;
+    const brand = configuration.brandName || "DTFLEXPRO Catálogo";
+    const catalogName = `${configuration.brandName || "Catálogo"} ${new Date().toLocaleDateString("pt-BR")}`;
     pdf.setFillColor(11, 16, 28); pdf.rect(0, 0, 210, 297, "F"); pdf.setTextColor(255, 214, 10); pdf.setFontSize(28); pdf.text(brand, 105, 130, { align: "center" }); pdf.setTextColor(255, 255, 255); pdf.setFontSize(14); pdf.text(catalogName, 105, 145, { align: "center" });
     pdf.addPage(); pdf.setTextColor(20, 20, 20); pdf.setFontSize(20); pdf.text("Índice", 16, 20); pdf.setFontSize(9);
-    products.forEach((product, index) => { const y = 32 + (index % 42) * 6; if (index && index % 42 === 0) { pdf.addPage(); pdf.text("Índice", 16, 20); } pdf.text(`${product.code}  |  ${product.file.name.replace(/\.[^.]+$/, "")}  |  ${money(settings.price)}`, 16, y); });
-    for (const product of products) {
-      pdf.addPage(); pdf.setFontSize(18); pdf.text(product.code ?? "", 16, 18); pdf.setFontSize(13); pdf.text(product.file.name.replace(/\.[^.]+$/, ""), 16, 27); if (product.pdfMockup) pdf.addImage(await dataUrl(product.pdfMockup), "WEBP", 25, 36, 160, 160); pdf.setFontSize(11); pdf.text(`Preço: ${money(settings.price)}`, 16, 210); pdf.text(`${settings.productType} em ${settings.fabric}. Tamanhos ${settings.sizes.join(", ")}.`, 16, 220, { maxWidth: 178 });
+    products.forEach((product, index) => { const y = 32 + (index % 42) * 6; if (index && index % 42 === 0) { pdf.addPage(); pdf.text("Índice", 16, 20); } pdf.text(`${product.code}  |  ${product.file.name.replace(/\.[^.]+$/, "")}  |  ${money(configuration.price)}`, 16, y); });
+    for (const [index, product] of products.entries()) {
+      pdf.addPage(); pdf.setFontSize(18); pdf.text(product.code ?? "", 16, 18); pdf.setFontSize(13); pdf.text(product.file.name.replace(/\.[^.]+$/, ""), 16, 27); if (images[index]) pdf.addImage(images[index], "JPEG", 25, 36, 160, 160); pdf.setFontSize(11); pdf.text(`Preço: ${money(configuration.price)}`, 16, 210); pdf.text(`${configuration.productType} em ${configuration.fabric}. Tamanhos ${configuration.sizes.join(", ")}.`, 16, 220, { maxWidth: 178 });
     }
     pdf.addPage(); pdf.setFillColor(11, 16, 28); pdf.rect(0, 0, 210, 297, "F"); pdf.setTextColor(255, 214, 10); pdf.setFontSize(24); pdf.text(brand, 105, 140, { align: "center" });
     const nextUrl = URL.createObjectURL(pdf.output("blob"));
     if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
     pdfUrlRef.current = nextUrl;
     setPdfUrl(nextUrl);
-    setPdfPreparing(false);
     return nextUrl;
-  }, [files, settings]);
-
-  useEffect(() => {
-    if (!finished) {
-      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
-      pdfUrlRef.current = null;
-      setPdfUrl(null);
+    } finally {
       setPdfPreparing(false);
-      return;
     }
-    void preparePdf().catch(() => setPdfPreparing(false));
-  }, [finished, preparePdf]);
+  };
 
-  const exportPdf = async () => {
-    const readyUrl = pdfUrlRef.current ?? await preparePdf();
-    if (!readyUrl) return toast.error("Não há produtos prontos para o PDF.");
+  const downloadPdf = (url: string) => {
     const link = document.createElement("a");
-    link.href = readyUrl;
+    link.href = url;
     link.download = `${settings.prefix.toLowerCase()}-catalogo.pdf`;
     document.body.appendChild(link);
     link.click();
     link.remove();
+  };
+
+  const exportPdf = async () => {
+    const readyUrl = pdfUrlRef.current ?? await preparePdf(files, settings);
+    if (!readyUrl) return toast.error("Não há produtos prontos para o PDF.");
+    downloadPdf(readyUrl);
   };
 
   const move = (index: number, direction: -1 | 1) => setFiles((current) => { const next = [...current]; const target = index + direction; if (target < 0 || target >= next.length) return current; [next[index], next[target]] = [next[target], next[index]]; return next; });
