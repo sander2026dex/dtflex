@@ -2,6 +2,7 @@ import { getShirtSrc, type ShirtModel } from "@/components/landing/shirt-studio/
 
 export type CatalogMockupInput = {
   art: File;
+  artImage?: ImageBitmap;
   logo?: File | null;
   model: ShirtModel;
   color: string;
@@ -23,6 +24,15 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+const shirtImages = new Map<string, Promise<HTMLImageElement>>();
+function loadShirt(src: string) {
+  const cached = shirtImages.get(src);
+  if (cached) return cached;
+  const loading = loadImage(src).catch((error) => { shirtImages.delete(src); throw error; });
+  shirtImages.set(src, loading);
+  return loading;
+}
+
 export async function createCatalogMockup(input: CatalogMockupInput): Promise<Blob> {
   const size = 900;
   const canvas = document.createElement("canvas");
@@ -33,12 +43,12 @@ export async function createCatalogMockup(input: CatalogMockupInput): Promise<Bl
 
   context.fillStyle = "#e8eaed";
   context.fillRect(0, 0, size, size);
-  const shirt = await loadImage(getShirtSrc(input.model, input.position === "Costas" ? "costas" : "frente"));
-  const artUrl = URL.createObjectURL(input.art);
+  const shirt = await loadShirt(getShirtSrc(input.model, input.position === "Costas" ? "costas" : "frente"));
+  const artUrl = input.artImage ? null : URL.createObjectURL(input.art);
   const logoUrl = input.logo ? URL.createObjectURL(input.logo) : null;
 
   try {
-    const art = await loadImage(artUrl);
+    const art = input.artImage ?? await loadImage(artUrl ?? "");
     const shirtScale = Math.min((size * 0.86) / shirt.width, (size * 0.92) / shirt.height);
     const shirtWidth = shirt.width * shirtScale;
     const shirtHeight = shirt.height * shirtScale;
@@ -101,7 +111,7 @@ export async function createCatalogMockup(input: CatalogMockupInput): Promise<Bl
       canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Falha ao salvar mockup."))), "image/jpeg", 0.8);
     });
   } finally {
-    URL.revokeObjectURL(artUrl);
+    if (artUrl) URL.revokeObjectURL(artUrl);
     if (logoUrl) URL.revokeObjectURL(logoUrl);
     canvas.width = 1;
     canvas.height = 1;
