@@ -80,7 +80,7 @@ export const prepareCatalogProductUpload = createServerFn({ method: "POST" })
     }
     const paths = [
       `${basePath}/original-${safeName(data.originalName)}`,
-      ...Array.from({ length: data.mockupCount }, (_, index) => `${basePath}/mockup-${String(index + 1).padStart(2, "0")}.webp`),
+      ...Array.from({ length: data.mockupCount }, (_, index) => `${basePath}/mockup-${String(index + 1).padStart(2, "0")}.jpg`),
     ];
     const signed = await Promise.all(paths.map(async (path) => {
       const { data: upload, error } = await db.storage.from("catalog-assets").createSignedUploadUrl(path);
@@ -130,7 +130,6 @@ export const completeCatalogProduct = createServerFn({ method: "POST" })
         product_data: data.settings,
       }, { onConflict: "user_access_id,code" });
       if (error) throw error;
-      await db.from("catalog_batches").update({ completed_items: data.order + 1 }).eq("id", data.batchId);
       return { code: data.code, name, mockups: data.mockupPaths.length };
     } catch (error) {
       await db.storage.from("catalog-assets").remove([data.originalPath, ...data.mockupPaths]);
@@ -142,7 +141,8 @@ export const finishCatalogBatch = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid(), completed: z.number().int(), failed: z.number().int() }).parse(input))
   .handler(async ({ data }) => {
     const { db, access } = await context();
-    await db.from("catalog_batches").update({ status: data.failed === data.completed + data.failed ? "failed" : "completed", completed_items: data.completed, failed_items: data.failed }).eq("id", data.id).eq("user_access_id", access.accessId);
+    const { error } = await db.from("catalog_batches").update({ status: data.completed === 0 ? "failed" : "completed", completed_items: data.completed, failed_items: data.failed }).eq("id", data.id).eq("user_access_id", access.accessId);
+    if (error) throw new Error("Não foi possível finalizar o catálogo.");
     return { ok: true };
   });
 

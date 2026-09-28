@@ -24,7 +24,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 export async function createCatalogMockup(input: CatalogMockupInput): Promise<Blob> {
-  const size = 1000;
+  const size = 900;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -98,7 +98,7 @@ export async function createCatalogMockup(input: CatalogMockupInput): Promise<Bl
     }
 
     return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Falha ao salvar mockup."))), "image/webp", 0.82);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Falha ao salvar mockup."))), "image/jpeg", 0.8);
     });
   } finally {
     URL.revokeObjectURL(artUrl);
