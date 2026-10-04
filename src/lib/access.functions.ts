@@ -513,7 +513,7 @@ export const getAccessSession = createServerFn({ method: "GET" }).handler(async 
   const db = getDb();
   const { data: row } = await db
     .from("user_access")
-    .select("active_session_token, status, expires_at")
+    .select("active_session_token, status, expires_at, is_trial")
     .eq("id", accessId)
     .maybeSingle();
 
@@ -539,6 +539,7 @@ export const getAccessSession = createServerFn({ method: "GET" }).handler(async 
     authenticated: true,
     email: session.data?.email ?? null,
     expiresAt: expiresAt ?? null,
+    isTrial: Boolean(row?.is_trial),
   };
 });
 
