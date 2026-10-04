@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Users, MessageCircle, Shirt } from "lucide-react";
+import { ArrowUpRight, Users, MessageCircle, Shirt, Gift } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { TrialSignupDialog } from "@/components/landing/TrialSignupDialog";
 import logo from "@/assets/dtflexpro-logo.png.asset.json";
 
 export function Header({ affiliateMode = false }: { affiliateMode?: boolean } = {}) {
@@ -47,12 +48,22 @@ export function Header({ affiliateMode = false }: { affiliateMode?: boolean } = 
             </a>
           </Button>
           {!affiliateMode && (
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <Link to="/afiliado">
-                <Users className="h-4 w-4" />
-                Afiliados
-              </Link>
-            </Button>
+            <>
+              <Button asChild variant="ghost" size="sm" className="hidden lg:inline-flex">
+                <Link to="/afiliado">
+                  <Users className="h-4 w-4" />
+                  Afiliados
+                </Link>
+              </Button>
+              <TrialSignupDialog
+                trigger={
+                  <Button size="icon" className="size-11 sm:h-9 sm:w-auto sm:px-3">
+                    <Gift className="h-4 w-4" />
+                    <span className="hidden sm:inline">Teste grátis 7 dias</span>
+                  </Button>
+                }
+              />
+            </>
           )}
           <Button asChild variant="outline" size="icon" className="size-11 sm:h-9 sm:w-auto sm:px-3">
             <Link to="/login" search={{ code: "", email: "", expired: "" }}>
