@@ -13,7 +13,9 @@ import {
   Library,
   BriefcaseBusiness,
   Images,
+  Lock,
 } from "lucide-react";
+import { toast } from "sonner";
 import { getAccessSession, pingAccessSession, logoutAccessSession } from "@/lib/access.functions";
 import { DTFCalculatorDialog } from "@/components/DTFCalculatorDialog";
 import { Button } from "@/components/ui/button";
@@ -97,13 +99,15 @@ function AppPage() {
   const ping = useServerFn(pingAccessSession);
   const readSession = useServerFn(getAccessSession);
   const logout = useServerFn(logoutAccessSession);
-  const [expiry, setExpiry] = useState<{ email: string | null; expiresAt: string | null } | null>(
-    null,
-  );
+  const [expiry, setExpiry] = useState<{
+    email: string | null;
+    expiresAt: string | null;
+    isTrial: boolean;
+  } | null>(null);
   const [showRemover, setShowRemover] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
   const [showGang, setShowGang] = useState(false);
-  const [showLibrary, setShowLibrary] = useState(true);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [showManagement, setShowManagement] = useState(false);
   const [showBatchCatalog, setShowBatchCatalog] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -137,7 +141,11 @@ function AppPage() {
   // Buscar dados da sessão (e-mail + expiração) para mostrar no topo
   useEffect(() => {
     readSession()
-      .then((s) => setExpiry({ email: s.email ?? null, expiresAt: s.expiresAt ?? null }))
+      .then((s) => {
+        const isTrial = Boolean(s.isTrial);
+        setExpiry({ email: s.email ?? null, expiresAt: s.expiresAt ?? null, isTrial });
+        if (!isTrial) setShowLibrary(true);
+      })
       .catch(() => {});
   }, [readSession]);
 
@@ -345,10 +353,26 @@ function AppPage() {
           <Button
             variant="secondary"
             className="h-11 px-3 text-xs font-semibold shadow-lg sm:h-9"
-            onClick={() => setToolsOpen((v) => !v)}
+            onClick={() => {
+              if (expiry?.isTrial) {
+                setToolsOpen(false);
+                toast.info("Somente no plano PRO", {
+                  description: "As ferramentas ficam disponíveis após a ativação do plano.",
+                });
+                return;
+              }
+              setToolsOpen((v) => !v);
+            }}
           >
-            {toolsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            {expiry?.isTrial ? (
+              <Lock className="h-4 w-4" />
+            ) : toolsOpen ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronUp className="h-4 w-4" />
+            )}
             Ferramentas
+            {expiry?.isTrial && <span className="ml-1 text-[10px] uppercase">PRO</span>}
           </Button>
         </div>
       )}
