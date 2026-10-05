@@ -46,4 +46,4 @@
 - [ ] Permitir arrastar manualmente a arte no A2/A3/A4 e conservar a posição escolhida no PNG final
 - [ ] Corrigir a criação do Catálogo em Lote e os erros de geração por arquivo
 - [ ] Acelerar o PDF e iniciar seu download automaticamente ao terminar o lote
-- [ ] Corrigir o enquadramento A2/A3/A4 para preservar textos completos no PNG final
+- [x] Corrigir o enquadramento A2/A3/A4 para preservar textos completos no PNG final
