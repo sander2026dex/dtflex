@@ -262,10 +262,16 @@
             var dest = out.getContext('2d', { alpha: true });
             dest.imageSmoothingEnabled = true;
             dest.imageSmoothingQuality = 'high';
-            var engineScale = Math.min(source.width / uploaded.width, source.height / uploaded.height);
-            var engineX = (source.width - uploaded.width * engineScale) / 2;
-            var engineY = (source.height - uploaded.height * engineScale) / 2;
-            dest.drawImage(source, engineX, engineY, uploaded.width * engineScale, uploaded.height * engineScale, 0, 0, dims.width, dims.height);
+            // O motor pode devolver um canvas com proporção diferente da folha.
+            // Nunca recortar o centro desse canvas: letras e detalhes nas bordas
+            // desapareceriam. Encaixar o resultado inteiro na folha confirmada,
+            // sem distorção e sem recalcular o enquadramento pelo Alpha.
+            var sourceScale = Math.min(dims.width / source.width, dims.height / source.height);
+            var sourceW = Math.max(1, Math.round(source.width * sourceScale));
+            var sourceH = Math.max(1, Math.round(source.height * sourceScale));
+            var sourceX = Math.round((dims.width - sourceW) / 2);
+            var sourceY = Math.round((dims.height - sourceH) / 2);
+            dest.drawImage(source, 0, 0, source.width, source.height, sourceX, sourceY, sourceW, sourceH);
           }
           if (out) {
             // Já está no tamanho e no enquadramento escolhidos no upload.
