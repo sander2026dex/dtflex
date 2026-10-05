@@ -248,6 +248,19 @@
             heightMm: landscape ? spec.widthMm : spec.heightMm
           };
         }
+        function visibleBounds(canvas){
+          try {
+            var ctx = canvas.getContext('2d', { willReadFrequently: true });
+            var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            var x0 = canvas.width, y0 = canvas.height, x1 = -1, y1 = -1;
+            for (var y = 0; y < canvas.height; y++) for (var x = 0; x < canvas.width; x++) {
+              if (data[(y * canvas.width + x) * 4 + 3] === 0) continue;
+              if (x < x0) x0 = x; if (x > x1) x1 = x;
+              if (y < y0) y0 = y; if (y > y1) y1 = y;
+            }
+            return x1 < 0 ? null : { x:x0, y:y0, w:x1-x0+1, h:y1-y0+1 };
+          } catch (e) { return null; }
+        }
         function makePaperCanvas(source, format){
           var dims = paperDimensions(format);
           if (!dims) return source;
@@ -262,16 +275,21 @@
             var dest = out.getContext('2d', { alpha: true });
             dest.imageSmoothingEnabled = true;
             dest.imageSmoothingQuality = 'high';
-            // O motor pode devolver um canvas com proporção diferente da folha.
-            // Nunca recortar o centro desse canvas: letras e detalhes nas bordas
-            // desapareceriam. Encaixar o resultado inteiro na folha confirmada,
-            // sem distorção e sem recalcular o enquadramento pelo Alpha.
-            var sourceScale = Math.min(dims.width / source.width, dims.height / source.height);
-            var sourceW = Math.max(1, Math.round(source.width * sourceScale));
-            var sourceH = Math.max(1, Math.round(source.height * sourceScale));
-            var sourceX = Math.round((dims.width - sourceW) / 2);
-            var sourceY = Math.round((dims.height - sourceH) / 2);
-            dest.drawImage(source, 0, 0, source.width, source.height, sourceX, sourceY, sourceW, sourceH);
+            // O motor trabalha numa prévia interna e pode reduzir a arte dentro
+            // dela. Recoloca o resultado reticulado exatamente na caixa ocupada
+            // pela arte no enquadramento confirmado, preservando texto, escala e
+            // posição. A folha confirmada continua sendo a única referência.
+            var sourceArt = visibleBounds(source);
+            var uploadedArt = visibleBounds(uploaded);
+            if (sourceArt && uploadedArt) {
+              var targetX = Math.round(uploadedArt.x / uploaded.width * dims.width);
+              var targetY = Math.round(uploadedArt.y / uploaded.height * dims.height);
+              var targetW = Math.max(1, Math.round(uploadedArt.w / uploaded.width * dims.width));
+              var targetH = Math.max(1, Math.round(uploadedArt.h / uploaded.height * dims.height));
+              dest.drawImage(source, sourceArt.x, sourceArt.y, sourceArt.w, sourceArt.h, targetX, targetY, targetW, targetH);
+            } else {
+              dest.drawImage(source, 0, 0, source.width, source.height, 0, 0, dims.width, dims.height);
+            }
           }
           if (out) {
             // Já está no tamanho e no enquadramento escolhidos no upload.
