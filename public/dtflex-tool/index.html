@@ -267,7 +267,8 @@
           var out;
           // O upload já contém EXATAMENTE o enquadramento confirmado (inclusive
           // zoom e posição). Reprojetar a folha inteira, jamais detectar outro
-          // bounding box aqui: isso apagaria o ajuste feito pela pessoa.
+          // bounding box aqui: isso apagaria texto, detalhes afastados e o
+          // ajuste feito pela pessoa.
           var uploaded = window.__DTF_ORIGINAL_CANVAS;
           if (uploaded && uploaded.width && uploaded.height && window.__DTF_UPLOAD_PAPER === format) {
             out = document.createElement('canvas');
@@ -275,21 +276,10 @@
             var dest = out.getContext('2d', { alpha: true });
             dest.imageSmoothingEnabled = true;
             dest.imageSmoothingQuality = 'high';
-            // O motor trabalha numa prévia interna e pode reduzir a arte dentro
-            // dela. Recoloca o resultado reticulado exatamente na caixa ocupada
-            // pela arte no enquadramento confirmado, preservando texto, escala e
-            // posição. A folha confirmada continua sendo a única referência.
-            var sourceArt = visibleBounds(source);
-            var uploadedArt = visibleBounds(uploaded);
-            if (sourceArt && uploadedArt) {
-              var targetX = Math.round(uploadedArt.x / uploaded.width * dims.width);
-              var targetY = Math.round(uploadedArt.y / uploaded.height * dims.height);
-              var targetW = Math.max(1, Math.round(uploadedArt.w / uploaded.width * dims.width));
-              var targetH = Math.max(1, Math.round(uploadedArt.h / uploaded.height * dims.height));
-              dest.drawImage(source, sourceArt.x, sourceArt.y, sourceArt.w, sourceArt.h, targetX, targetY, targetW, targetH);
-            } else {
-              dest.drawImage(source, 0, 0, source.width, source.height, 0, 0, dims.width, dims.height);
-            }
+            // O canvas inteiro representa a folha escolhida. Copiá-lo inteiro
+            // conserva cada coordenada confirmada, mesmo quando a retícula deixa
+            // texto claro ou elementos separados com poucos pixels visíveis.
+            dest.drawImage(source, 0, 0, source.width, source.height, 0, 0, dims.width, dims.height);
           }
           if (out) {
             // Já está no tamanho e no enquadramento escolhidos no upload.
@@ -1513,6 +1503,15 @@
               var fitted = document.createElement('canvas');
               fitted.width = dims.width; fitted.height = dims.height;
               renderSmart(fitted);
+              // O modo Smart Fit também precisa executar a remoção de fundo
+              // escolhida antes de enviar a arte ao motor. Antes este caminho
+              // retornava cedo e pulava a remoção, fazendo o fundo preto entrar
+              // no halftone e eliminando textos claros isolados na saída.
+              var smartRmBg = overlay.querySelector('#dtf-rmbg');
+              var smartUniversal = window.__DTF_SHIRT_COLOR === 'colorida' || window.__DTF_SHIRT_COLOR === 'white';
+              if (!smartUniversal && smartRmBg && smartRmBg.checked) {
+                try { removeBackgroundAuto(fitted); window.__DTF_HAS_TRANSPARENCY = true; } catch(e){}
+              }
               window.__DTF_TARGET_PX = [dims.width, dims.height];
               overlay.remove();
               try { window.__DTF_APPLY_SHIRT_PRESET(); } catch(e){}
