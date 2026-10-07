@@ -1034,8 +1034,8 @@ function buildClientMessage(item: {
 }
 
 const PLAN_CHECKOUT = {
-  mensal: { price: "R$ 47", cadence: "30 dias", url: "https://invoice.infinitepay.io/plans/alexsander-63468735-b77/1TxPj2BbwT" },
-  anual: { price: "R$ 147", cadence: "365 dias", url: "https://checkout.infinitepay.io/alexsander-63468735-b77/nGf1d3Y7up" },
+  mensal: { price: "R$ 47", cadence: "30 dias", url: "https://nubank.com.br/cobranca/c4gqtgTcme3a2dkq" },
+  anual: { price: "R$ 147", cadence: "365 dias", url: "https://nubank.com.br/cobranca/ZA14QIfuv63a2dkq" },
 } as const;
 
 function buildBillingMessage(item: {
