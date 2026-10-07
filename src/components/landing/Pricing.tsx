@@ -35,7 +35,7 @@ export function Pricing({ affiliateMode = false }: { affiliateMode?: boolean } =
           <p className="text-sm uppercase tracking-[0.24em] text-brand">Planos</p>
           <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">Escolha a assinatura que combina com o seu ritmo de produção</h2>
           <p className="text-base leading-7 text-muted-foreground">
-            Pagamento via InfinitePay (Pix, cartão ou boleto). Após o pagamento, envie o comprovante pelo WhatsApp para liberarmos seu acesso.
+            Pagamento via Nubank (Pix ou cartão). Após o pagamento, envie o comprovante pelo WhatsApp para liberarmos seu acesso.
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export function Pricing({ affiliateMode = false }: { affiliateMode?: boolean } =
                 className="w-full sm:w-auto bg-[oklch(0.86_0.18_92)] text-black hover:bg-[oklch(0.80_0.18_92)] shadow-[0_0_24px_oklch(0.86_0.18_92/0.45)]"
                 onClick={handleCheckout}
               >
-                Pagar com InfinitePay ({selectedPlan.price})
+                Pagar com Nubank ({selectedPlan.price})
               </Button>
               <Button
                 size="lg"
