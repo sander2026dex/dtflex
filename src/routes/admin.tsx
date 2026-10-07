@@ -499,7 +499,7 @@ function AdminPage() {
         <DataCard title="Registrar compra (envia senha provisória ao cliente)">
 
           <p className="mb-3 text-xs text-muted-foreground">
-            Use ao receber o comprovante do InfinitePay no WhatsApp. O cliente recebe um e-mail de boas-vindas com uma senha provisória (válida por 7 dias e ligada a 1 dispositivo). Depois que ele acessar, libere a senha definitiva no formulário abaixo.
+            Use ao receber o comprovante do Nubank no WhatsApp. O cliente recebe um e-mail de boas-vindas com uma senha provisória (válida por 7 dias e ligada a 1 dispositivo). Depois que ele acessar, libere a senha definitiva no formulário abaixo.
           </p>
           <form
             className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.8fr_auto] md:items-end"
