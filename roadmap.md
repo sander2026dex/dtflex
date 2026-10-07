@@ -47,3 +47,4 @@
 - [ ] Corrigir a criação do Catálogo em Lote e os erros de geração por arquivo
 - [ ] Acelerar o PDF e iniciar seu download automaticamente ao terminar o lote
 - [x] Corrigir o enquadramento A2/A3/A4 para preservar textos completos no PNG final
+- [x] Impedir que a limpeza final apague textos e elementos separados da arte
