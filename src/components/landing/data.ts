@@ -94,7 +94,7 @@ export const pricingOptions: PricingOption[] = [
     cadence: "/mês",
     summary:
       "Ideal para produzir com Halftone, Biblioteca de Artes, Gestão DTF, montagem profissional e estúdio de mockups.",
-    checkoutHref: "https://invoice.infinitepay.io/plans/alexsander-63468735-b77/1TxPj2BbwT",
+    checkoutHref: "https://nubank.com.br/cobranca/c4gqtgTcme3a2dkq",
     benefits: [
       "Halftone inteligente para qualquer cor de tecido",
       "Exportação em PNG 300 DPI pronto para DTF",
@@ -110,7 +110,7 @@ export const pricingOptions: PricingOption[] = [
     badge: "Melhor custo anual",
     summary:
       "A melhor escolha para estúdios e produção contínua durante todo o ano, com economia significativa.",
-    checkoutHref: "https://checkout.infinitepay.io/alexsander-63468735-b77/nGf1d3Y7up",
+    checkoutHref: "https://nubank.com.br/cobranca/ZA14QIfuv63a2dkq",
     benefits: [
       "Todas as ferramentas da plataforma com economia anual",
       "Acesso contínuo durante 12 meses",
