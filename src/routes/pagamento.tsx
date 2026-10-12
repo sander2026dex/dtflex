@@ -53,14 +53,13 @@ function PagamentoPage() {
   return (
     <div className="min-h-screen bg-background py-10">
       <div className="mx-auto max-w-2xl px-6">
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/" })}
+        <Link
+          to="/"
           className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <ArrowLeft className="h-4 w-4" />
           Voltar para a página inicial
-        </button>
+        </Link>
 
         <Card className="rounded-lg border-border/70 bg-card/60 p-8 shadow-[var(--shadow-panel)] backdrop-blur-xl">
           <div className="space-y-3 border-b border-border/70 pb-6">
@@ -85,13 +84,12 @@ function PagamentoPage() {
           </div>
 
           <div className="space-y-3 border-t border-border/70 pt-6">
-            <Button
-              size="lg"
-              className="w-full bg-[oklch(0.86_0.18_92)] text-black hover:bg-[oklch(0.80_0.18_92)] shadow-[0_0_24px_oklch(0.86_0.18_92/0.45)]"
-              onClick={handleCheckout}
+            <a
+              href={plan.checkoutHref}
+              className="inline-flex h-11 w-full items-center justify-center rounded-md bg-[oklch(0.86_0.18_92)] px-8 text-sm font-medium text-black shadow-[0_0_24px_oklch(0.86_0.18_92/0.45)] transition-colors hover:bg-[oklch(0.80_0.18_92)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Pagar com Nubank ({plan.price})
-            </Button>
+            </a>
             <Button
               size="lg"
               variant="outline"
