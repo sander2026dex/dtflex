@@ -86,6 +86,8 @@ function PagamentoPage() {
           <div className="space-y-3 border-t border-border/70 pt-6">
             <a
               href={plan.checkoutHref}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex h-11 w-full items-center justify-center rounded-md bg-[oklch(0.86_0.18_92)] px-8 text-sm font-medium text-black shadow-[0_0_24px_oklch(0.86_0.18_92/0.45)] transition-colors hover:bg-[oklch(0.80_0.18_92)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Pagar com Nubank ({plan.price})
@@ -100,8 +102,8 @@ function PagamentoPage() {
               Enviar comprovante no WhatsApp
             </Button>
             <p className="text-sm text-muted-foreground">
-              Pagamento via Nubank (Pix ou cartão), na mesma janela. Após pagar, use o botão de voltar do navegador para
-              retornar aqui e envie o comprovante pelo WhatsApp para liberarmos seu acesso.
+              O pagamento abre em uma segunda tela (Nova aba), assim esta página continua aberta para você voltar.
+              Após pagar, envie o comprovante pelo WhatsApp para liberarmos seu acesso.
             </p>
             <div className="pt-2">
               <Link
