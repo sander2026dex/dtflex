@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, CheckCircle2, MessageCircle } from "lucide-react";
 import { z } from "zod";
 
@@ -40,14 +40,8 @@ export const Route = createFileRoute("/pagamento")({
 });
 
 function PagamentoPage() {
-  const navigate = useNavigate();
   const { plano } = Route.useSearch();
   const plan = pricingOptions.find((option) => option.billing === plano) ?? pricingOptions[0];
-
-  function handleCheckout() {
-    // Mesma janela — nunca abre uma segunda janela/aba.
-    window.location.href = plan.checkoutHref;
-  }
 
   function handleSendReceipt() {
     const message = encodeURIComponent(
