@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, MessageCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { pricingOptions } from "./data";
 const WHATSAPP_NUMBER = "5511943152441";
 
 export function Pricing({ affiliateMode = false }: { affiliateMode?: boolean } = {}) {
+  const navigate = useNavigate();
   const [billing, setBilling] = useState<"mensal" | "anual">("anual");
   const effectiveBilling = affiliateMode ? "anual" : billing;
 
@@ -18,7 +20,8 @@ export function Pricing({ affiliateMode = false }: { affiliateMode?: boolean } =
   );
 
   function handleCheckout() {
-    window.open(selectedPlan.checkoutHref, "_blank", "noopener,noreferrer");
+    // Abre a página de pagamento na MESMA janela (sem segunda janela/aba).
+    navigate({ to: "/pagamento", search: { plano: effectiveBilling } });
   }
 
   function handleSendReceipt() {

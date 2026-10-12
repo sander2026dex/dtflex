@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AfiliadoRouteImport } from './routes/afiliado'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PagamentoRouteImport } from './routes/pagamento'
 import { Route as PedidoRouteImport } from './routes/pedido'
 import { Route as SobreHalftoneRouteImport } from './routes/sobre-halftone'
 import { Route as ValidateAccessCodeRouteImport } from './routes/validate-access-code'
@@ -55,6 +56,11 @@ const AppRoute = AppRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PagamentoRoute = PagamentoRouteImport.update({
+  id: '/pagamento',
+  path: '/pagamento',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PedidoRoute = PedidoRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/afiliado': typeof AfiliadoRoute
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
+  '/pagamento': typeof PagamentoRoute
   '/pedido': typeof PedidoRoute
   '/sobre-halftone': typeof SobreHalftoneRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/afiliado': typeof AfiliadoRoute
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
+  '/pagamento': typeof PagamentoRoute
   '/pedido': typeof PedidoRoute
   '/sobre-halftone': typeof SobreHalftoneRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/afiliado': typeof AfiliadoRoute
   '/app': typeof AppRoute
   '/login': typeof LoginRoute
+  '/pagamento': typeof PagamentoRoute
   '/pedido': typeof PedidoRoute
   '/sobre-halftone': typeof SobreHalftoneRoute
   '/validate-access-code': typeof ValidateAccessCodeRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
     | '/afiliado'
     | '/app'
     | '/login'
+    | '/pagamento'
     | '/pedido'
     | '/sobre-halftone'
     | '/validate-access-code'
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/afiliado'
     | '/app'
     | '/login'
+    | '/pagamento'
     | '/pedido'
     | '/sobre-halftone'
     | '/validate-access-code'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/afiliado'
     | '/app'
     | '/login'
+    | '/pagamento'
     | '/pedido'
     | '/sobre-halftone'
     | '/validate-access-code'
@@ -242,6 +254,7 @@ export interface RootRouteChildren {
   AfiliadoRoute: typeof AfiliadoRoute
   AppRoute: typeof AppRoute
   LoginRoute: typeof LoginRoute
+  PagamentoRoute: typeof PagamentoRoute
   PedidoRoute: typeof PedidoRoute
   SobreHalftoneRoute: typeof SobreHalftoneRoute
   ValidateAccessCodeRoute: typeof ValidateAccessCodeRoute
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pagamento': {
+      id: '/pagamento'
+      path: '/pagamento'
+      fullPath: '/pagamento'
+      preLoaderRoute: typeof PagamentoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pedido': {
@@ -386,6 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   AfiliadoRoute: AfiliadoRoute,
   AppRoute: AppRoute,
   LoginRoute: LoginRoute,
+  PagamentoRoute: PagamentoRoute,
   PedidoRoute: PedidoRoute,
   SobreHalftoneRoute: SobreHalftoneRoute,
   ValidateAccessCodeRoute: ValidateAccessCodeRoute,
