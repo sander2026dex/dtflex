@@ -1,5 +1,5 @@
 const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev/google_drive/drive/v3";
-export const DRIVE_ROOT_FOLDER_ID = "1pCNF8QE93GYqLy7RYRJZADvJPxDBRyMv";
+export const DRIVE_ROOT_FOLDER_ID = "171iAy67NlkfiofSZ4c1JuIZZMxj3kFCa";
 
 export type DriveLibraryItem = {
   id: string;

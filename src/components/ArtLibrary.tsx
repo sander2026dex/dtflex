@@ -34,7 +34,7 @@ type LibraryItem = {
 type Crumb = { id: string; name: string };
 type Category = { key: string; label: string; items: LibraryItem[] };
 
-const ROOT_ID = "1pCNF8QE93GYqLy7RYRJZADvJPxDBRyMv";
+const ROOT_ID = "171iAy67NlkfiofSZ4c1JuIZZMxj3kFCa";
 
 function fileIcon(mimeType: string) {
   if (mimeType.startsWith("image/")) return FileImage;
