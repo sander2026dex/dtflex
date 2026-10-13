@@ -149,9 +149,9 @@ export default function ArtLibrary({
 
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("pt-BR");
-    if (!normalized) return items;
-    return items.filter((item) => item.name.toLocaleLowerCase("pt-BR").includes(normalized));
-  }, [items, query]);
+    if (!normalized) return shuffledItems;
+    return shuffledItems.filter((item) => item.name.toLocaleLowerCase("pt-BR").includes(normalized));
+  }, [shuffledItems, query]);
 
   const categories = useMemo<Category[]>(() => {
     const groups: Category[] = [
