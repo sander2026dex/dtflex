@@ -53,7 +53,6 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-const naturalOrder = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
 
 function folderCategory(name: string) {
   const value = name
@@ -138,11 +137,20 @@ export default function ArtLibrary({
     };
   }, [loadItems]);
 
+  const shuffledItems = useMemo(() => {
+    const list = [...items];
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
+  }, [items]);
+
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("pt-BR");
-    if (!normalized) return items;
-    return items.filter((item) => item.name.toLocaleLowerCase("pt-BR").includes(normalized));
-  }, [items, query]);
+    if (!normalized) return shuffledItems;
+    return shuffledItems.filter((item) => item.name.toLocaleLowerCase("pt-BR").includes(normalized));
+  }, [shuffledItems, query]);
 
   const categories = useMemo<Category[]>(() => {
     const groups: Category[] = [
@@ -172,7 +180,6 @@ export default function ArtLibrary({
         groups.find((group) => group.key === "vectors")?.items.push(item);
       else groups.find((group) => group.key === "others")?.items.push(item);
     }
-    for (const group of groups) group.items.sort((a, b) => naturalOrder.compare(a.name, b.name));
     return groups.filter((group) => group.items.length > 0);
   }, [visibleItems]);
 
