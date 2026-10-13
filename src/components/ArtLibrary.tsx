@@ -138,6 +138,15 @@ export default function ArtLibrary({
     };
   }, [loadItems]);
 
+  const shuffledItems = useMemo(() => {
+    const list = [...items];
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
+  }, [items]);
+
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("pt-BR");
     if (!normalized) return items;
