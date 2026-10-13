@@ -19,6 +19,7 @@ import {
 import { listArtLibrary } from "@/lib/drive-library.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { detectArtPaper, isHalftoneArt } from "@/lib/art-library-info";
 
 type LibraryItem = {
   id: string;
@@ -30,6 +31,7 @@ type LibraryItem = {
   isShortcut: boolean;
   targetId?: string;
   targetMimeType?: string;
+  imageMediaMetadata?: { width?: number; height?: number };
 };
 type Crumb = { id: string; name: string };
 type Category = { key: string; label: string; items: LibraryItem[] };
@@ -191,6 +193,9 @@ export default function ArtLibrary({
 
   function renderItem(item: LibraryItem) {
     const Icon = item.isFolder ? Folder : fileIcon(item.mimeType);
+    const folderNames = crumbs.map((crumb) => crumb.name);
+    const halftone = !item.isFolder && isHalftoneArt(item.name, folderNames);
+    const paper = !item.isFolder ? detectArtPaper(item, folderNames) : null;
     const version = item.modifiedTime ? new Date(item.modifiedTime).getTime() : "current";
     const imageSrc = item.isFolder
       ? `/api/drive-file?coverFolder=${encodeURIComponent(item.id)}&path=${encodeURIComponent(pathKey)}&v=${version}`
@@ -236,6 +241,16 @@ export default function ArtLibrary({
           <h3 className="line-clamp-2 min-h-10 text-sm font-bold leading-5" title={item.name}>
             {item.name}
           </h3>
+          {!item.isFolder && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+              {halftone && <span className="rounded-sm bg-secondary px-2 py-1 text-foreground">Halftone</span>}
+              {paper ? (
+                <span className="rounded-sm bg-secondary px-2 py-1 text-foreground" title={paper.source === "dimensions" ? "Identificado pelas dimensões a 300 DPI" : "Formato informado no nome do arquivo ou da pasta"}>
+                  {paper.format}
+                </span>
+              ) : halftone ? <span className="text-muted-foreground">Formato não identificado</span> : null}
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-between gap-2">
             <span className="truncate text-[11px] text-muted-foreground">
               {item.isFolder ? "Abrir pasta" : formatDate(item.modifiedTime)}
@@ -253,10 +268,10 @@ export default function ArtLibrary({
               </Button>
             ) : (
               <div className="flex items-center gap-1">
-                {(item.mimeType.startsWith("image/") || item.mimeType === "application/pdf") && (
+                {!halftone && (item.mimeType.startsWith("image/") || item.mimeType === "application/pdf") && (
                   <Button
                     size="sm"
-                     className="h-11 bg-amber-400 px-3 text-black hover:bg-amber-300 sm:h-8 sm:px-2"
+                    className="h-11 px-3 sm:h-8 sm:px-2"
                     onClick={() =>
                       onUseInHalftone({
                         url: `/api/drive-file?id=${encodeURIComponent(item.id)}&path=${encodeURIComponent(pathKey)}&download=1`,
@@ -268,12 +283,15 @@ export default function ArtLibrary({
                     Usar
                   </Button>
                 )}
-                <Button size="icon" variant="ghost" className="size-11 sm:size-8" asChild>
+                <Button size="sm" variant="outline" className="h-11 px-2 sm:h-8" asChild>
                   <a
                     href={`/api/drive-file?id=${encodeURIComponent(item.id)}&path=${encodeURIComponent(pathKey)}&download=1`}
+                    download={item.name}
                     aria-label={`Baixar ${item.name}`}
+                    title={`Download de ${item.name}`}
                   >
                     <Download className="size-4" />
+                    Download
                   </a>
                 </Button>
               </div>

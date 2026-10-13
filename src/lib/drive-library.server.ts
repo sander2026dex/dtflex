@@ -12,6 +12,7 @@ export type DriveLibraryItem = {
   targetId?: string;
   targetMimeType?: string;
   thumbnailLink?: string;
+  imageMediaMetadata?: { width?: number; height?: number };
 };
 
 type DriveFileMetadata = DriveLibraryItem & {
@@ -51,7 +52,7 @@ export async function driveFetch(path: string, init?: RequestInit) {
 
 export async function readDriveFile(fileId: string) {
   const fields =
-    "id,name,mimeType,modifiedTime,size,parents,thumbnailLink,shortcutDetails(targetId,targetMimeType)";
+    "id,name,mimeType,modifiedTime,size,parents,thumbnailLink,imageMediaMetadata(width,height),shortcutDetails(targetId,targetMimeType)";
   const response = await driveFetch(
     `/files/${encodeURIComponent(fileId)}?fields=${encodeURIComponent(fields)}&supportsAllDrives=true`,
   );
@@ -97,7 +98,7 @@ async function fetchChildren(parentId: string): Promise<DriveLibraryItem[]> {
   const params = new URLSearchParams({
     q: `'${resolvedParentId.replaceAll("'", "\\'")}' in parents and trashed = false`,
     fields:
-      "files(id,name,mimeType,modifiedTime,size,thumbnailLink,shortcutDetails(targetId,targetMimeType))",
+      "files(id,name,mimeType,modifiedTime,size,thumbnailLink,imageMediaMetadata(width,height),shortcutDetails(targetId,targetMimeType))",
     pageSize: "1000",
     orderBy: "folder,name",
     supportsAllDrives: "true",
@@ -126,6 +127,7 @@ async function fetchChildren(parentId: string): Promise<DriveLibraryItem[]> {
       targetId,
       targetMimeType,
       thumbnailLink: file.thumbnailLink,
+      imageMediaMetadata: file.imageMediaMetadata,
     };
   });
 }

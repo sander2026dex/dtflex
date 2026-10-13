@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] Mostrar somente Download nas artes em halftone e Usar + Download nas demais
+- [x] Identificar automaticamente o formato A2/A3/A4 na biblioteca
+
 - [x] Tornar a listagem do Drive resiliente, cacheada e revalidável
 - [x] Reduzir o peso das prévias e atualizar arquivos alterados
 - [x] Sincronizar a pasta automaticamente sem apagar o conteúdo visível
