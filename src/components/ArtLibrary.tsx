@@ -181,7 +181,6 @@ export default function ArtLibrary({
         groups.find((group) => group.key === "vectors")?.items.push(item);
       else groups.find((group) => group.key === "others")?.items.push(item);
     }
-    for (const group of groups) group.items.sort((a, b) => naturalOrder.compare(a.name, b.name));
     return groups.filter((group) => group.items.length > 0);
   }, [visibleItems]);
 
