@@ -53,7 +53,6 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-const naturalOrder = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
 
 function folderCategory(name: string) {
   const value = name
